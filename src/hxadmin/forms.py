@@ -84,6 +84,15 @@ def build_schema(model: type[Any], fields: Sequence[Field | RelationField]) -> t
     )
 
 
+class FormError(Exception):
+    """Raise from `on_save` to reject a save with a message on `field` or the whole form."""
+
+    def __init__(self, message: str, *, field: str | None = None) -> None:
+        super().__init__(message)
+        self.message = message
+        self.field = field
+
+
 @dataclasses.dataclass(frozen=True, slots=True)
 class FormErrors:
     fields: dict[str, str] = dataclasses.field(default_factory=dict)
