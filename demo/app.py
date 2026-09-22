@@ -1,5 +1,3 @@
-import csv
-import io
 from collections.abc import AsyncGenerator, AsyncIterator, Sequence
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -9,11 +7,10 @@ from fastapi import Depends, FastAPI
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from starlette.requests import Request
-from starlette.responses import Response
 
 from demo.models import Base, Project, Task, TaskStatus, User
 from demo.seed import seed
-from hxadmin import ActionResult, Field, HxAdmin, ModelView, Page, action
+from hxadmin import ActionResult, Field, FormError, HxAdmin, ModelView, Page, action
 
 DB_PATH = Path(__file__).parent / "demo.db"
 engine = create_async_engine(f"sqlite+aiosqlite:///{DB_PATH}")
@@ -83,6 +80,8 @@ class TaskView(ModelView[Task]):
     default_sort = ("due_date", "asc")
     page_size = 5
     page_size_options = (5, 25, 100)
+    list_filters = ("status", "priority", "due_date", "title", "project", "assignee")
+    export_formats = ("csv", "xlsx")
 
     def format_status(self, obj: Task) -> str:
         return obj.status.value.upper()
@@ -91,6 +90,8 @@ class TaskView(ModelView[Task]):
         self, request: Request, session: AsyncSession, obj: Task, *, created: bool
     ) -> None:
         obj.title = obj.title.strip()
+        if obj.title.lower() == "todo":
+            raise FormError("Give the task a real title.", field="title")
 
     @action("mark_done", label="Mark done", bulk=True, confirm="Mark the selected tasks as done?")
     async def mark_done(
@@ -99,23 +100,6 @@ class TaskView(ModelView[Task]):
         for task in objs:
             task.status = TaskStatus.done
         return ActionResult.message(f"{len(objs)} task(s) marked done.")
-
-    @action("export_csv", label="Export CSV", bulk=True, method="GET")
-    async def export_csv(
-        self, request: Request, session: AsyncSession, objs: Sequence[Task]
-    ) -> ActionResult:
-        buffer = io.StringIO()
-        writer = csv.writer(buffer)
-        writer.writerow(["id", "title", "status", "priority", "due_date"])
-        for task in objs:
-            writer.writerow([task.id, task.title, task.status.value, task.priority, task.due_date])
-        return ActionResult.response(
-            Response(
-                buffer.getvalue(),
-                media_type="text/csv",
-                headers={"Content-Disposition": 'attachment; filename="tasks.csv"'},
-            )
-        )
 
     @action("raise_priority", label="Raise priority")
     async def raise_priority(
