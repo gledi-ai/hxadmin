@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING, Any, Literal, cast
 
 from pydantic import BaseModel, ConfigDict, Json, ValidationError, create_model
 from pydantic import Field as PydField
-from sqlalchemy import Enum, Select, inspect, select
+from sqlalchemy import Enum, Select, inspect
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import Mapper
 from sqlalchemy.types import TypeEngine
@@ -183,12 +183,10 @@ def _column_value(type_: TypeEngine[Any], value: Any) -> Any:
 
 def relation_scope(admin: "HxAdmin", request: Request, field_: RelationField) -> Select[Any]:
     """Statement a form may resolve `field_`'s pks against; LookupError if the target is locked."""
-    target = admin.view_for(field_.target)
-    if target is None:
-        return select(field_.target)
-    if not target.is_accessible(request):
+    stmt = admin.relation_scope(request, field_.target)
+    if stmt is None:
         raise LookupError(field_.name)
-    return target.get_query(request)
+    return stmt
 
 
 async def _relation_value(
