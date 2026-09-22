@@ -112,3 +112,29 @@ def test_form_error_without_a_known_field_is_form_level(
     assert "Nope." in elsewhere.text
     assert "Hello" in detail
     assert "touched" not in detail
+
+
+class AuthoredPostView(ModelView[Post]):
+    model = Post
+    form_fields = ("title",)
+
+    def display(self, obj: Post) -> str:
+        return f"{obj.title} by {obj.author.email}"
+
+    async def on_save(
+        self, request: Request, session: AsyncSession, obj: Post, *, created: bool
+    ) -> None:
+        obj.author_id = 1
+
+
+def test_toast_label_may_lazy_load(factory: AppFactory, make_client: MakeClient) -> None:
+    app = factory.app(seed=seed)
+    admin = HxAdmin(app, session=factory.get_session, auth=allow_all)
+    admin.register(AuthoredPostView)
+    with make_client(app) as client:
+        created = client.post("/admin/post/new", data={"title": "New"}, follow_redirects=False)
+        deleted = client.post("/admin/post/2/delete", follow_redirects=False)
+    assert created.status_code == 303
+    assert flash_of(created)["message"] == "Post “New by ada@x.io” created."
+    assert deleted.status_code == 303
+    assert flash_of(deleted)["message"] == "Post “New by ada@x.io” deleted."
