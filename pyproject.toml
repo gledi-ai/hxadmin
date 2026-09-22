@@ -91,6 +91,9 @@ select = [
 [tool.ruff.lint.per-file-ignores]
 "tests/**" = ["S101"]
 
+[tool.ruff.lint.flake8-bugbear]
+extend-immutable-calls = ["fastapi.Depends"]
+
 [tool.pyrefly]
 project-includes = ["src", "tests"]
 search-path = ["src", "."]
