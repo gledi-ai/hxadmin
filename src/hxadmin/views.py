@@ -9,6 +9,7 @@ from starlette.requests import Request
 
 from hxadmin.actions import ACTION_ATTR, Action
 from hxadmin.fields import Field, RelationField, derive_fields
+from hxadmin.filters import Filter, resolve_filters
 from hxadmin.forms import build_schema
 from hxadmin.pk import pk_clauses_for, pk_string_for
 
@@ -38,6 +39,7 @@ class ModelView[T]:
     can_create: ClassVar[bool] = True
     can_edit: ClassVar[bool] = True
     can_delete: ClassVar[bool] = True
+    list_filters: ClassVar[tuple[str, ...]] = ()
 
     def __init_subclass__(cls, **kwargs: Any) -> None:
         super().__init_subclass__(**kwargs)
@@ -86,6 +88,8 @@ class ModelView[T]:
         self.actions, self._action_attrs = self._collect_actions()
         self.row_actions = tuple(a for a in self.actions.values() if not a.bulk)
         self.bulk_actions = tuple(a for a in self.actions.values() if a.bulk)
+        owner = type(self).__name__
+        self.filters: tuple[Filter, ...] = resolve_filters(owner, self.fields, self.list_filters)
 
     def _resolve(self, names: Sequence[str]) -> tuple[Field | RelationField, ...]:
         try:

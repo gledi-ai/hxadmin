@@ -5,11 +5,13 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.requests import Request
 
+from hxadmin.filters import FilterValue
 from hxadmin.pk import fetch_by_pks
 from hxadmin.query import (
     ListParams,
     apply_search,
     fetch_one,
+    list_statement,
     parse_list_params,
     run_list,
 )
@@ -239,3 +241,56 @@ def test_apply_search_is_noop_without_q_or_searchable() -> None:
     assert "like" not in str(apply_search(select(Post), PostView(), "x")).lower()
     assert "like" not in str(apply_search(select(User), UserView(), "")).lower()
     assert "like" in str(apply_search(select(User), UserView(), "x")).lower()
+
+
+class FilteredUserView(ModelView[User]):
+    model = User
+    searchable = ("email",)
+    default_sort = ("email", "asc")
+    list_filters = ("active",)
+
+
+def test_qs_carries_filters_after_q() -> None:
+    params = ListParams(
+        q="x",
+        sort=None,
+        dir="asc",
+        page=1,
+        size=25,
+        filters=(
+            FilterValue("status", ("a", "b")),
+            FilterValue("score", min="1", max="2", empty=True),
+        ),
+    )
+    assert params.qs() == (
+        "q=x&f.status=a&f.status=b&f.score.min=1&f.score.max=2&f.score.empty=1"
+        "&dir=asc&page=1&size=25"
+    )
+    assert params.qs(filters=()) == "q=x&dir=asc&page=1&size=25"
+    assert params.filter_value("score").max == "2"
+    assert params.filter_value("title") == FilterValue("title")
+
+
+def test_parse_list_params_reads_declared_filters() -> None:
+    params = parse_list_params(
+        _request("f.active=false&f.active=nope&f.email=x"), FilteredUserView()
+    )
+    assert params.filters == (FilterValue("active", ("false",)),)
+
+
+async def test_run_list_applies_filters_before_counting(session: AsyncSession) -> None:
+    await _seed_users(session)
+    view = FilteredUserView()
+    params = parse_list_params(_request("f.active=false&size=25"), view)
+    result = await run_list(session, view, select(User), params)
+    assert result.total == 1
+    assert [u.email for u in result.rows] == ["alice@x.io"]
+
+
+def test_list_statement_searches_filters_and_sorts() -> None:
+    view = FilteredUserView()
+    params = parse_list_params(_request("q=x.io&f.active=true&sort=email&dir=desc"), view)
+    sql = str(list_statement(view, select(User), params))
+    assert "LIKE lower(:param_1) ESCAPE" in sql
+    assert "users.active IN (__[POSTCOMPILE_active_1])" in sql
+    assert sql.endswith("ORDER BY users.email DESC, users.id")
