@@ -3,16 +3,19 @@
 {% block breadcrumb %}Dashboard{% endblock %}
 {% block content %}
 <h1 class="mb-6 text-2xl font-semibold">Dashboard</h1>
-{% for group in nav %}
+{% for group in dashboard %}
 <section class="mb-8">
   {% if group.label %}<h2 class="mb-3 text-sm font-semibold uppercase tracking-wide text-fg-muted">{{ group.label }}</h2>{% endif %}
   <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-    {% for item in group.items %}
-    <a href="{{ item.url }}" class="rounded-lg border border-edge bg-surface-2 p-4 hover:border-accent">
-      <div class="flex items-center gap-2">{{ m.icon(item.icon or 'table', 'size-5 text-fg-muted') }}<span class="font-medium">{{ item.label }}</span></div>
+    {% for card in group.cards %}
+    <a href="{{ card.url }}" class="rounded-lg border border-edge bg-surface-2 p-4 hover:border-accent">
+      <div class="flex items-center gap-2">{{ m.icon(card.icon or 'table', 'size-5 text-fg-muted') }}<span class="font-medium">{{ card.label }}</span></div>
+      <div class="mt-2 text-2xl font-semibold tabular-nums">{{ card.count }}</div>
     </a>
     {% endfor %}
   </div>
 </section>
+{% else %}
+<p class="text-fg-muted">No models registered.</p>
 {% endfor %}
 {% endblock %}

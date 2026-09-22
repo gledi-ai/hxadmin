@@ -121,6 +121,18 @@
       <header class="flex h-14 items-center gap-3 border-b border-edge bg-surface px-4">
         <button type="button" class="lg:hidden" @click="sidebarOpen = !sidebarOpen" aria-label="Toggle navigation">{{ m.icon('menu') }}</button>
         <div class="min-w-0 flex-1 truncate text-sm text-fg-muted">{% block breadcrumb %}{% endblock %}</div>
+        {% if search_targets %}
+        {% set current = search_targets|selectattr('active')|first %}
+        {% set target = current or search_targets[0] %}
+        <form id="global-search" method="get" action="{{ target.url }}" role="search"
+              x-data="{ url: {{ target.url|tojson|forceescape }} }" :action="url"
+              class="hidden items-center gap-1 md:flex">
+          <select x-model="url" aria-label="Search in" class="rounded border border-edge bg-surface px-2 py-1 text-sm">
+            {% for item in search_targets %}<option value="{{ item.url }}" {{ 'selected' if item.url == target.url }}>{{ item.label }}</option>{% endfor %}
+          </select>
+          <input type="search" name="q" placeholder="Search…" aria-label="Search" class="w-48 rounded border border-edge bg-surface px-2 py-1 text-sm focus:border-accent focus:outline-none">
+        </form>
+        {% endif %}
         <div x-data="theme()" x-init="apply()">
           <button type="button" @click="cycle()" class="rounded p-1.5 hover:bg-surface-3" :title="'Theme: ' + mode" aria-label="Switch theme">
             <span x-show="mode === 'light'">{{ m.icon('sun') }}</span>

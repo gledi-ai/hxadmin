@@ -25,6 +25,7 @@ from hxadmin.forms import (
     relabel,
     validate,
 )
+from hxadmin.nav import build_dashboard
 from hxadmin.pk import fetch_by_pks, pk_string_for
 from hxadmin.query import ListParams, apply_search, fetch_one, parse_list_params, run_list
 from hxadmin.toasts import Toast, hx_trigger
@@ -157,8 +158,12 @@ def build_router(admin: "HxAdmin") -> APIRouter:
         return response
 
     @router.get("/", name="dashboard", response_class=HTMLResponse)
-    async def dashboard(request: Request) -> HTMLResponse:
-        return admin.render(request, "dashboard.html")
+    async def dashboard(
+        request: Request,
+        session: Annotated[AsyncSession, Depends(admin.current_session)],
+    ) -> HTMLResponse:
+        groups = await build_dashboard(admin, request, session)
+        return admin.render(request, "dashboard.html", {"dashboard": groups})
 
     @router.get("/{identity}/", name="list", response_class=HTMLResponse)
     async def list_view(

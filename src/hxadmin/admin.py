@@ -21,7 +21,7 @@ from starlette.responses import HTMLResponse, RedirectResponse, Response
 
 from hxadmin.deps import AuthDependency, SessionDependency
 from hxadmin.fields import default_widget
-from hxadmin.nav import build_nav
+from hxadmin.nav import build_nav, build_search_targets
 from hxadmin.pages import AdminPage, PageEndpoint, PageHandler
 from hxadmin.toasts import FLASH_COOKIE, Toast, encode_flash, read_flash
 from hxadmin.views import ModelView
@@ -260,6 +260,7 @@ class HxAdmin:
             "request": request,
             "user": getattr(request.state, "hxadmin_user", None),
             "nav": build_nav(self, request),
+            "search_targets": build_search_targets(self, request),
             "toasts": [flash.as_dict()] if flash is not None else [],
         }
         if context:
