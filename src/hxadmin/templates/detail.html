@@ -1,0 +1,12 @@
+{% extends "layout.html" %}
+{% import "_macros.html" as m with context %}
+{% block title %}{{ view.display(obj) }} · {{ admin.title }}{% endblock %}
+{% block breadcrumb %}<a href="{{ admin.url(request, '/') }}" class="hover:underline">Dashboard</a> / <a href="{{ admin.url(request, '/' ~ view.identity ~ '/') }}" class="hover:underline">{{ view.name_plural }}</a> / {{ view.display(obj) }}{% endblock %}
+{% block content %}
+<div class="mb-4 flex items-center justify-between gap-4">
+  <h1 class="text-2xl font-semibold">{{ view.display(obj) }}</h1>
+</div>
+<div id="detail">
+  {% include "detail/_panel.html" %}
+</div>
+{% endblock %}

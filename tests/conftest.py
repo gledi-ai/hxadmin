@@ -78,6 +78,9 @@ class Post(Base):
     author: Mapped[User] = relationship(back_populates="posts")
     tags: Mapped[list[Tag]] = relationship(secondary=post_tags, back_populates="posts")
 
+    def __str__(self) -> str:
+        return self.title
+
 
 class Vote(Base):
     __tablename__ = "votes"
