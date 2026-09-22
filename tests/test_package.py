@@ -2,7 +2,13 @@ from importlib.resources import files
 
 import pytest
 
-PACKAGE_DATA = ["py.typed"]
+PACKAGE_DATA = [
+    "py.typed",
+    "templates/layout.html",
+    "static/hxadmin.css",
+    "static/vendor/htmx.min.js",
+    "static/vendor/alpine.min.js",
+]
 
 
 @pytest.mark.parametrize("path", PACKAGE_DATA)

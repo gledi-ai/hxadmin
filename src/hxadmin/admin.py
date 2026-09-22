@@ -3,6 +3,7 @@ from pathlib import Path
 from typing import Any
 
 from fastapi import Depends, FastAPI, HTTPException
+from fastapi.staticfiles import StaticFiles
 from jinja2 import (
     BaseLoader,
     ChoiceLoader,
@@ -46,6 +47,11 @@ class HxAdmin:
         self._auth = auth
         self.templates = self._make_environment(templates_dir)
         self.subapp = FastAPI(openapi_url=None, docs_url=None, redoc_url=None)
+        self.subapp.mount(
+            "/static",
+            StaticFiles(directory=str(Path(__file__).parent / "static")),
+            name="static",
+        )
         self._build_dependencies()
         self._install_routes()
         self.subapp.add_exception_handler(HTTPException, self._handle_http_exception)

@@ -54,3 +54,22 @@ def lint(session: nox.Session) -> None:
     session.run("ruff", "format", "--check")
     session.run("pyrefly", "check")
     session.run("zizmor", ".github")
+
+
+CSS_SRC = "src/hxadmin/static/src/hxadmin.css"
+CSS_OUT = "src/hxadmin/static/hxadmin.css"
+
+
+@nox.session(python=False)
+def css(session: nox.Session) -> None:
+    session.run(
+        "npx",
+        "--yes",
+        "@tailwindcss/cli@4.3.3",
+        "-i",
+        CSS_SRC,
+        "-o",
+        CSS_OUT,
+        "--minify",
+        external=True,
+    )
