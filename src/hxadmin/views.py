@@ -198,3 +198,12 @@ class ModelView[T]:
 
     def is_accessible(self, request: Request) -> bool:
         return True
+
+    def is_action_allowed(self, request: Request, name: str) -> bool:
+        """Whether the current user may run action `name`; disallowed actions are hidden, 403."""
+        return True
+
+    def permitted_actions(self, request: Request, *, bulk: bool) -> tuple[Action, ...]:
+        """Row (or bulk) actions the current user may run, in declaration order."""
+        actions = self.bulk_actions if bulk else self.row_actions
+        return tuple(a for a in actions if self.is_action_allowed(request, a.name))

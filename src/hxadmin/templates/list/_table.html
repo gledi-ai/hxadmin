@@ -1,8 +1,8 @@
 {% import "_macros.html" as m with context %}
 {% set params = result.params %}
 {% set hx = 'hx-target="closest .hx-list"' ~ (' hx-push-url="true"' if push_url else '') %}
-{% set selectable = push_url and (view.bulk_actions or view.export_formats) %}
-{% set row_actions = view.row_actions if push_url else () %}
+{% set selectable = push_url and (view.permitted_actions(request, bulk=True) or view.export_formats) %}
+{% set row_actions = view.permitted_actions(request, bulk=False) if push_url else () %}
 {% set actions = view.can_edit or view.can_delete or row_actions %}
 {% if push_url %}
 <div id="list-state">
@@ -57,7 +57,7 @@
         {% endfor %}
         {% if actions %}
         <td class="px-3 py-2">
-          <div class="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 focus-within:opacity-100">
+          <div class="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 focus-within:opacity-100 pointer-coarse:opacity-100">
             {% for action in row_actions %}{{ m.action_button(view, action, obj, 'list', 'rounded px-1.5 py-0.5 text-xs font-medium text-fg-muted hover:bg-surface-3 hover:text-fg') }}{% endfor %}
             {% if view.can_edit %}{{ m.edit_link(view, obj, 'rounded p-1 text-fg-muted hover:bg-surface-3 hover:text-fg') }}{% endif %}
             {% if view.can_delete %}{{ m.delete_button(view, obj, 'rounded p-1 text-fg-muted hover:bg-surface-3 hover:text-danger') }}{% endif %}

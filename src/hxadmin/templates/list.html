@@ -8,7 +8,7 @@
   {% if view.can_create %}<a href="{{ admin.url(request, '/' ~ view.identity ~ '/new') }}" class="inline-flex items-center gap-1 rounded bg-accent px-3 py-1.5 text-sm font-medium text-accent-fg">{{ m.icon('plus', 'size-4') }} New {{ view.name|lower }}</a>{% endif %}
 </div>
 {% include "list/_toolbar.html" %}
-{% set bulk_actions = view.bulk_actions %}
+{% set bulk_actions = view.permitted_actions(request, bulk=True) %}
 {% if bulk_actions or view.export_formats %}
 <form id="bulk" x-data="bulk()" x-show="count" x-cloak @change.window="refresh()"
       class="mb-4 flex flex-wrap items-center gap-2 rounded-lg border border-edge bg-surface-2 px-3 py-2 text-sm">
