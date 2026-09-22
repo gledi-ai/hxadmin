@@ -1,0 +1,87 @@
+{% import "_macros.html" as m %}
+<!doctype html>
+<html lang="en" class="h-full">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}{{ admin.title }}{% endblock %}</title>
+  <script>
+    (function () {
+      var mode = localStorage.getItem("hxadmin-theme") || "light";
+      var dark = mode === "dark" || (mode === "system" && matchMedia("(prefers-color-scheme: dark)").matches);
+      if (dark) document.documentElement.classList.add("dark");
+    })();
+  </script>
+  <link rel="stylesheet" href="{{ admin.url('/static/hxadmin.css') }}">
+  <script src="{{ admin.url('/static/vendor/htmx.min.js') }}"></script>
+  <script defer src="{{ admin.url('/static/vendor/alpine.min.js') }}"></script>
+  <script>
+    document.addEventListener("alpine:init", function () {
+      Alpine.data("theme", function () {
+        return {
+          mode: localStorage.getItem("hxadmin-theme") || "light",
+          apply: function () {
+            var dark = this.mode === "dark" || (this.mode === "system" && matchMedia("(prefers-color-scheme: dark)").matches);
+            document.documentElement.classList.toggle("dark", dark);
+            localStorage.setItem("hxadmin-theme", this.mode);
+          },
+          cycle: function () {
+            this.mode = { light: "dark", dark: "system", system: "light" }[this.mode];
+            this.apply();
+          },
+        };
+      });
+    });
+  </script>
+  {% block head %}{% endblock %}
+</head>
+<body class="h-full bg-surface text-fg" x-data="{ sidebarOpen: false }">
+  <div class="flex h-full">
+    <aside class="fixed inset-y-0 left-0 z-30 w-60 -translate-x-full border-r border-edge bg-surface-2 transition-transform lg:static lg:translate-x-0"
+           :class="sidebarOpen && 'translate-x-0'">
+      <a href="{{ admin.url('/') }}" class="flex h-14 items-center px-4 text-lg font-semibold">{{ admin.title }}</a>
+      <nav class="px-2 py-2" aria-label="Main">
+        {% for group in nav %}
+        <div x-data="{ open: true }" class="mb-2">
+          {% if group.label %}
+          <button type="button" @click="open = !open" class="flex w-full items-center justify-between px-2 py-1 text-xs font-semibold uppercase tracking-wide text-fg-muted">
+            {{ group.label }}
+          </button>
+          {% endif %}
+          <ul x-show="open">
+            {% for item in group.items %}
+            <li>
+              <a href="{{ item.url }}"
+                 class="flex items-center gap-2 rounded px-2 py-1.5 text-sm hover:bg-surface-3 {{ 'bg-surface-3 font-medium' if item.active }}">
+                {{ m.icon(item.icon or 'table', 'size-4 text-fg-muted') }}
+                <span>{{ item.label }}</span>
+              </a>
+            </li>
+            {% endfor %}
+          </ul>
+        </div>
+        {% endfor %}
+      </nav>
+    </aside>
+    <div class="flex min-w-0 flex-1 flex-col">
+      <header class="flex h-14 items-center gap-3 border-b border-edge bg-surface px-4">
+        <button type="button" class="lg:hidden" @click="sidebarOpen = !sidebarOpen" aria-label="Toggle navigation">{{ m.icon('menu') }}</button>
+        <div class="min-w-0 flex-1 truncate text-sm text-fg-muted">{% block breadcrumb %}{% endblock %}</div>
+        <div x-data="theme()" x-init="apply()">
+          <button type="button" @click="cycle()" class="rounded p-1.5 hover:bg-surface-3" :title="'Theme: ' + mode" aria-label="Switch theme">
+            <span x-show="mode === 'light'">{{ m.icon('sun') }}</span>
+            <span x-show="mode === 'dark'" x-cloak>{{ m.icon('moon') }}</span>
+            <span x-show="mode === 'system'" x-cloak>{{ m.icon('monitor') }}</span>
+          </button>
+        </div>
+        {% if user %}<span class="text-sm">{{ user.name if user.name is defined else user }}</span>{% endif %}
+        {% if admin.logout_url %}<a href="{{ admin.logout_url }}" class="rounded p-1.5 hover:bg-surface-3" aria-label="Log out">{{ m.icon('logout') }}</a>{% endif %}
+      </header>
+      <main id="main" class="flex-1 overflow-y-auto p-6">
+        {% block content %}{% endblock %}
+      </main>
+    </div>
+  </div>
+  <div id="toasts" class="fixed bottom-4 right-4 z-50 space-y-2"></div>
+</body>
+</html>
