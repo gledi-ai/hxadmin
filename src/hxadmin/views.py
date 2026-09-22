@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.requests import Request
 
 from hxadmin.actions import ACTION_ATTR, Action
+from hxadmin.export import ExportFormat, check_export_formats
 from hxadmin.fields import Field, RelationField, derive_fields
 from hxadmin.filters import Filter, resolve_filters
 from hxadmin.forms import build_schema
@@ -40,6 +41,9 @@ class ModelView[T]:
     can_edit: ClassVar[bool] = True
     can_delete: ClassVar[bool] = True
     list_filters: ClassVar[tuple[str, ...]] = ()
+    export_formats: ClassVar[tuple[ExportFormat, ...]] = ()
+    export_columns: ClassVar[tuple[str, ...]] = ()
+    export_max_rows: ClassVar[int | None] = 10_000
 
     def __init_subclass__(cls, **kwargs: Any) -> None:
         super().__init_subclass__(**kwargs)
@@ -90,6 +94,10 @@ class ModelView[T]:
         self.bulk_actions = tuple(a for a in self.actions.values() if a.bulk)
         owner = type(self).__name__
         self.filters: tuple[Filter, ...] = resolve_filters(owner, self.fields, self.list_filters)
+        check_export_formats(owner, self.export_formats)
+        self.export_fields = (
+            self._resolve(self.export_columns) if self.export_columns else self.list_fields
+        )
 
     def _resolve(self, names: Sequence[str]) -> tuple[Field | RelationField, ...]:
         try:
