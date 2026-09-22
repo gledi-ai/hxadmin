@@ -1,0 +1,18 @@
+{% import "_macros.html" as m with context %}
+<div class="mt-3 flex items-center justify-between text-sm text-fg-muted">
+  <span>Showing {{ result.start }}–{{ result.end }} of {{ result.total }}</span>
+  <div class="flex items-center gap-2">
+    <select name="size" aria-label="Rows per page"
+            hx-get="{{ base_url }}?{{ params.qs(page=1, size=None) }}" hx-trigger="change" {{ hx|safe }}
+            class="rounded border border-edge bg-surface px-2 py-1">
+      {% for option in view.page_size_options %}
+      <option value="{{ option }}" {{ 'selected' if option == params.size }}>{{ option }} / page</option>
+      {% endfor %}
+    </select>
+    <a {% if result.has_prev %}href="{{ base_url }}?{{ params.qs(page=params.page - 1) }}" hx-get="{{ base_url }}?{{ params.qs(page=params.page - 1) }}" {{ hx|safe }}{% else %}aria-disabled="true"{% endif %}
+       class="rounded border border-edge p-1 hover:bg-surface-3 aria-disabled:opacity-40" aria-label="Previous page">{{ m.icon('chevron-left', 'size-4') }}</a>
+    <span>{{ params.page }} / {{ result.pages }}</span>
+    <a {% if result.has_next %}href="{{ base_url }}?{{ params.qs(page=params.page + 1) }}" hx-get="{{ base_url }}?{{ params.qs(page=params.page + 1) }}" {{ hx|safe }}{% else %}aria-disabled="true"{% endif %}
+       class="rounded border border-edge p-1 hover:bg-surface-3 aria-disabled:opacity-40" aria-label="Next page">{{ m.icon('chevron-right', 'size-4') }}</a>
+  </div>
+</div>

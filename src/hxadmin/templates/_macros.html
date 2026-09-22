@@ -8,6 +8,40 @@
   "monitor": "M9 17.25v1.007a3 3 0 01-.879 2.122L7.5 21h9l-.621-.621A3 3 0 0115 18.257V17.25m6-12V15a2.25 2.25 0 01-2.25 2.25H5.25A2.25 2.25 0 013 15V5.25m18 0A2.25 2.25 0 0018.75 3H5.25A2.25 2.25 0 003 5.25m18 0V12a2.25 2.25 0 01-2.25 2.25H5.25A2.25 2.25 0 013 12V5.25",
   "menu": "M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5",
   "logout": "M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15m3 0l3-3m0 0l-3-3m3 3H9",
+  "search": "M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z",
+  "check": "M4.5 12.75l6 6 9-13.5",
+  "x": "M6 18L18 6M6 6l12 12",
+  "chevron-left": "M15.75 19.5L8.25 12l7.5-7.5",
+  "chevron-right": "M8.25 4.5l7.5 7.5-7.5 7.5",
+  "arrow-up": "M4.5 10.5L12 3m0 0l7.5 7.5M12 3v18",
+  "arrow-down": "M19.5 13.5L12 21m0 0l-7.5-7.5M12 21V3",
 } -%}
 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="{{ class }}" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="{{ paths.get(name, paths['table']) }}"/></svg>
+{%- endmacro %}
+
+{% macro cell(view, field, value) -%}
+{%- if field.name in view.formatted -%}
+  {{ value }}
+{%- elif value is none -%}
+  <span class="text-fg-muted">—</span>
+{%- elif field.kind == "relation" -%}
+  {%- if field.multiple -%}
+    {{ value|length }}
+  {%- else -%}
+    {%- set target = admin.view_for(field.target) -%}
+    {%- if target and target.can_view -%}
+      <a class="text-accent hover:underline" href="{{ admin.url(request, '/' ~ target.identity ~ '/' ~ target.pk_of(value)) }}">{{ target.display(value) }}</a>
+    {%- else -%}
+      {{ admin.display(value) }}
+    {%- endif -%}
+  {%- endif -%}
+{%- elif field.kind == "bool" -%}
+  <span aria-label="{{ 'Yes' if value else 'No' }}" class="{{ 'text-accent' if value else 'text-fg-muted' }}">{{ icon('check' if value else 'x', 'size-4 inline') }}</span>
+{%- elif field.kind == "enum" -%}
+  {{ value.value if value.value is defined else value }}
+{%- elif field.kind in ("datetime", "date", "time") -%}
+  {{ value.isoformat(" ", "minutes") if field.kind == "datetime" else value.isoformat() }}
+{%- else -%}
+  {{ value }}
+{%- endif -%}
 {%- endmacro %}
