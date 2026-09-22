@@ -2,15 +2,14 @@
 {% set error = errors.fields.get(field.name) %}
 {% set widget = 'relation' if field.kind == 'relation' else field.widget or default_widget(field.kind) %}
 {% set control = 'mt-1 w-full rounded border bg-surface px-2 py-1.5 text-sm focus:border-accent focus:outline-none ' ~ ('border-danger' if error else 'border-edge') %}
-{% set invalid = 'aria-invalid="true"' if error else '' %}
 <div>
   <label for="f-{{ field.name }}" class="block text-sm font-medium">{{ field.label }}{% if field.required %} <span class="text-danger" aria-hidden="true">*</span>{% endif %}</label>
   {% if widget == 'checkbox' %}
-  <input id="f-{{ field.name }}" type="checkbox" name="{{ field.name }}" value="on" {{ 'checked' if value }} {{ invalid|safe }} {{ 'disabled' if field.readonly }} class="mt-1 size-4 rounded border-edge accent-accent">
+  <input id="f-{{ field.name }}" type="checkbox" name="{{ field.name }}" value="on" {{ 'checked' if value }} {% if error %}aria-invalid="true"{% endif %} {{ 'disabled' if field.readonly }} class="mt-1 size-4 rounded border-edge accent-accent">
   {% elif widget in ('textarea', 'json') %}
-  <textarea id="f-{{ field.name }}" name="{{ field.name }}" rows="{{ 6 if widget == 'json' else 4 }}" {{ invalid|safe }} {{ 'readonly' if field.readonly }} class="{{ control }}{{ ' font-mono' if widget == 'json' }}">{{ value|json_pretty if widget == 'json' and value is not none and value is not string else value if value is not none else '' }}</textarea>
+  <textarea id="f-{{ field.name }}" name="{{ field.name }}" rows="{{ 6 if widget == 'json' else 4 }}" {% if error %}aria-invalid="true"{% endif %} {{ 'readonly' if field.readonly }} class="{{ control }}{{ ' font-mono' if widget == 'json' }}">{{ value|json_pretty if widget == 'json' and value is not none and value is not string else value if value is not none else '' }}</textarea>
   {% elif widget == 'select' %}
-  <select name="{{ field.name }}" id="f-{{ field.name }}" {{ invalid|safe }} {{ 'disabled' if field.readonly }} class="{{ control }}">
+  <select name="{{ field.name }}" id="f-{{ field.name }}" {% if error %}aria-invalid="true"{% endif %} {{ 'disabled' if field.readonly }} class="{{ control }}">
     {% if not field.required %}<option value="">—</option>{% endif %}
     {% for choice in field.choices %}
     <option value="{{ choice[0] }}" {{ 'selected' if choice[0] == value }}>{{ choice[1] }}</option>
@@ -29,7 +28,7 @@
         </span>
       </template>
       <input type="hidden" :name="name" value="" :disabled="selected.length > 0">
-      <input id="f-{{ field.name }}" type="text" name="q" autocomplete="off" role="combobox" {{ invalid|safe }}
+      <input id="f-{{ field.name }}" type="text" name="q" autocomplete="off" role="combobox" {% if error %}aria-invalid="true"{% endif %}
              x-model="query" @focus="open = true" :aria-expanded="open"
              hx-get="{{ lookup_url }}" hx-trigger="input changed delay:300ms, focus once" hx-target="next .combobox-options"
              placeholder="Search {{ field.target.__name__|lower }}…"
@@ -39,7 +38,7 @@
   </div>
   {% else %}
   {% if widget == 'datetime-local' and value is not none and value is not string %}{% set value = value.isoformat(timespec='minutes') %}{% elif widget in ('date', 'time') and value is not none and value is not string %}{% set value = value.isoformat() %}{% endif %}
-  <input id="f-{{ field.name }}" type="{{ widget }}" name="{{ field.name }}" value="{{ value if value is not none else '' }}" {{ invalid|safe }} {{ 'readonly' if field.readonly }} {{ 'step="any"' if field.kind in ('float', 'decimal') }} class="{{ control }}">
+  <input id="f-{{ field.name }}" type="{{ widget }}" name="{{ field.name }}" value="{{ value if value is not none else '' }}" {% if error %}aria-invalid="true"{% endif %} {{ 'readonly' if field.readonly }} {% if field.kind in ('float', 'decimal') %}step="any"{% endif %} class="{{ control }}">
   {% endif %}
   {% if field.help_text %}<p class="mt-1 text-xs text-fg-muted">{{ field.help_text }}</p>{% endif %}
   {% if error %}<p class="mt-1 text-xs text-danger">{{ error }}</p>{% endif %}

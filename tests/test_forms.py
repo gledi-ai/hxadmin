@@ -4,18 +4,28 @@ from typing import Any
 
 import pytest
 from pydantic import ValidationError
+from sqlalchemy import Select, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.datastructures import FormData
+from starlette.requests import Request
 
 from hxadmin import HxAdmin
 from hxadmin.fields import Field
-from hxadmin.forms import apply, build_schema, initial_values, parse_form, validate
+from hxadmin.forms import apply, build_schema, initial_values, parse_form, relabel, validate
 from hxadmin.views import ModelView
 from tests.conftest import AppFactory, Post, PostStatus, Tag, User, allow_all
 
 
 class PostView(ModelView[Post]):
     model = Post
+
+
+def _request() -> Request:
+    return Request({"type": "http", "method": "GET", "path": "/", "headers": []})
+
+
+def _admin(factory: AppFactory) -> HxAdmin:
+    return HxAdmin(factory.app(), session=factory.get_session, auth=allow_all)
 
 
 def test_schema_types_and_requiredness() -> None:
@@ -135,7 +145,9 @@ def test_validate_success_strips_strings() -> None:
 
 
 @pytest.mark.anyio
-async def test_apply_sets_columns_enum_and_relations(session: AsyncSession) -> None:
+async def test_apply_sets_columns_enum_and_relations(
+    factory: AppFactory, session: AsyncSession
+) -> None:
     ada = User(email="ada@x.io")
     t1, t2 = Tag(name="a"), Tag(name="b")
     session.add_all([ada, t1, t2])
@@ -143,6 +155,8 @@ async def test_apply_sets_columns_enum_and_relations(session: AsyncSession) -> N
     view = PostView()
     post = Post()
     await apply(
+        _admin(factory),
+        _request(),
         session,
         view,
         post,
@@ -164,12 +178,65 @@ async def test_apply_sets_columns_enum_and_relations(session: AsyncSession) -> N
 
 
 @pytest.mark.anyio
-async def test_apply_unknown_relation_pk_raises_lookup_error(session: AsyncSession) -> None:
+async def test_apply_unknown_relation_pk_raises_lookup_error(
+    factory: AppFactory, session: AsyncSession
+) -> None:
+    admin = _admin(factory)
     view = PostView()
+    fields = view.writable_fields
     with pytest.raises(LookupError, match="author"):
-        await apply(session, view, Post(), {"author": "999"}, view.writable_fields)
+        await apply(admin, _request(), session, view, Post(), {"author": "999"}, fields)
     with pytest.raises(LookupError, match="tags"):
-        await apply(session, view, Post(), {"tags": ["1", "999"]}, view.writable_fields)
+        await apply(admin, _request(), session, view, Post(), {"tags": ["1", "999"]}, fields)
+
+
+@pytest.mark.anyio
+async def test_apply_and_relabel_use_target_view_scope(
+    factory: AppFactory, session: AsyncSession
+) -> None:
+    session.add_all([User(email="ada@x.io"), User(email="bob@x.io", active=False)])
+    await session.commit()
+    admin = _admin(factory)
+    admin.register(PostView)
+
+    @admin.register
+    class ActiveUsers(ModelView[User]):
+        model = User
+
+        def get_query(self, request: Request) -> Select[tuple[User]]:
+            return select(User).where(User.active.is_(True))
+
+    view = admin.views["post"]
+    post = Post()
+    await apply(admin, _request(), session, view, post, {"author": "1"}, view.writable_fields)
+    assert post.author.email == "ada@x.io"
+    with pytest.raises(LookupError, match="author"):
+        await apply(admin, _request(), session, view, Post(), {"author": "2"}, view.writable_fields)
+    shown = await relabel(admin, _request(), session, view.writable_fields, {"author": "2"})
+    assert shown["author"] == []
+
+
+@pytest.mark.anyio
+async def test_apply_and_relabel_treat_inaccessible_target_as_unknown(
+    factory: AppFactory, session: AsyncSession
+) -> None:
+    session.add(User(email="ada@x.io"))
+    await session.commit()
+    admin = _admin(factory)
+    admin.register(PostView)
+
+    @admin.register
+    class Locked(ModelView[User]):
+        model = User
+
+        def is_accessible(self, request: Request) -> bool:
+            return False
+
+    view = admin.views["post"]
+    with pytest.raises(LookupError, match="author"):
+        await apply(admin, _request(), session, view, Post(), {"author": "1"}, view.writable_fields)
+    shown = await relabel(admin, _request(), session, view.writable_fields, {"author": "1"})
+    assert shown["author"] == []
 
 
 def test_initial_values_create_uses_defaults(factory: AppFactory) -> None:

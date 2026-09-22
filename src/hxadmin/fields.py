@@ -62,7 +62,7 @@ class Field:
     primary_key: bool = False
     autoincrement: bool = False
     unique: bool = False
-    required: bool = False
+    required: bool | None = None
     default: Any = None
     choices: tuple[tuple[str, str], ...] = ()
     widget: Widget | None = None

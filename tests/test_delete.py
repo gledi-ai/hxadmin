@@ -25,11 +25,25 @@ def test_delete_redirects_to_list(factory: AppFactory, make_client: MakeClient) 
 
 def test_delete_post_with_tags(factory: AppFactory, make_client: MakeClient) -> None:
     with make_client(build(factory)) as client:
+        client.post("/admin/vote/2;1/delete", follow_redirects=False)
         response = client.post("/admin/post/1/delete", follow_redirects=False)
         assert response.status_code == 303
         assert client.get("/admin/post/1").status_code == 404
         tags = client.get("/admin/tag/1").text
     assert "Tag" in tags
+
+
+def test_delete_referenced_row_is_409(factory: AppFactory, make_client: MakeClient) -> None:
+    with make_client(build(factory)) as client:
+        full = client.post("/admin/user/1/delete")
+        partial = client.post("/admin/user/1/delete", headers={"HX-Request": "true"})
+        detail = client.get("/admin/user/1")
+    assert full.status_code == 409
+    assert "409" in full.text
+    assert "<html" in full.text
+    assert partial.status_code == 409
+    assert detail.status_code == 200
+    assert "ada@x.io" in detail.text
 
 
 def test_delete_htmx_sends_hx_redirect(factory: AppFactory, make_client: MakeClient) -> None:

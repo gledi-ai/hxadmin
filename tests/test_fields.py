@@ -69,18 +69,21 @@ def test_derive_columns_and_relations() -> None:
         "author",
         "tags",
     ]
-    assert fields["id"] == Field("id", "int", "Id", primary_key=True, autoincrement=True)
+    assert fields["id"] == Field(
+        "id", "int", "Id", primary_key=True, autoincrement=True, required=False
+    )
     assert fields["title"] == Field("title", "str", "Title", required=True)
-    assert fields["body"] == Field("body", "text", "Body", default="")
+    assert fields["body"] == Field("body", "text", "Body", required=False, default="")
     assert fields["status"] == Field(
         "status",
         "enum",
         "Status",
+        required=False,
         default="draft",
         choices=(("draft", "draft"), ("published", "published")),
     )
     assert fields["published_at"] == Field(
-        "published_at", "datetime", "Published at", nullable=True
+        "published_at", "datetime", "Published at", nullable=True, required=False
     )
     assert fields["author"] == RelationField(
         "author", "Author", User, multiple=False, fk_columns=("author_id",), required=True

@@ -137,7 +137,7 @@ def build_router(admin: "HxAdmin") -> APIRouter:
         if not errors:
             try:
                 with session.no_autoflush:
-                    await apply(session, view, obj, values, fields)
+                    await apply(admin, request, session, view, obj, values, fields)
             except LookupError as exc:
                 errors = FormErrors({str(exc): "Unknown selection."})
         if not errors:
@@ -155,7 +155,7 @@ def build_router(admin: "HxAdmin") -> APIRouter:
                 errors = FormErrors({}, form=str(exc.orig))
             else:
                 return admin.redirect(request, _after_save(request, view, pk, form.get("_then")))
-        shown = await relabel(admin, session, fields, raw)
+        shown = await relabel(admin, request, session, fields, raw)
         return _render_form(
             request,
             view,
@@ -250,8 +250,8 @@ def build_router(admin: "HxAdmin") -> APIRouter:
                 raise HTTPException(status_code=403)
             stmt = apply_search(target.get_query(request), target, q)
         rows = (await session.scalars(stmt.order_by(*pk_columns).limit(20))).all()
-        if target is None and q:
-            rows = [row for row in rows if q.lower() in str(row).lower()]
+        if q and (target is None or not target.searchable):
+            rows = [row for row in rows if q.lower() in admin.display(row).lower()]
         options = [(pk_string_for(relation.target, row), admin.display(row)) for row in rows]
         return admin.render(request, "form/_options.html", {"options": options, "q": q})
 
@@ -296,8 +296,17 @@ def build_router(admin: "HxAdmin") -> APIRouter:
             raise HTTPException(status_code=403)
         obj = await _object(request, session, view, pk)
         await view.on_delete(request, session, obj)
-        await session.delete(obj)
-        await session.commit()
+        try:
+            await session.delete(obj)
+            await session.commit()
+        except IntegrityError as exc:
+            await session.rollback()
+            return admin.render(
+                request,
+                "error.html",
+                {"status_code": 409, "detail": str(exc.orig)},
+                status_code=409,
+            )
         return admin.redirect(request, admin.url(request, f"/{view.identity}/"))
 
     @router.get("/{identity}/{pk}", name="detail", response_class=HTMLResponse)

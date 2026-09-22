@@ -112,6 +112,7 @@ def test_explicit_list_columns_resolve_to_fields() -> None:
             "status",
             "enum",
             "Status",
+            required=False,
             default="draft",
             choices=(("draft", "draft"), ("published", "published")),
         ),
@@ -241,6 +242,28 @@ def test_explicit_form_fields_and_exclude() -> None:
     assert (email.label, email.widget, email.help_text) == ("E-mail", "email", "Login name")
     assert (email.unique, email.kind) == (True, "str")
     assert [f.name for f in view.edit_fields] == ["email", "group"]
+
+
+def test_form_field_override_inherits_required_and_default() -> None:
+    class Configured(ModelView[Post]):
+        model = Post
+        form_fields = (
+            Field("title", "str", help_text="t"),
+            Field("status", "enum", help_text="s"),
+            Field("body", "text", required=True),
+            Field("score", "float", default=1.5),
+        )
+
+    title, status, body, score = Configured().writable_fields
+    assert isinstance(title, Field)
+    assert isinstance(status, Field)
+    assert isinstance(body, Field)
+    assert isinstance(score, Field)
+    assert (title.required, title.default) == (True, None)
+    assert (status.required, status.default) == (False, "draft")
+    assert body.required is True
+    assert (score.required, score.default) == (False, 1.5)
+    assert all(isinstance(f.required, bool) for f in Configured().writable_fields)
 
 
 def test_form_field_override_must_be_a_column() -> None:

@@ -8,11 +8,12 @@ from typing import TYPE_CHECKING, Any, Literal, cast
 
 from pydantic import BaseModel, ConfigDict, Json, ValidationError, create_model
 from pydantic import Field as PydField
-from sqlalchemy import Enum, inspect
+from sqlalchemy import Enum, Select, inspect, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import Mapper
 from sqlalchemy.types import TypeEngine
 from starlette.datastructures import FormData
+from starlette.requests import Request
 
 from hxadmin.fields import Field, FieldKind, RelationField
 
@@ -154,38 +155,53 @@ def _column_value(type_: TypeEngine[Any], value: Any) -> Any:
     return members[str(value)]
 
 
-async def _relation_value(session: AsyncSession, field_: RelationField, value: Any) -> Any:
+def relation_scope(admin: "HxAdmin", request: Request, field_: RelationField) -> Select[Any]:
+    """Statement a form may resolve `field_`'s pks against; LookupError if the target is locked."""
+    target = admin.view_for(field_.target)
+    if target is None:
+        return select(field_.target)
+    if not target.is_accessible(request):
+        raise LookupError(field_.name)
+    return target.get_query(request)
+
+
+async def _relation_value(
+    session: AsyncSession, stmt: Select[Any], field_: RelationField, value: Any
+) -> Any:
     from hxadmin.query import fetch_by_pks
 
     if field_.multiple:
         pks = list(dict.fromkeys(str(v) for v in value))
-        rows = await fetch_by_pks(session, field_.target, pks)
+        rows = await fetch_by_pks(session, field_.target, pks, stmt=stmt)
         if len(rows) != len(pks):
             raise LookupError(field_.name)
         return rows
     if value is None:
         return None
-    rows = await fetch_by_pks(session, field_.target, [str(value)])
+    rows = await fetch_by_pks(session, field_.target, [str(value)], stmt=stmt)
     if not rows:
         raise LookupError(field_.name)
     return rows[0]
 
 
 async def apply(
+    admin: "HxAdmin",
+    request: Request,
     session: AsyncSession,
     view: "ModelView[Any]",
     obj: Any,
     values: Mapping[str, Any],
     fields: Sequence[Field | RelationField],
 ) -> None:
-    """Write validated values onto `obj`, resolving relation pk strings to loaded rows."""
+    """Write validated values onto `obj`, resolving relation pk strings through the target view."""
     columns = cast(Mapper[Any], inspect(view.model)).columns
     for field_ in fields:
         if field_.name not in values:
             continue
         value = values[field_.name]
         if isinstance(field_, RelationField):
-            setattr(obj, field_.name, await _relation_value(session, field_, value))
+            stmt = relation_scope(admin, request, field_)
+            setattr(obj, field_.name, await _relation_value(session, stmt, field_, value))
         elif not field_.readonly:
             setattr(obj, field_.name, _column_value(columns[field_.name].type, value))
 
@@ -229,6 +245,7 @@ def form_relations(fields: Sequence[Field | RelationField]) -> list[str]:
 
 async def relabel(
     admin: "HxAdmin",
+    request: Request,
     session: AsyncSession,
     fields: Sequence[Field | RelationField],
     raw: Mapping[str, Any],
@@ -243,6 +260,11 @@ async def relabel(
             continue
         value = raw.get(field_.name)
         pks = [str(v) for v in value] if isinstance(value, list) else [str(value)] if value else []
-        rows = await fetch_by_pks(session, field_.target, pks)
+        try:
+            stmt = relation_scope(admin, request, field_)
+        except LookupError:
+            values[field_.name] = []
+            continue
+        rows = await fetch_by_pks(session, field_.target, pks, stmt=stmt)
         values[field_.name] = [(pk_string_for(field_.target, r), admin.display(r)) for r in rows]
     return values

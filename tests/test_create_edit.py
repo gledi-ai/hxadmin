@@ -2,6 +2,7 @@ from collections.abc import Callable
 
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
+from sqlalchemy import Select, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.requests import Request
 
@@ -14,7 +15,7 @@ type MakeClient = Callable[[FastAPI], TestClient]
 POST_DATA = {"title": "New", "status": "draft", "author": "1", "tags": ["1"]}
 
 
-def build(factory: AppFactory) -> FastAPI:
+def build(factory: AppFactory, *, user_view: type[ModelView[User]] | None = None) -> FastAPI:
     app = factory.app(seed=seed)
     admin = HxAdmin(app, session=factory.get_session, auth=allow_all)
 
@@ -22,10 +23,14 @@ def build(factory: AppFactory) -> FastAPI:
     class GroupView(ModelView[Group]):
         model = Group
 
-    @admin.register
-    class UserView(ModelView[User]):
-        model = User
-        searchable = ("email",)
+    if user_view is not None:
+        admin.register(user_view)
+    else:
+
+        @admin.register
+        class UserView(ModelView[User]):
+            model = User
+            searchable = ("email",)
 
     @admin.register
     class PostView(ModelView[Post]):
@@ -60,6 +65,7 @@ def test_create_form_full_page(factory: AppFactory, make_client: MakeClient) -> 
     assert 'option value="draft" selected' in html
     assert 'name="id"' not in html
     assert 'name="author_id"' not in html
+    assert 'step="any"' in html
     assert "Save and add another" in html
 
 
@@ -135,6 +141,48 @@ def test_create_unknown_relation_pk_is_field_error(
     assert html.index("Author") < html.index("Unknown selection.")
 
 
+def test_create_relation_pk_outside_target_scope_is_unknown(
+    factory: AppFactory, make_client: MakeClient
+) -> None:
+    class ActiveUsers(ModelView[User]):
+        model = User
+
+        def get_query(self, request: Request) -> Select[tuple[User]]:
+            return select(User).where(User.active.is_(True))
+
+    class Locked(ModelView[User]):
+        model = User
+
+        def is_accessible(self, request: Request) -> bool:
+            return False
+
+    for user_view in (ActiveUsers, Locked):
+        with make_client(build(factory, user_view=user_view)) as client:
+            saved = client.post("/admin/post/new", data={**POST_DATA, "author": "2"})
+            invalid = client.post("/admin/post/new", data={**POST_DATA, "title": "", "author": "2"})
+            listing = client.get("/admin/post/").text
+        assert saved.status_code == 422
+        assert "Unknown selection." in saved.text
+        assert "bob@x.io" not in saved.text
+        assert invalid.status_code == 422
+        assert "bob@x.io" not in invalid.text
+        assert "Showing 1\u20131 of 1" in listing
+
+
+def test_create_relation_pk_inside_target_scope_is_saved(
+    factory: AppFactory, make_client: MakeClient
+) -> None:
+    class ActiveUsers(ModelView[User]):
+        model = User
+
+        def get_query(self, request: Request) -> Select[tuple[User]]:
+            return select(User).where(User.active.is_(True))
+
+    with make_client(build(factory, user_view=ActiveUsers)) as client:
+        response = client.post("/admin/post/new", data=POST_DATA, follow_redirects=False)
+    assert response.status_code == 303
+
+
 def test_create_integrity_error_is_form_error(factory: AppFactory, make_client: MakeClient) -> None:
     data = {"email": "new@x.io", "active": "on"}
     with make_client(build(factory)) as client:
@@ -159,6 +207,14 @@ def test_edit_form_prefills(factory: AppFactory, make_client: MakeClient) -> Non
     assert 'hx-post="/admin/post/1/edit"' in html
 
 
+def test_edit_form_partial(factory: AppFactory, make_client: MakeClient) -> None:
+    with make_client(build(factory)) as client:
+        html = client.get("/admin/post/1/edit", headers={"HX-Request": "true"}).text
+    assert "<html" not in html
+    assert html.lstrip().startswith("<form")
+    assert 'value="Hello"' in html
+
+
 def test_edit_form_renders_combobox(factory: AppFactory, make_client: MakeClient) -> None:
     with make_client(build(factory)) as client:
         html = client.get("/admin/post/1/edit").text
@@ -181,6 +237,44 @@ def test_edit_success(factory: AppFactory, make_client: MakeClient) -> None:
     assert "Renamed" in detail
     assert 'href="/admin/user/2"' in detail
     assert "news" not in related
+
+
+def test_edit_htmx_success_sends_hx_redirect(factory: AppFactory, make_client: MakeClient) -> None:
+    data = {"title": "Renamed", "status": "draft", "author": "1", "tags": ["1"]}
+    with make_client(build(factory)) as client:
+        response = client.post(
+            "/admin/post/1/edit", data=data, headers={"HX-Request": "true"}, follow_redirects=False
+        )
+    assert response.status_code == 200
+    assert response.headers["HX-Redirect"] == "/admin/post/1"
+
+
+def test_edit_validation_errors_rerender_422(factory: AppFactory, make_client: MakeClient) -> None:
+    data = {"title": "", "status": "draft", "author": "1", "tags": ["1"]}
+    with make_client(build(factory)) as client:
+        full = client.post("/admin/post/1/edit", data=data)
+        partial = client.post("/admin/post/1/edit", data=data, headers={"HX-Request": "true"})
+        detail = client.get("/admin/post/1").text
+    assert full.status_code == 422
+    assert "This field is required." in full.text
+    assert 'aria-invalid="true"' in full.text
+    assert 'hx-post="/admin/post/1/edit"' in full.text
+    assert '{"label": "ada@x.io", "pk": "1"}' in full.text
+    assert "<html" in full.text
+    assert partial.status_code == 422
+    assert "<html" not in partial.text
+    assert partial.text.lstrip().startswith("<form")
+    assert "Hello" in detail
+
+
+def test_edit_integrity_error_is_form_error(factory: AppFactory, make_client: MakeClient) -> None:
+    with make_client(build(factory)) as client:
+        response = client.post("/admin/user/2/edit", data={"email": "ada@x.io", "active": ""})
+        detail = client.get("/admin/user/2").text
+    assert response.status_code == 422
+    assert 'role="alert"' in response.text
+    assert 'hx-post="/admin/user/2/edit"' in response.text
+    assert "bob@x.io" in detail
 
 
 def test_edit_can_view_false_redirects_to_list(
