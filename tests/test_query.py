@@ -271,17 +271,18 @@ def test_qs_carries_filters_after_q() -> None:
     assert params.filter_value("title") == FilterValue("title")
 
 
-def test_parse_list_params_reads_declared_filters() -> None:
-    params = parse_list_params(
-        _request("f.active=false&f.active=nope&f.email=x"), FilteredUserView()
-    )
+def test_parse_list_params_reads_only_the_given_filters() -> None:
+    view = FilteredUserView()
+    query = _request("f.active=false&f.active=nope&f.email=x")
+    params = parse_list_params(query, view, filters=view.filters)
     assert params.filters == (FilterValue("active", ("false",)),)
+    assert parse_list_params(query, view).filters == ()
 
 
 async def test_run_list_applies_filters_before_counting(session: AsyncSession) -> None:
     await _seed_users(session)
     view = FilteredUserView()
-    params = parse_list_params(_request("f.active=false&size=25"), view)
+    params = parse_list_params(_request("f.active=false&size=25"), view, filters=view.filters)
     result = await run_list(session, view, select(User), params)
     assert result.total == 1
     assert [u.email for u in result.rows] == ["alice@x.io"]
@@ -289,7 +290,8 @@ async def test_run_list_applies_filters_before_counting(session: AsyncSession) -
 
 def test_list_statement_searches_filters_and_sorts() -> None:
     view = FilteredUserView()
-    params = parse_list_params(_request("q=x.io&f.active=true&sort=email&dir=desc"), view)
+    query = _request("q=x.io&f.active=true&sort=email&dir=desc")
+    params = parse_list_params(query, view, filters=view.filters)
     sql = str(list_statement(view, select(User), params))
     assert "LIKE lower(:param_1) ESCAPE" in sql
     assert "users.active IN (__[POSTCOMPILE_active_1])" in sql

@@ -1,6 +1,5 @@
 import logging
 from collections.abc import Sequence
-from dataclasses import replace
 from typing import TYPE_CHECKING, Annotated, Any, cast
 from urllib.parse import urlsplit
 
@@ -32,7 +31,6 @@ from hxadmin.forms import (
 from hxadmin.nav import build_dashboard
 from hxadmin.pk import fetch_by_pks, pk_string_for
 from hxadmin.query import (
-    ListParams,
     apply_search,
     count_rows,
     fetch_one,
@@ -84,21 +82,20 @@ def _list_return_url(request: Request, list_url: str) -> str:
 def build_router(admin: "HxAdmin") -> APIRouter:
     router = APIRouter(dependencies=[Depends(admin.current_user)])
 
-    def _scoped(request: Request, view: ModelView[Any], params: ListParams) -> ListParams:
-        names = {f.name for f in visible_filters(admin, request, view.filters)}
-        return replace(params, filters=tuple(v for v in params.filters if v.name in names))
-
     async def _list_context(
         request: Request,
         session: AsyncSession,
         view: ModelView[Any],
-        params: ListParams,
+        query: QueryParams | None = None,
         *,
         panel: bool = False,
     ) -> dict[str, Any]:
-        """List template context; `panel` also loads the filter panel's relation options."""
+        """List template context for `query` (default: the request's).
+
+        `panel` also loads the filter panel's relation options.
+        """
         filters = visible_filters(admin, request, view.filters)
-        params = _scoped(request, view, params)
+        params = parse_list_params(request, view, query=query, filters=filters)
         result = await run_list(session, view, view.get_query(request), params)
         labels = await relation_labels(
             admin, request, session, filters, params.filters, with_options=panel
@@ -194,8 +191,7 @@ def build_router(admin: "HxAdmin") -> APIRouter:
             response: Response = admin.render(request, "detail/_panel.html", context)
         else:
             current = QueryParams(urlsplit(request.headers.get("HX-Current-URL", "")).query)
-            params = parse_list_params(request, view, query=current)
-            context = await _list_context(request, session, view, params)
+            context = await _list_context(request, session, view, current)
             response = admin.render(request, "list/_table.html", context)
         if result.toast is not None:
             response.headers["HX-Trigger"] = hx_trigger(result.toast)
@@ -217,8 +213,7 @@ def build_router(admin: "HxAdmin") -> APIRouter:
     ) -> HTMLResponse:
         view = _view(admin, request, identity)
         htmx = _is_htmx(request)
-        params = parse_list_params(request, view)
-        context = await _list_context(request, session, view, params, panel=not htmx)
+        context = await _list_context(request, session, view, panel=not htmx)
         return admin.render(request, "list/_table.html" if htmx else "list.html", context)
 
     async def _object(
@@ -443,7 +438,8 @@ def build_router(admin: "HxAdmin") -> APIRouter:
             loaded = with_relations(stmt, view.model, view.export_fields)
             rows = await fetch_by_pks(session, view.model, pks, stmt=loaded)
             return await export_response(admin, view, fmt, rows)
-        params = _scoped(request, view, parse_list_params(request, view))
+        filters = visible_filters(admin, request, view.filters)
+        params = parse_list_params(request, view, filters=filters)
         stmt = list_statement(view, stmt, params)
         limit = view.export_max_rows
         if limit is not None and await count_rows(session, stmt) > limit:

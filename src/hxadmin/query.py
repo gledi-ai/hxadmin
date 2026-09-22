@@ -80,11 +80,11 @@ def parse_list_params(
     view: ModelView[Any],
     *,
     query: QueryParams | None = None,
-    filters: Sequence[Filter] | None = None,
+    filters: Sequence[Filter] = (),
 ) -> ListParams:
     """List params from `query` (default: the request's query string); invalid values fall back.
 
-    Only `filters` (default: all of the view's filters) are read.
+    Only `filters` are read, none by default: pass the filters visible to the current user.
     """
     source = request.query_params if query is None else query
     default_sort, default_dir = view.default_sort or (None, "asc")
@@ -102,7 +102,7 @@ def parse_list_params(
         dir=dir_,
         page=max(1, _int(source.get("page"), 1)),
         size=size,
-        filters=parse_filters(view.filters if filters is None else filters, source),
+        filters=parse_filters(filters, source),
     )
 
 

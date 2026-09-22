@@ -2,11 +2,12 @@ from collections.abc import Callable, Sequence
 
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.requests import Request
 
 from hxadmin import ActionResult, HxAdmin, ModelView, action
-from tests.conftest import AppFactory, Post, User, allow_all
+from tests.conftest import AppFactory, Post, Tag, User, allow_all
 from tests.test_filters import seed
 
 type MakeClient = Callable[[FastAPI], TestClient]
@@ -37,11 +38,21 @@ class HiddenUserView(ModelView[User]):
         return False
 
 
+class TagView(ModelView[Tag]):
+    model = Tag
+
+
+async def seed_tagged(session: AsyncSession) -> None:
+    await seed(session)
+    session.add(Tag(name="all", posts=list((await session.scalars(select(Post))).all())))
+
+
 def build(factory: AppFactory, user_view: type[ModelView[User]] = UserView) -> FastAPI:
-    app = factory.app(seed=seed)
+    app = factory.app(seed=seed_tagged)
     admin = HxAdmin(app, session=factory.get_session, auth=allow_all)
     admin.register(PostView)
     admin.register(user_view)
+    admin.register(TagView)
     return app
 
 
@@ -119,3 +130,17 @@ def test_action_rerender_keeps_filters(factory: AppFactory, make_client: MakeCli
     assert response.status_code == 200
     assert "Showing 1\N{EN DASH}2 of 2" in response.text
     assert 'aria-label="Remove filter Status: published"' in response.text
+
+
+def test_related_tab_ignores_filters_of_a_hidden_target(
+    factory: AppFactory, make_client: MakeClient
+) -> None:
+    with make_client(build(factory, HiddenUserView)) as client:
+        html = client.get("/admin/tag/_related/1/posts?f.author=1").text
+    assert all(title in html for title in ("Alpha", "Beta", "Gamma 100%"))
+
+
+def test_related_tab_reads_no_filters(factory: AppFactory, make_client: MakeClient) -> None:
+    with make_client(build(factory)) as client:
+        html = client.get("/admin/tag/_related/1/posts?f.status=draft").text
+    assert "Showing 1\N{EN DASH}3 of 3" in html
