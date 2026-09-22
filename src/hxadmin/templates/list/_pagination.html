@@ -1,6 +1,6 @@
 {% import "_macros.html" as m with context %}
 <div class="mt-3 flex items-center justify-between text-sm text-fg-muted">
-  <span>Showing {{ result.start }}–{{ result.end }} of {{ result.total }}</span>
+  <span>Showing {{ result.start }}–{{ result.end }} of {{ result.total }}{% if push_url and view.export_formats %} · Export {% for fmt in view.export_formats %}<a href="{{ base_url }}_export/{{ fmt }}?{{ params.qs(page=None, size=None) }}" class="text-accent hover:underline">{{ fmt|upper }}</a>{% if not loop.last %} · {% endif %}{% endfor %}{% endif %}</span>
   <div class="flex items-center gap-2">
     <select name="size" aria-label="Rows per page"
             hx-get="{{ base_url }}?{{ params.qs(page=1, size=None) }}" hx-trigger="change" {{ hx|safe }}

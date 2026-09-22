@@ -1,7 +1,7 @@
 {% import "_macros.html" as m with context %}
 {% set params = result.params %}
 {% set hx = 'hx-target="closest .hx-list"' ~ (' hx-push-url="true"' if push_url else '') %}
-{% set selectable = push_url and view.bulk_actions %}
+{% set selectable = push_url and (view.bulk_actions or view.export_formats) %}
 {% set row_actions = view.row_actions if push_url else () %}
 {% set actions = view.can_edit or view.can_delete or row_actions %}
 {% if push_url %}
