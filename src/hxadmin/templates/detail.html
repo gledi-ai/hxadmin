@@ -3,14 +3,6 @@
 {% block title %}{{ view.display(obj) }} · {{ admin.title }}{% endblock %}
 {% block breadcrumb %}<a href="{{ admin.url(request, '/') }}" class="hover:underline">Dashboard</a> / <a href="{{ admin.url(request, '/' ~ view.identity ~ '/') }}" class="hover:underline">{{ view.name_plural }}</a> / {{ view.display(obj) }}{% endblock %}
 {% block content %}
-<div class="mb-4 flex items-center justify-between gap-4">
-  <h1 class="text-2xl font-semibold">{{ view.display(obj) }}</h1>
-  <div class="flex items-center gap-2">
-    {% for action in view.row_actions %}{{ m.action_button(view, action, obj, 'detail', 'inline-flex items-center rounded border border-edge px-3 py-1.5 text-sm font-medium hover:bg-surface-3') }}{% endfor %}
-    {% if view.can_edit %}<a href="{{ admin.url(request, '/' ~ view.identity ~ '/' ~ view.pk_of(obj) ~ '/edit') }}" class="inline-flex items-center gap-1 rounded bg-accent px-3 py-1.5 text-sm font-medium text-accent-fg">{{ m.icon('pencil', 'size-4') }} Edit</a>{% endif %}
-    {% if view.can_delete %}{{ m.delete_button(view, obj, 'inline-flex items-center gap-1 rounded border border-danger px-3 py-1.5 text-sm font-medium text-danger hover:bg-danger hover:text-danger-fg') }}{% endif %}
-  </div>
-</div>
 <div id="detail">
   {% include "detail/_panel.html" %}
 </div>

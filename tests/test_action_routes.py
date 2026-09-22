@@ -411,3 +411,21 @@ def test_native_list_actions_return_to_the_list_as_shown(
     assert empty.headers["location"] == "/admin/user/?q=x.io&sort=email&dir=desc&page=1"
     assert foreign.headers["location"] == "/admin/user/?q=1"
     assert other_page.headers["location"] == "/admin/user/"
+
+
+class RenameView(UserView):
+    @action("rename")
+    async def rename(self, request: Request, session: AsyncSession, obj: User) -> ActionResult:
+        obj.email = "renamed@x.io"
+        return ActionResult.message("Renamed")
+
+
+def test_row_action_rerender_refreshes_the_detail_heading(
+    factory: AppFactory, make_client: MakeClient
+) -> None:
+    with make_client(build(factory, RenameView)) as client:
+        response = client.post("/admin/user/1/action/rename", headers=HX)
+        full = client.get("/admin/user/1").text
+    assert '<h1 class="text-2xl font-semibold">renamed@x.io</h1>' in response.text
+    assert "/admin/user/1/action/rename" in response.text
+    assert full.count('<h1 class="text-2xl font-semibold">') == 1
