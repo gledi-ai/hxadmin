@@ -5,14 +5,32 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Literal, cast
 
-from sqlalchemy import ColumnElement, Enum, Select, String, and_, inspect, or_, select
+from sqlalchemy import (
+    ColumnElement,
+    DateTime,
+    Enum,
+    Select,
+    String,
+    Time,
+    and_,
+    inspect,
+    or_,
+    select,
+)
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import Mapper
+from sqlalchemy.types import TypeEngine
 from starlette.datastructures import QueryParams
 from starlette.requests import Request
 
 from hxadmin.fields import Field, FieldKind, RelationField
-from hxadmin.pk import fetch_by_pks, in_int64_range, pk_clauses_for, pk_string_for
+from hxadmin.pk import (
+    fetch_by_pks,
+    in_int64_range,
+    pk_clauses_for,
+    pk_string_for,
+    wide_literal,
+)
 
 if TYPE_CHECKING:
     from hxadmin.admin import HxAdmin
@@ -32,6 +50,8 @@ _RANGE_INPUTS: dict[FieldKind, str] = {
     "time": "time",
 }
 _TEXT_KINDS: frozenset[FieldKind] = frozenset({"str", "text", "uuid"})
+_NUMERIC_MAX_ADJUSTED = 131071
+_NUMERIC_MIN_EXPONENT = -16383
 
 
 @dataclass(frozen=True, slots=True)
@@ -45,6 +65,7 @@ class Filter:
     nullable: bool
     choices: tuple[tuple[str, str], ...] = ()
     input_type: str = "text"
+    column_type: TypeEngine[Any] | None = None
 
     @property
     def key(self) -> str:
@@ -86,7 +107,7 @@ def escape_like(text: str) -> str:
     return text.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
 
 
-def _resolve_one(owner: str, field: Field | RelationField) -> Filter:
+def _resolve_one(owner: str, model: type[Any], field: Field | RelationField) -> Filter:
     if isinstance(field, RelationField):
         if field.multiple:
             raise ValueError(f"{owner}: cannot filter on to-many relation {field.name!r}")
@@ -98,14 +119,20 @@ def _resolve_one(owner: str, field: Field | RelationField) -> Filter:
         return Filter(field.name, field.label, "choice", field, field.nullable, choices)
     if field.kind in _RANGE_INPUTS:
         input_type = _RANGE_INPUTS[field.kind]
-        return Filter(field.name, field.label, "range", field, field.nullable, (), input_type)
+        type_ = cast(Mapper[Any], inspect(model)).columns[field.name].type
+        return Filter(
+            field.name, field.label, "range", field, field.nullable, (), input_type, type_
+        )
     if field.kind in _TEXT_KINDS:
         return Filter(field.name, field.label, "text", field, field.nullable)
     raise ValueError(f"{owner}: cannot filter on {field.kind} column {field.name!r}")
 
 
 def resolve_filters(
-    owner: str, fields: Mapping[str, Field | RelationField], names: Sequence[str]
+    owner: str,
+    model: type[Any],
+    fields: Mapping[str, Field | RelationField],
+    names: Sequence[str],
 ) -> tuple[Filter, ...]:
     """Resolve `list_filters` names; ValueError for unknown or unfilterable fields."""
     resolved: list[Filter] = []
@@ -113,11 +140,21 @@ def resolve_filters(
         field = fields.get(name)
         if field is None:
             raise ValueError(f"{owner}: unknown field {name!r}")
-        resolved.append(_resolve_one(owner, field))
+        resolved.append(_resolve_one(owner, model, field))
     return tuple(resolved)
 
 
-def _range_value(kind: FieldKind, raw: str) -> Any:
+def _naive_column(filter_: Filter) -> bool:
+    type_ = filter_.column_type
+    return isinstance(type_, DateTime | Time) and not type_.timezone
+
+
+def _range_value(filter_: Filter, raw: str) -> Any:
+    """The bound `raw` parsed for the filter's column; ValueError if no database accepts it.
+
+    An aware datetime on a naive column becomes naive UTC; an aware time there is rejected.
+    """
+    kind = filter_.field.kind
     try:
         if kind == "int":
             number = int(raw)
@@ -131,23 +168,34 @@ def _range_value(kind: FieldKind, raw: str) -> Any:
             return number
         if kind == "decimal":
             amount = decimal.Decimal(raw)
-            if not amount.is_finite():
+            exponent = amount.as_tuple().exponent
+            if (
+                not isinstance(exponent, int)
+                or exponent < _NUMERIC_MIN_EXPONENT
+                or amount.adjusted() > _NUMERIC_MAX_ADJUSTED
+            ):
                 raise ValueError(raw)
             return amount
         if kind == "date":
             return datetime.date.fromisoformat(raw)
         if kind == "datetime":
-            return datetime.datetime.fromisoformat(raw)
-        return datetime.time.fromisoformat(raw)
+            moment = datetime.datetime.fromisoformat(raw)
+            if moment.tzinfo is not None and _naive_column(filter_):
+                return moment.astimezone(datetime.UTC).replace(tzinfo=None)
+            return moment
+        clock = datetime.time.fromisoformat(raw)
+        if clock.tzinfo is not None and _naive_column(filter_):
+            raise ValueError(raw)
+        return clock
     except ArithmeticError:
         raise ValueError(raw) from None
 
 
-def _valid_bound(field: Field | RelationField, raw: str | None) -> str | None:
-    if isinstance(field, RelationField) or raw is None or raw.strip() == "":
+def _valid_bound(filter_: Filter, raw: str | None) -> str | None:
+    if isinstance(filter_.field, RelationField) or raw is None or raw.strip() == "":
         return None
     try:
-        _range_value(field.kind, raw.strip())
+        _range_value(filter_, raw.strip())
     except ValueError:
         return None
     return raw.strip()
@@ -171,8 +219,8 @@ def parse_filters(filters: Sequence[Filter], source: QueryParams) -> tuple[Filte
         values: tuple[str, ...] = ()
         low = high = None
         if filter_.kind == "range":
-            low = _valid_bound(filter_.field, source.get(f"{key}.min"))
-            high = _valid_bound(filter_.field, source.get(f"{key}.max"))
+            low = _valid_bound(filter_, source.get(f"{key}.min"))
+            high = _valid_bound(filter_, source.get(f"{key}.max"))
         elif filter_.kind == "text":
             text = (source.get(key) or "").strip()[:_TEXT_MAX]
             values = (text,) if text else ()
@@ -194,6 +242,11 @@ def _choice_value(model: type[Any], filter_: Filter, raw: str) -> Any:
     return raw
 
 
+def _bound(filter_: Filter, raw: str) -> Any:
+    value = _range_value(filter_, raw)
+    return value if filter_.column_type is None else wide_literal(filter_.column_type, value)
+
+
 def _clause(model: type[Any], filter_: Filter, value: FilterValue) -> ColumnElement[bool]:
     field = filter_.field
     conditions: list[ColumnElement[bool]] = []
@@ -212,9 +265,9 @@ def _clause(model: type[Any], filter_: Filter, value: FilterValue) -> ColumnElem
             pattern = f"%{escape_like(value.values[0])}%"
             conditions.append(column.cast(String).ilike(pattern, escape="\\"))
         if value.min is not None:
-            conditions.append(column >= _range_value(field.kind, value.min))
+            conditions.append(column >= _bound(filter_, value.min))
         if value.max is not None:
-            conditions.append(column <= _range_value(field.kind, value.max))
+            conditions.append(column <= _bound(filter_, value.max))
     if not value.empty:
         return and_(*conditions)
     if not conditions:
