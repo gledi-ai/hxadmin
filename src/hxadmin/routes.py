@@ -16,6 +16,7 @@ from starlette.requests import Request
 from starlette.responses import HTMLResponse, Response
 
 from hxadmin.actions import Action, ActionResult
+from hxadmin.export import export_response
 from hxadmin.fields import Field, RelationField
 from hxadmin.filters import filter_chips, relation_labels, visible_filters
 from hxadmin.forms import (
@@ -29,7 +30,16 @@ from hxadmin.forms import (
 )
 from hxadmin.nav import build_dashboard
 from hxadmin.pk import fetch_by_pks, pk_string_for
-from hxadmin.query import ListParams, apply_search, fetch_one, parse_list_params, run_list
+from hxadmin.query import (
+    ListParams,
+    apply_search,
+    count_rows,
+    fetch_one,
+    list_statement,
+    parse_list_params,
+    run_list,
+    with_relations,
+)
 from hxadmin.toasts import Toast, hx_trigger
 from hxadmin.views import ModelView
 
@@ -401,6 +411,38 @@ def build_router(admin: "HxAdmin") -> APIRouter:
             rows = [row for row in rows if q.lower() in admin.display(row).lower()]
         options = [(pk_string_for(relation.target, row), admin.display(row)) for row in rows]
         return admin.render(request, "form/_options.html", {"options": options, "q": q})
+
+    @router.get("/{identity}/_export/{fmt}", name="export")
+    async def export(
+        request: Request,
+        identity: str,
+        fmt: str,
+        session: Annotated[AsyncSession, Depends(admin.current_session)],
+    ) -> Response:
+        view = _view(admin, request, identity)
+        if fmt not in view.export_formats:
+            raise HTTPException(status_code=404)
+        stmt = view.get_query(request)
+        pks = list(dict.fromkeys(request.query_params.getlist("pks")))
+        if pks:
+            loaded = with_relations(stmt, view.model, view.export_fields)
+            rows = await fetch_by_pks(session, view.model, pks, stmt=loaded)
+            return await export_response(admin, view, fmt, rows)
+        params = _scoped(request, view, parse_list_params(request, view))
+        stmt = list_statement(view, stmt, params)
+        limit = view.export_max_rows
+        if limit is not None and await count_rows(session, stmt) > limit:
+            list_url = admin.url(request, f"/{view.identity}/")
+            query = request.url.query
+            too_many = Toast(
+                f"Export is limited to {limit:,} rows; narrow the search or filters.", "warning"
+            )
+            return admin.redirect(
+                request, f"{list_url}?{query}" if query else list_url, toast=too_many
+            )
+        loaded = with_relations(stmt, view.model, view.export_fields)
+        rows = (await session.scalars(loaded)).all()
+        return await export_response(admin, view, fmt, rows)
 
     @router.api_route("/{identity}/action/{name}", methods=["GET", "POST"], name="bulk_action")
     async def bulk_action(

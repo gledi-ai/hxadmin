@@ -8,11 +8,13 @@
   {% if view.can_create %}<a href="{{ admin.url(request, '/' ~ view.identity ~ '/new') }}" class="inline-flex items-center gap-1 rounded bg-accent px-3 py-1.5 text-sm font-medium text-accent-fg">{{ m.icon('plus', 'size-4') }} New {{ view.name|lower }}</a>{% endif %}
 </div>
 {% include "list/_toolbar.html" %}
-{% if view.bulk_actions %}
+{% set bulk_actions = view.bulk_actions %}
+{% if bulk_actions or view.export_formats %}
 <form id="bulk" x-data="bulk()" x-show="count" x-cloak @change.window="refresh()"
       class="mb-4 flex flex-wrap items-center gap-2 rounded-lg border border-edge bg-surface-2 px-3 py-2 text-sm">
   <span class="mr-2 text-fg-muted" x-text="count + ' selected'"></span>
-  {% for action in view.bulk_actions %}{{ m.action_button(view, action, none, 'list', 'rounded border border-edge bg-surface px-2.5 py-1 font-medium hover:bg-surface-3') }}{% endfor %}
+  {% for action in bulk_actions %}{{ m.action_button(view, action, none, 'list', 'rounded border border-edge bg-surface px-2.5 py-1 font-medium hover:bg-surface-3') }}{% endfor %}
+  {% for fmt in view.export_formats %}<button type="submit" formmethod="get" formaction="{{ admin.url(request, '/' ~ view.identity ~ '/_export/' ~ fmt) }}" class="inline-flex items-center gap-1 rounded border border-edge bg-surface px-2.5 py-1 font-medium hover:bg-surface-3">{{ m.icon('download', 'size-4') }} Export {{ fmt|upper }}</button>{% endfor %}
 </form>
 {% endif %}
 <div id="list" class="hx-list">
