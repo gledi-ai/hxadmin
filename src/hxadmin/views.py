@@ -1,4 +1,4 @@
-from collections.abc import Sequence
+from collections.abc import Awaitable, Callable, Sequence
 from dataclasses import replace
 from typing import Any, ClassVar, Literal
 
@@ -7,6 +7,7 @@ from sqlalchemy import ColumnElement, Select, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.requests import Request
 
+from hxadmin.actions import ACTION_ATTR, Action
 from hxadmin.fields import Field, RelationField, derive_fields
 from hxadmin.forms import build_schema
 from hxadmin.pk import pk_clauses_for, pk_string_for
@@ -82,6 +83,9 @@ class ModelView[T]:
         )
         self.create_schema: type[BaseModel] = build_schema(self.model, self.writable_fields)
         self.edit_schema: type[BaseModel] = build_schema(self.model, self.edit_fields)
+        self.actions, self._action_attrs = self._collect_actions()
+        self.row_actions = tuple(a for a in self.actions.values() if not a.bulk)
+        self.bulk_actions = tuple(a for a in self.actions.values() if a.bulk)
 
     def _resolve(self, names: Sequence[str]) -> tuple[Field | RelationField, ...]:
         try:
@@ -127,6 +131,28 @@ class ModelView[T]:
             default=derived.default,
             required=derived.required if item.required is None else item.required,
         )
+
+    def _collect_actions(self) -> tuple[dict[str, Action], dict[str, str]]:
+        by_attr: dict[str, Action] = {}
+        for klass in reversed(type(self).__mro__):
+            for attr, value in vars(klass).items():
+                spec = getattr(value, ACTION_ATTR, None)
+                if isinstance(spec, Action):
+                    by_attr[attr] = spec
+                else:
+                    by_attr.pop(attr, None)
+        actions: dict[str, Action] = {}
+        attrs: dict[str, str] = {}
+        for attr, spec in by_attr.items():
+            if spec.name in actions:
+                raise ValueError(f"{type(self).__name__}: duplicate action {spec.name!r}")
+            actions[spec.name] = spec
+            attrs[spec.name] = attr
+        return actions, attrs
+
+    def action_handler(self, name: str) -> Callable[..., Awaitable[Any]]:
+        """The bound coroutine method declared with `@action(name)`."""
+        return getattr(self, self._action_attrs[name])
 
     def get_query(self, request: Request) -> Select[tuple[T]]:
         return select(self.model)
