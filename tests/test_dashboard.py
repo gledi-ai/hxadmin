@@ -1,9 +1,12 @@
+import logging
 import re
 from collections.abc import Callable
+from typing import Any
 
+import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
-from sqlalchemy import Select, select
+from sqlalchemy import Select, event, select
 from starlette.requests import Request
 
 from hxadmin import HxAdmin, ModelView
@@ -105,3 +108,48 @@ def test_no_global_search_without_searchable_views(
     HxAdmin(app, session=factory.get_session, auth=allow_all)
     with make_client(app) as client:
         assert 'id="global-search"' not in client.get("/admin/").text
+
+
+def test_dashboard_counts_all_views_in_one_query(
+    factory: AppFactory, make_client: MakeClient
+) -> None:
+    statements: list[str] = []
+
+    def record(conn: Any, cursor: Any, statement: str, *args: Any) -> None:
+        statements.append(statement)
+
+    app = build(factory)
+    with make_client(app) as client:
+        event.listen(factory.engine.sync_engine, "before_cursor_execute", record)
+        try:
+            html = client.get("/admin/").text
+        finally:
+            event.remove(factory.engine.sync_engine, "before_cursor_execute", record)
+    assert card_count(html, "/admin/user/") == "2"
+    assert card_count(html, "/admin/post/") == "1"
+    assert len([s for s in statements if "count(" in s.lower()]) == 1
+
+
+def test_broken_view_does_not_break_the_dashboard(
+    factory: AppFactory, make_client: MakeClient, caplog: pytest.LogCaptureFixture
+) -> None:
+    app = factory.app(seed=seed)
+    admin = HxAdmin(app, session=factory.get_session, auth=allow_all)
+
+    @admin.register
+    class UserView(ModelView[User]):
+        model = User
+
+    @admin.register
+    class Broken(ModelView[Post]):
+        model = Post
+
+        def get_query(self, request: Request) -> Select[tuple[Post]]:
+            raise RuntimeError("no")
+
+    with caplog.at_level(logging.ERROR, logger="hxadmin"), make_client(app) as client:
+        response = client.get("/admin/")
+    assert response.status_code == 200
+    assert card_count(response.text, "/admin/user/") == "2"
+    assert re.search(r'href="/admin/post/".*?tabular-nums">—</div>', response.text, re.S)
+    assert "Broken" in caplog.text
