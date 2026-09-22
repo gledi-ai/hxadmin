@@ -20,6 +20,7 @@ from hxadmin.export import export_response
 from hxadmin.fields import Field, RelationField
 from hxadmin.filters import filter_chips, relation_labels, visible_filters
 from hxadmin.forms import (
+    FormError,
     FormErrors,
     apply,
     form_relations,
@@ -265,6 +266,15 @@ def build_router(admin: "HxAdmin") -> APIRouter:
             status_code=status_code,
         )
 
+    def _save_errors(
+        exc: IntegrityError | FormError, fields: Sequence[Field | RelationField]
+    ) -> FormErrors:
+        if isinstance(exc, IntegrityError):
+            return FormErrors({}, form=str(exc.orig))
+        if exc.field is not None and any(f.name == exc.field for f in fields):
+            return FormErrors({exc.field: exc.message})
+        return FormErrors({}, form=exc.message)
+
     def _after_save(request: Request, view: ModelView[Any], pk: str, then: Any) -> str:
         if then == "another":
             return admin.url(request, f"/{view.identity}/new")
@@ -301,17 +311,20 @@ def build_router(admin: "HxAdmin") -> APIRouter:
                 await view.on_save(request, session, obj, created=created)
                 await session.flush()
                 pk = view.pk_of(obj)
+                label = view.display(obj)
                 await session.commit()
-            except IntegrityError as exc:
+            except (IntegrityError, FormError) as exc:
                 await session.rollback()
                 if not created:
                     await session.refresh(obj)
-                errors = FormErrors({}, form=str(exc.orig))
+                errors = _save_errors(exc, fields)
             except Exception:
                 await session.rollback()
                 raise
             else:
-                return admin.redirect(request, _after_save(request, view, pk, form.get("_then")))
+                done = Toast(f"{view.name} “{label}” {'created' if created else 'saved'}.")
+                url = _after_save(request, view, pk, form.get("_then"))
+                return admin.redirect(request, url, toast=done)
         shown = await relabel(admin, request, session, fields, raw)
         return _render_form(
             request,
@@ -519,6 +532,7 @@ def build_router(admin: "HxAdmin") -> APIRouter:
         if not view.can_delete:
             raise HTTPException(status_code=403)
         obj = await _object(request, session, view, pk)
+        label = view.display(obj)
         try:
             await view.on_delete(request, session, obj)
             await session.delete(obj)
@@ -534,7 +548,8 @@ def build_router(admin: "HxAdmin") -> APIRouter:
         except Exception:
             await session.rollback()
             raise
-        return admin.redirect(request, admin.url(request, f"/{view.identity}/"))
+        deleted = Toast(f"{view.name} “{label}” deleted.")
+        return admin.redirect(request, admin.url(request, f"/{view.identity}/"), toast=deleted)
 
     @router.get("/{identity}/{pk}", name="detail", response_class=HTMLResponse)
     async def detail(
