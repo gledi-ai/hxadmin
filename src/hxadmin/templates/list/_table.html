@@ -1,6 +1,13 @@
 {% import "_macros.html" as m with context %}
 {% set params = result.params %}
 {% set hx = 'hx-target="closest .hx-list"' ~ (' hx-push-url="true"' if push_url else '') %}
+{% if push_url %}
+<div id="list-state">
+  <input type="hidden" name="sort" value="{{ params.sort or '' }}">
+  <input type="hidden" name="dir" value="{{ params.dir }}">
+  <input type="hidden" name="size" value="{{ params.size }}">
+</div>
+{% endif %}
 {% if result.total == 0 %}
 <div class="rounded-lg border border-dashed border-edge p-12 text-center text-fg-muted">
   No {{ view.name_plural|lower }} found{% if params.q %} for “{{ params.q }}”{% endif %}.

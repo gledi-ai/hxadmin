@@ -102,6 +102,20 @@ def test_sort_links_carry_state(
     assert 'hx-push-url="true"' in html
 
 
+def test_toolbar_state_survives_swap(
+    factory: AppFactory, make_client: Callable[[FastAPI], TestClient]
+) -> None:
+    with make_client(build(factory)) as client:
+        full = client.get("/admin/user/?sort=email&dir=desc").text
+        partial = client.get(
+            "/admin/user/?sort=email&dir=desc", headers={"HX-Request": "true"}
+        ).text
+    assert 'hx-include="next .hx-list"' in full
+    assert 'name="sort" value="email"' in partial
+    assert 'name="dir" value="desc"' in partial
+    assert 'name="size" value="10"' in partial
+
+
 def test_empty_state(factory: AppFactory, make_client: Callable[[FastAPI], TestClient]) -> None:
     with make_client(build(factory)) as client:
         html = client.get("/admin/user/?q=nomatch").text

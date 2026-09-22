@@ -111,6 +111,35 @@ async def test_run_list_sorts_and_paginates(session: AsyncSession) -> None:
     assert [u.email for u in desc.rows] == ["eve@y.io", "dave@y.io"]
 
 
+async def test_run_list_clamps_page_to_last(session: AsyncSession) -> None:
+    await _seed_users(session)
+    view = UserView()
+    result = await run_list(
+        session, view, view.get_query(_request()), parse_list_params(_request("page=999"), view)
+    )
+    assert result.params.page == 3
+    assert [u.email for u in result.rows] == ["eve@y.io"]
+    assert (result.start, result.end) == (5, 5)
+
+
+async def test_run_list_stable_sort_uses_pk_tiebreaker(session: AsyncSession) -> None:
+    await _seed_users(session)
+    view = UserView()
+    result = await run_list(
+        session,
+        view,
+        view.get_query(_request()),
+        parse_list_params(_request("sort=active&dir=asc&size=5"), view),
+    )
+    assert [u.email for u in result.rows] == [
+        "alice@x.io",
+        "carol@x.io",
+        "bob@x.io",
+        "dave@y.io",
+        "eve@y.io",
+    ]
+
+
 async def test_run_list_searches_case_insensitively_and_escapes_wildcards(
     session: AsyncSession,
 ) -> None:
