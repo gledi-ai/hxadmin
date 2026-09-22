@@ -12,6 +12,8 @@
   --color-edge: oklch(89% 0.008 250);
   --color-accent: oklch(55% 0.18 260);
   --color-accent-fg: oklch(100% 0 0);
+  --color-danger: oklch(55% 0.2 25);
+  --color-danger-fg: oklch(100% 0 0);
 }
 
 .dark {
@@ -23,6 +25,8 @@
   --color-edge: oklch(32% 0.015 250);
   --color-accent: oklch(72% 0.15 260);
   --color-accent-fg: oklch(15% 0.02 260);
+  --color-danger: oklch(70% 0.18 25);
+  --color-danger-fg: oklch(15% 0.02 25);
 }
 
 [x-cloak] {

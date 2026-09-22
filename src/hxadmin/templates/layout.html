@@ -35,7 +35,7 @@
   </script>
   {% block head %}{% endblock %}
 </head>
-<body class="h-full bg-surface text-fg" x-data="{ sidebarOpen: false }">
+<body class="h-full bg-surface text-fg" x-data="{ sidebarOpen: false, confirm: null }" @confirm.window="confirm = $event.detail">
   <div class="flex h-full">
     <aside class="fixed inset-y-0 left-0 z-30 w-60 -translate-x-full border-r border-edge bg-surface-2 transition-transform lg:static lg:translate-x-0"
            :class="sidebarOpen && 'translate-x-0'">
@@ -83,5 +83,14 @@
     </div>
   </div>
   <div id="toasts" class="fixed bottom-4 right-4 z-50 space-y-2"></div>
+  <div x-show="confirm" x-cloak class="fixed inset-0 z-40 flex items-center justify-center bg-fg/40" @keydown.escape.window="confirm = null" role="dialog" aria-modal="true">
+    <div class="w-full max-w-sm rounded-lg border border-edge bg-surface p-6 shadow-lg" @click.outside="confirm = null">
+      <p class="text-sm" x-text="confirm && confirm.message"></p>
+      <form method="post" :action="confirm && confirm.action" class="mt-4 flex justify-end gap-2">
+        <button type="button" @click="confirm = null" class="rounded border border-edge px-3 py-1.5 text-sm hover:bg-surface-3">Cancel</button>
+        <button type="submit" class="rounded bg-danger px-3 py-1.5 text-sm font-medium text-danger-fg">Confirm</button>
+      </form>
+    </div>
+  </div>
 </body>
 </html>

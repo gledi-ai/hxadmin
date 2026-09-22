@@ -98,10 +98,14 @@ def _single(form: FormData, name: str) -> str | None:
 def _column_raw(field_: Field, form: FormData) -> Any:
     if field_.kind == "bool":
         return "on" if field_.name in form else False
-    value = _single(form, field_.name)
-    if value == "" and not (field_.required and field_.kind in _STRING_KINDS):
+    value = _single(form, field_.name) or ""
+    if value != "":
+        return value
+    if field_.nullable:
         return None
-    return value
+    if field_.kind in _STRING_KINDS:
+        return value
+    return field_.default
 
 
 def parse_form(fields: Sequence[Field | RelationField], form: FormData) -> dict[str, Any]:
@@ -221,3 +225,24 @@ def initial_values(
 
 def form_relations(fields: Sequence[Field | RelationField]) -> list[str]:
     return [f.name for f in fields if isinstance(f, RelationField)]
+
+
+async def relabel(
+    admin: "HxAdmin",
+    session: AsyncSession,
+    fields: Sequence[Field | RelationField],
+    raw: Mapping[str, Any],
+) -> dict[str, Any]:
+    """Re-resolve relation pk strings in re-submitted raw values to `(pk, label)` chips."""
+    from hxadmin.query import fetch_by_pks
+    from hxadmin.views import pk_string_for
+
+    values = dict(raw)
+    for field_ in fields:
+        if not isinstance(field_, RelationField):
+            continue
+        value = raw.get(field_.name)
+        pks = [str(v) for v in value] if isinstance(value, list) else [str(value)] if value else []
+        rows = await fetch_by_pks(session, field_.target, pks)
+        values[field_.name] = [(pk_string_for(field_.target, r), admin.display(r)) for r in rows]
+    return values

@@ -90,9 +90,9 @@ def test_parse_form_normalises_empty_checkbox_and_multi() -> None:
     raw = parse_form(view.writable_fields, form)
     assert raw == {
         "title": " Hi ",
-        "body": None,
+        "body": "",
         "status": "draft",
-        "score": None,
+        "score": 0.0,
         "published_at": None,
         "author": "1",
         "tags": ["1", "2"],

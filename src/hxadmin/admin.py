@@ -1,7 +1,7 @@
 import json
 from collections.abc import Awaitable, Callable, Mapping
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from fastapi import Depends, FastAPI
 from fastapi.staticfiles import StaticFiles
@@ -19,6 +19,7 @@ from starlette.requests import Request
 from starlette.responses import HTMLResponse, RedirectResponse, Response
 
 from hxadmin.deps import AuthDependency, SessionDependency
+from hxadmin.fields import default_widget
 from hxadmin.nav import build_nav
 from hxadmin.views import ModelView
 
@@ -69,6 +70,7 @@ class HxAdmin:
             loaders.insert(0, FileSystemLoader(str(templates_dir)))
         env = Environment(loader=ChoiceLoader(loaders), autoescape=select_autoescape(["html"]))
         env.filters["json_pretty"] = json_pretty
+        cast(dict[str, Any], env.globals)["default_widget"] = default_widget
         return env
 
     def _build_dependencies(self) -> None:
@@ -122,6 +124,12 @@ class HxAdmin:
 
     def url(self, request: Request, path: str = "/") -> str:
         return f"{request.scope.get('root_path', '')}{path}"
+
+    def redirect(self, request: Request, url: str) -> Response:
+        """Redirect after a successful write: HX-Redirect on 200 for htmx, 303 otherwise."""
+        if request.headers.get("HX-Request") == "true":
+            return Response(status_code=200, headers={"HX-Redirect": url})
+        return RedirectResponse(url, status_code=303)
 
     def render(
         self,
