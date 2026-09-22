@@ -49,6 +49,24 @@
           },
         };
       });
+      Alpine.data("toasts", function (initial) {
+        return {
+          items: [],
+          next: 0,
+          init: function () {
+            initial.forEach(this.push, this);
+          },
+          push: function (toast) {
+            var id = ++this.next;
+            var self = this;
+            this.items.push({ id: id, message: toast.message, level: toast.level || "success" });
+            setTimeout(function () { self.dismiss(id); }, toast.level === "error" ? 8000 : 4000);
+          },
+          dismiss: function (id) {
+            this.items = this.items.filter(function (t) { return t.id !== id; });
+          },
+        };
+      });
     });
   </script>
   {% block head %}{% endblock %}
@@ -100,7 +118,16 @@
       </main>
     </div>
   </div>
-  <div id="toasts" class="fixed bottom-4 right-4 z-50 space-y-2"></div>
+  <div id="toasts" class="fixed bottom-4 right-4 z-50 flex w-80 flex-col gap-2" aria-live="polite"
+       x-data="toasts({{ toasts|tojson|forceescape }})" @hxadmin-toast.window="push($event.detail)">
+    <template x-for="toast in items" :key="toast.id">
+      <div role="status" class="flex items-start gap-2 rounded-lg border border-l-4 border-edge bg-surface-2 p-3 text-sm shadow-lg"
+           :class="{ 'border-l-success': toast.level === 'success', 'border-l-accent': toast.level === 'info', 'border-l-warning': toast.level === 'warning', 'border-l-danger': toast.level === 'error' }">
+        <span class="flex-1" x-text="toast.message"></span>
+        <button type="button" @click="dismiss(toast.id)" class="text-fg-muted hover:text-fg" aria-label="Dismiss">{{ m.icon('x', 'size-4') }}</button>
+      </div>
+    </template>
+  </div>
   <div x-show="confirm" x-cloak class="fixed inset-0 z-40 flex items-center justify-center bg-fg/40" @keydown.escape.window="confirm = null" role="dialog" aria-modal="true">
     <div class="w-full max-w-sm rounded-lg border border-edge bg-surface p-6 shadow-lg" @click.outside="confirm = null">
       <p class="text-sm" x-text="confirm && confirm.message"></p>
