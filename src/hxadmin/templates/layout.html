@@ -12,9 +12,9 @@
       if (dark) document.documentElement.classList.add("dark");
     })();
   </script>
-  <link rel="stylesheet" href="{{ admin.url('/static/hxadmin.css') }}">
-  <script src="{{ admin.url('/static/vendor/htmx.min.js') }}"></script>
-  <script defer src="{{ admin.url('/static/vendor/alpine.min.js') }}"></script>
+  <link rel="stylesheet" href="{{ admin.url(request, '/static/hxadmin.css') }}">
+  <script src="{{ admin.url(request, '/static/vendor/htmx.min.js') }}"></script>
+  <script defer src="{{ admin.url(request, '/static/vendor/alpine.min.js') }}"></script>
   <script>
     document.addEventListener("alpine:init", function () {
       Alpine.data("theme", function () {
@@ -39,7 +39,7 @@
   <div class="flex h-full">
     <aside class="fixed inset-y-0 left-0 z-30 w-60 -translate-x-full border-r border-edge bg-surface-2 transition-transform lg:static lg:translate-x-0"
            :class="sidebarOpen && 'translate-x-0'">
-      <a href="{{ admin.url('/') }}" class="flex h-14 items-center px-4 text-lg font-semibold">{{ admin.title }}</a>
+      <a href="{{ admin.url(request, '/') }}" class="flex h-14 items-center px-4 text-lg font-semibold">{{ admin.title }}</a>
       <nav class="px-2 py-2" aria-label="Main">
         {% for group in nav %}
         <div x-data="{ open: true }" class="mb-2">
