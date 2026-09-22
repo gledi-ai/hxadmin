@@ -101,6 +101,7 @@ def test_not_found(factory: AppFactory, make_client: Callable[[FastAPI], TestCli
         assert client.get("/admin/post/999").status_code == 404
         assert client.get("/admin/post/abc").status_code == 404
         assert client.get("/admin/vote/1").status_code == 404
+        assert client.get("/admin/post/99999999999999999999").status_code == 404
 
 
 def test_can_view_false_is_403(

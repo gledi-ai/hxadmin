@@ -113,6 +113,7 @@ def test_parse_keeps_valid_values_in_declaration_order() -> None:
         "f.score.max=inf",
         "f.author=x",
         "f.author=1;2",
+        "f.author=99999999999999999999",
         "f.status.empty=1",
         "f.title=%20%20",
         "f.published_at.max=yesterday",
@@ -121,6 +122,12 @@ def test_parse_keeps_valid_values_in_declaration_order() -> None:
 )
 def test_parse_drops_invalid_values(query: str) -> None:
     assert parse(PostView(), query) == ()
+
+
+def test_parse_drops_out_of_range_integer_bounds() -> None:
+    filters = resolve_filters("PostView", derive_fields(Post), ("id",))
+    query = "f.id.min=99999999999999999999&f.id.max=-99999999999999999999"
+    assert parse_filters(filters, QueryParams(query)) == ()
 
 
 def test_parse_bool_and_empty() -> None:
