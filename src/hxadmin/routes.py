@@ -133,7 +133,7 @@ def build_router(admin: "HxAdmin") -> APIRouter:
         created: bool,
     ) -> Response:
         form = await request.form()
-        raw = parse_form(fields, form)
+        raw = parse_form(fields, form, created=created)
         values, errors = validate(schema, raw)
         if not errors:
             try:
@@ -147,8 +147,8 @@ def build_router(admin: "HxAdmin") -> APIRouter:
         if not errors:
             if created:
                 session.add(obj)
-            await view.on_save(request, session, obj, created=created)
             try:
+                await view.on_save(request, session, obj, created=created)
                 await session.flush()
                 pk = view.pk_of(obj)
                 await session.commit()
@@ -157,6 +157,9 @@ def build_router(admin: "HxAdmin") -> APIRouter:
                 if not created:
                     await session.refresh(obj)
                 errors = FormErrors({}, form=str(exc.orig))
+            except Exception:
+                await session.rollback()
+                raise
             else:
                 return admin.redirect(request, _after_save(request, view, pk, form.get("_then")))
         shown = await relabel(admin, request, session, fields, raw)
@@ -299,8 +302,8 @@ def build_router(admin: "HxAdmin") -> APIRouter:
         if not view.can_delete:
             raise HTTPException(status_code=403)
         obj = await _object(request, session, view, pk)
-        await view.on_delete(request, session, obj)
         try:
+            await view.on_delete(request, session, obj)
             await session.delete(obj)
             await session.commit()
         except IntegrityError as exc:
@@ -311,6 +314,9 @@ def build_router(admin: "HxAdmin") -> APIRouter:
                 {"status_code": 409, "detail": str(exc.orig)},
                 status_code=409,
             )
+        except Exception:
+            await session.rollback()
+            raise
         return admin.redirect(request, admin.url(request, f"/{view.identity}/"))
 
     @router.get("/{identity}/{pk}", name="detail", response_class=HTMLResponse)

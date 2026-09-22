@@ -45,11 +45,16 @@ def _annotation(field: Field) -> Any:
     return _TYPES[field.kind]
 
 
+def is_required(field: Field) -> bool:
+    """A `Field` with `required=None` is required exactly when its column is non-nullable."""
+    return not field.nullable if field.required is None else field.required
+
+
 def _column_definition(field: Field) -> tuple[Any, Any]:
     if field.kind == "bool":
         return bool, False
     annotation = _annotation(field)
-    if not field.required:
+    if not is_required(field):
         return annotation | None, None
     if field.kind in _STRING_KINDS:
         return annotation, PydField(min_length=1)
@@ -97,7 +102,10 @@ def _single(form: FormData, name: str) -> str | None:
     return value if isinstance(value, str) else None
 
 
-def _column_raw(field_: Field, form: FormData) -> Any:
+_OMITTED = object()
+
+
+def _column_raw(field_: Field, form: FormData, *, created: bool) -> Any:
     if field_.kind == "bool":
         return "on" if field_.name in form else False
     value = _single(form, field_.name) or ""
@@ -107,11 +115,17 @@ def _column_raw(field_: Field, form: FormData) -> Any:
         return None
     if field_.kind in _STRING_KINDS:
         return value
-    return field_.default
+    return _OMITTED if created and not is_required(field_) else value
 
 
-def parse_form(fields: Sequence[Field | RelationField], form: FormData) -> dict[str, Any]:
-    """Turn submitted form data into raw values keyed by field name."""
+def parse_form(
+    fields: Sequence[Field | RelationField], form: FormData, *, created: bool
+) -> dict[str, Any]:
+    """Turn submitted form data into raw values keyed by field name.
+
+    An empty non-nullable column is left out on create so the model default applies at
+    flush; on edit it stays in as `""` and validation reports it as required.
+    """
     raw: dict[str, Any] = {}
     for field_ in fields:
         if isinstance(field_, RelationField):
@@ -122,12 +136,14 @@ def parse_form(fields: Sequence[Field | RelationField], form: FormData) -> dict[
             else:
                 raw[field_.name] = _single(form, field_.name) or None
         elif not field_.readonly:
-            raw[field_.name] = _column_raw(field_, form)
+            value = _column_raw(field_, form, created=created)
+            if value is not _OMITTED:
+                raw[field_.name] = value
     return raw
 
 
 def _message(error: Mapping[str, Any]) -> str:
-    if error["type"] in _REQUIRED_TYPES or error.get("input") is None:
+    if error["type"] in _REQUIRED_TYPES or error.get("input") in (None, ""):
         return _REQUIRED_MESSAGE
     return str(error["msg"])
 
@@ -146,7 +162,7 @@ def validate(schema: type[BaseModel], raw: Mapping[str, Any]) -> tuple[dict[str,
             elif form is None:
                 form = str(error["msg"])
         return {}, FormErrors(fields, form)
-    return model.model_dump(), FormErrors()
+    return model.model_dump(exclude_unset=True), FormErrors()
 
 
 def _column_value(type_: TypeEngine[Any], value: Any) -> Any:

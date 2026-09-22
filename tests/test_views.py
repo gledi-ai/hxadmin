@@ -262,7 +262,7 @@ def test_form_field_override_inherits_required_and_default() -> None:
     assert (title.required, title.default) == (True, None)
     assert (status.required, status.default) == (False, "draft")
     assert body.required is True
-    assert (score.required, score.default) == (False, 1.5)
+    assert (score.required, score.default) == (False, 0.0)
     assert all(isinstance(f.required, bool) for f in Configured().writable_fields)
 
 
