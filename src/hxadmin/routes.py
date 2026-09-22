@@ -277,7 +277,7 @@ def build_router(admin: "HxAdmin") -> APIRouter:
             return admin.url(request, f"/{view.identity}/new")
         if view.can_view:
             return admin.url(request, f"/{view.identity}/{pk}")
-        return admin.url(request, f"/{view.identity}/")
+        return _list_return_url(request, admin.url(request, f"/{view.identity}/"))
 
     async def _save(
         request: Request,
@@ -547,7 +547,8 @@ def build_router(admin: "HxAdmin") -> APIRouter:
             await session.rollback()
             raise
         deleted = Toast(f"{view.name} “{label}” deleted.")
-        return admin.redirect(request, admin.url(request, f"/{view.identity}/"), toast=deleted)
+        list_url = admin.url(request, f"/{view.identity}/")
+        return admin.redirect(request, _list_return_url(request, list_url), toast=deleted)
 
     @router.get("/{identity}/{pk}", name="detail", response_class=HTMLResponse)
     async def detail(
