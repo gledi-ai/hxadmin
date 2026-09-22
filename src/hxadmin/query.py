@@ -1,4 +1,4 @@
-from collections.abc import Mapping, Sequence
+from collections.abc import Sequence
 from dataclasses import dataclass, replace
 from math import ceil
 from typing import Any
@@ -7,9 +7,11 @@ from urllib.parse import urlencode
 from sqlalchemy import Select, String, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
+from starlette.datastructures import QueryParams
 from starlette.requests import Request
 
-from hxadmin.fields import RelationField
+from hxadmin.fields import Field, RelationField
+from hxadmin.filters import Filter, FilterValue, apply_filters, escape_like, parse_filters
 from hxadmin.views import ModelView, SortDir
 
 
@@ -20,11 +22,17 @@ class ListParams:
     dir: SortDir
     page: int
     size: int
+    filters: tuple[FilterValue, ...] = ()
+
+    def filter_value(self, name: str) -> FilterValue:
+        """The active value of filter `name`, or an empty one."""
+        return next((v for v in self.filters if v.name == name), FilterValue(name))
 
     def qs(self, **changes: Any) -> str:
         merged = replace(self, **changes)
         pairs = [
             ("q", merged.q or None),
+            *(pair for value in merged.filters for pair in value.pairs()),
             ("sort", merged.sort),
             ("dir", merged.dir),
             ("page", merged.page),
@@ -68,9 +76,16 @@ def _int(value: str | None, default: int) -> int:
 
 
 def parse_list_params(
-    request: Request, view: ModelView[Any], *, query: Mapping[str, str] | None = None
+    request: Request,
+    view: ModelView[Any],
+    *,
+    query: QueryParams | None = None,
+    filters: Sequence[Filter] | None = None,
 ) -> ListParams:
-    """List params from `query` (default: the request's query string); invalid values fall back."""
+    """List params from `query` (default: the request's query string); invalid values fall back.
+
+    Only `filters` (default: all of the view's filters) are read.
+    """
     source = request.query_params if query is None else query
     default_sort, default_dir = view.default_sort or (None, "asc")
     sort = source.get("sort")
@@ -87,18 +102,15 @@ def parse_list_params(
         dir=dir_,
         page=max(1, _int(source.get("page"), 1)),
         size=size,
+        filters=parse_filters(view.filters if filters is None else filters, source),
     )
-
-
-def _escape_like(text: str) -> str:
-    return text.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
 
 
 def apply_search(stmt: Select[Any], view: ModelView[Any], q: str) -> Select[Any]:
     """Filter `stmt` with a case-insensitive substring match over `view.searchable`."""
     if not q or not view.searchable:
         return stmt
-    pattern = f"%{_escape_like(q)}%"
+    pattern = f"%{escape_like(q)}%"
     return stmt.where(
         or_(
             *(
@@ -127,26 +139,36 @@ async def count_many(session: AsyncSession, stmts: Sequence[Select[Any]]) -> lis
     return [value or 0 for value in row]
 
 
-async def run_list(
-    session: AsyncSession, view: ModelView[Any], stmt: Select[Any], params: ListParams
-) -> ListResult:
+def list_statement(view: ModelView[Any], stmt: Select[Any], params: ListParams) -> Select[Any]:
+    """`stmt` narrowed by the list's search and filters and ordered by its sort."""
     stmt = apply_search(stmt, view, params.q)
-    total = await count_rows(session, stmt)
-    pages = max(1, ceil(total / params.size))
-    if params.page > pages:
-        params = replace(params, page=pages)
+    stmt = apply_filters(stmt, view.model, view.filters, params.filters)
     if params.sort is not None:
         column = getattr(view.model, params.sort)
         order = column.desc() if params.dir == "desc" else column.asc()
         pk_columns = (getattr(view.model, name) for name in view.pk_names)
         stmt = stmt.order_by(None).order_by(order, *pk_columns)
-    stmt = stmt.options(
-        *(
-            selectinload(getattr(view.model, f.name))
-            for f in view.list_fields
-            if isinstance(f, RelationField)
-        )
+    return stmt
+
+
+def with_relations(
+    stmt: Select[Any], model: type[Any], fields: Sequence[Field | RelationField]
+) -> Select[Any]:
+    """`stmt` eager-loading every relation among `fields`."""
+    return stmt.options(
+        *(selectinload(getattr(model, f.name)) for f in fields if isinstance(f, RelationField))
     )
+
+
+async def run_list(
+    session: AsyncSession, view: ModelView[Any], stmt: Select[Any], params: ListParams
+) -> ListResult:
+    stmt = list_statement(view, stmt, params)
+    total = await count_rows(session, stmt)
+    pages = max(1, ceil(total / params.size))
+    if params.page > pages:
+        params = replace(params, page=pages)
+    stmt = with_relations(stmt, view.model, view.list_fields)
     stmt = stmt.offset((params.page - 1) * params.size).limit(params.size)
     rows = (await session.scalars(stmt)).all()
     return ListResult(rows=rows, total=total, params=params)
