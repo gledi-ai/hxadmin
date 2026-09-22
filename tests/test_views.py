@@ -1,6 +1,7 @@
 from typing import Any
 
 import pytest
+from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.requests import Request
 
 from hxadmin import HxAdmin
@@ -198,3 +199,71 @@ def test_admin_view_for_and_display(factory: AppFactory) -> None:
     assert admin.view_for(Group) is None
     assert admin.display(User(id=1, email="a@b.c")) == "a@b.c"
     assert admin.display(Vote(user_id=1, post_id=2)).startswith("<tests.conftest.Vote")
+
+
+def test_default_writable_fields_skip_autoincrement_pk_and_fk_columns() -> None:
+    view = PostView()
+    assert [f.name for f in view.writable_fields] == [
+        "title",
+        "body",
+        "status",
+        "score",
+        "published_at",
+        "author",
+        "tags",
+    ]
+    assert view.edit_fields == view.writable_fields
+    assert view.create_schema is not view.edit_schema
+    assert set(view.create_schema.model_fields) == {f.name for f in view.writable_fields}
+
+
+def test_composite_pk_stays_in_create_form_but_not_edit() -> None:
+    view = VoteView()
+    assert [f.name for f in view.writable_fields] == ["value", "user", "post"]
+    assert [f.name for f in view.edit_fields] == ["value", "user", "post"]
+
+
+def test_explicit_form_fields_and_exclude() -> None:
+    class Configured(ModelView[User]):
+        model = User
+        form_fields = (
+            Field("email", "str", "E-mail", widget="email", help_text="Login name"),
+            "active",
+            "group",
+            "id",
+        )
+        form_exclude = ("active",)
+
+    view = Configured()
+    assert [f.name for f in view.writable_fields] == ["email", "group", "id"]
+    email = view.writable_fields[0]
+    assert isinstance(email, Field)
+    assert (email.label, email.widget, email.help_text) == ("E-mail", "email", "Login name")
+    assert (email.unique, email.kind) == (True, "str")
+    assert [f.name for f in view.edit_fields] == ["email", "group"]
+
+
+def test_form_field_override_must_be_a_column() -> None:
+    class Bad(ModelView[User]):
+        model = User
+        form_fields = (Field("group", "str"),)
+
+    with pytest.raises(ValueError, match="group"):
+        Bad()
+
+
+def test_unknown_form_field_is_rejected() -> None:
+    class Bad(ModelView[User]):
+        model = User
+        form_fields = ("nope",)
+
+    with pytest.raises(ValueError, match="nope"):
+        Bad()
+
+
+@pytest.mark.anyio
+async def test_hooks_default_to_noop(session: AsyncSession) -> None:
+    view = UserView()
+    user = User(id=1, email="a@b.c")
+    assert await view.on_save(_request(), session, user, created=True) is None
+    assert await view.on_delete(_request(), session, user) is None
