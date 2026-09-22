@@ -81,3 +81,11 @@ def test_layout_bridges_htmx_confirm_into_the_modal(
     assert "@click.outside" not in html
     assert 'Alpine.data("bulk"' in html
     assert "@confirm.window" in html
+
+
+def test_row_controls_stay_visible_without_hover(
+    factory: AppFactory, make_client: MakeClient
+) -> None:
+    with make_client(build(factory)) as client:
+        listing = client.get("/admin/user/").text
+    assert "group-hover:opacity-100 focus-within:opacity-100 pointer-coarse:opacity-100" in listing

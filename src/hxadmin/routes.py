@@ -141,6 +141,8 @@ def build_router(admin: "HxAdmin") -> APIRouter:
             raise HTTPException(status_code=404)
         if declared.method != request.method:
             raise HTTPException(status_code=405, headers={"Allow": declared.method})
+        if not view.is_action_allowed(request, name):
+            raise HTTPException(status_code=403)
         return declared
 
     async def _action_input(request: Request) -> FormData | QueryParams:
