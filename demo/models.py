@@ -57,6 +57,7 @@ class Task(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     title: Mapped[str]
     status: Mapped[TaskStatus] = mapped_column(default=TaskStatus.todo)
+    priority: Mapped[int] = mapped_column(default=3)
     due_date: Mapped[date | None]
     project_id: Mapped[int] = mapped_column(ForeignKey("projects.id"))
     project: Mapped[Project] = relationship(back_populates="tasks")

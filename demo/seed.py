@@ -20,8 +20,14 @@ async def seed(session: AsyncSession) -> None:
                 title="Design homepage", project=website, assignee=ada, due_date=date(2026, 10, 1)
             ),
             Task(title="Write copy", project=website, assignee=grace, status=TaskStatus.doing),
-            Task(title="Set up analytics", project=website),
-            Task(title="Fix scheduler bug", project=kernel, assignee=linus, status=TaskStatus.done),
+            Task(title="Set up analytics", project=website, priority=5),
+            Task(
+                title="Fix scheduler bug",
+                project=kernel,
+                assignee=linus,
+                status=TaskStatus.done,
+                priority=1,
+            ),
             Task(title="Add async IO", project=kernel, assignee=ada, due_date=date(2026, 11, 15)),
             Task(title="Benchmark release", project=kernel, status=TaskStatus.todo),
         ]

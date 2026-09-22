@@ -67,7 +67,7 @@ class ProjectView(ModelView[Project]):
 class TaskView(ModelView[Task]):
     model = Task
     category = "Work"
-    list_columns = ("title", "status", "due_date", "project", "assignee")
+    list_columns = ("title", "status", "priority", "due_date", "project", "assignee")
     searchable = ("title",)
     default_sort = ("due_date", "asc")
     page_size = 5
