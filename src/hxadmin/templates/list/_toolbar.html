@@ -1,6 +1,6 @@
 {% import "_macros.html" as m with context %}
 <form class="mb-4 flex items-center gap-2" role="search"
-      hx-get="{{ base_url }}" hx-target="next .hx-list" hx-push-url="true" hx-include="next .hx-list"
+      hx-get="{{ base_url }}" hx-target="next .hx-list" hx-push-url="true" hx-include="#list-state"
       hx-trigger="input changed delay:300ms from:[name=q], submit">
   <label class="relative block w-full max-w-sm">
     <span class="pointer-events-none absolute inset-y-0 left-2 flex items-center text-fg-muted">{{ m.icon('search', 'size-4') }}</span>

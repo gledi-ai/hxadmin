@@ -110,7 +110,7 @@ def test_toolbar_state_survives_swap(
         partial = client.get(
             "/admin/user/?sort=email&dir=desc", headers={"HX-Request": "true"}
         ).text
-    assert 'hx-include="next .hx-list"' in full
+    assert 'hx-include="#list-state"' in full
     assert 'name="sort" value="email"' in partial
     assert 'name="dir" value="desc"' in partial
     assert 'name="size" value="10"' in partial
