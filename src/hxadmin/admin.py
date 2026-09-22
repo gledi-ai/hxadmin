@@ -2,7 +2,7 @@ from collections.abc import Awaitable, Callable, Mapping
 from pathlib import Path
 from typing import Any
 
-from fastapi import Depends, FastAPI, HTTPException
+from fastapi import Depends, FastAPI
 from fastapi.staticfiles import StaticFiles
 from jinja2 import (
     BaseLoader,
@@ -13,6 +13,7 @@ from jinja2 import (
     select_autoescape,
 )
 from sqlalchemy.ext.asyncio import AsyncSession
+from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.requests import Request
 from starlette.responses import HTMLResponse, RedirectResponse, Response
 
@@ -54,7 +55,7 @@ class HxAdmin:
         )
         self._build_dependencies()
         self._install_routes()
-        self.subapp.add_exception_handler(HTTPException, self._handle_http_exception)
+        self.subapp.add_exception_handler(StarletteHTTPException, self._handle_http_exception)
         app.mount(self.prefix, self.subapp, name="hxadmin")
 
     def _make_environment(self, templates_dir: str | Path | None) -> Environment:
@@ -85,7 +86,7 @@ class HxAdmin:
         self.subapp.include_router(build_router(self))
 
     async def _handle_http_exception(self, request: Request, exc: Exception) -> Response:
-        if not isinstance(exc, HTTPException):
+        if not isinstance(exc, StarletteHTTPException):
             raise exc
         if exc.status_code in (401, 403) and self.login_url is not None:
             if request.headers.get("HX-Request") == "true":
@@ -98,15 +99,15 @@ class HxAdmin:
             status_code=exc.status_code,
         )
 
-    def register(self, view_cls: type[ModelView[Any]]) -> type[ModelView[Any]]:
+    def register[V: ModelView[Any]](self, view_cls: type[V]) -> type[V]:
         view = view_cls()
         if view.identity in self.views:
             raise ValueError(f"A view with identity {view.identity!r} is already registered")
         self.views[view.identity] = view
         return view_cls
 
-    def url(self, path: str = "/") -> str:
-        return f"{self.prefix}{path}"
+    def url(self, request: Request, path: str = "/") -> str:
+        return f"{request.scope.get('root_path', '')}{path}"
 
     def render(
         self,

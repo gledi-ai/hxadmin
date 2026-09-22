@@ -26,7 +26,7 @@ def build_nav(admin: "HxAdmin", request: Request) -> list[NavGroup]:
     for view in admin.views.values():
         if not view.is_visible(request):
             continue
-        url = admin.url(f"/{view.identity}/")
+        url = admin.url(request, f"/{view.identity}/")
         item = NavItem(view.name_plural, url, view.icon, request.url.path.startswith(url))
         groups.setdefault(view.category, []).append(item)
     return [NavGroup(label, tuple(items)) for label, items in groups.items() if items]

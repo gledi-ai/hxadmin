@@ -5,9 +5,16 @@ from hxadmin.nav import NavGroup, NavItem, build_nav
 from tests.conftest import AppFactory, Group, User, allow_all
 
 
-def _request(path: str) -> Request:
+def _request(path: str, root_path: str = "/admin") -> Request:
     return Request(
-        {"type": "http", "method": "GET", "path": path, "headers": [], "query_string": b""}
+        {
+            "type": "http",
+            "method": "GET",
+            "path": path,
+            "root_path": root_path,
+            "headers": [],
+            "query_string": b"",
+        }
     )
 
 
@@ -42,3 +49,14 @@ def test_hidden_views_are_omitted(factory: AppFactory) -> None:
             return False
 
     assert build_nav(admin, _request("/admin/")) == []
+
+
+def test_active_detection_respects_mount_depth(factory: AppFactory) -> None:
+    admin = HxAdmin(factory.app(), session=factory.get_session, auth=allow_all)
+
+    @admin.register
+    class UserView(ModelView[User]):
+        model = User
+
+    nav = build_nav(admin, _request("/api/admin/user/", root_path="/api/admin"))
+    assert nav == [NavGroup(label=None, items=(NavItem("Users", "/api/admin/user/", None, True),))]

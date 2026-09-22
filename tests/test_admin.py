@@ -52,6 +52,33 @@ def test_duplicate_identity_rejected(factory: AppFactory) -> None:
             model = User
 
 
+def test_urls_respect_outer_mount_depth(
+    factory: AppFactory, make_client: Callable[[FastAPI], TestClient]
+) -> None:
+    app = factory.app()
+    HxAdmin(app, session=factory.get_session, auth=allow_all)
+    root = FastAPI()
+    root.mount("/api", app)
+    with make_client(root) as client:
+        response = client.get("/api/admin/")
+    assert response.status_code == 200
+    assert 'href="/api/admin/static/hxadmin.css"' in response.text
+    assert 'src="/api/admin/static/vendor/htmx.min.js"' in response.text
+    assert 'href="/api/admin/"' in response.text
+
+
+def test_unmatched_route_renders_error_page(
+    factory: AppFactory, make_client: Callable[[FastAPI], TestClient]
+) -> None:
+    app = factory.app()
+    HxAdmin(app, session=factory.get_session, auth=allow_all)
+    with make_client(app) as client:
+        response = client.get("/admin/nope")
+    assert response.status_code == 404
+    assert "<html" in response.text
+    assert "404" in response.text
+
+
 def test_dashboard_lists_registered_views(
     factory: AppFactory, make_client: Callable[[FastAPI], TestClient]
 ) -> None:
