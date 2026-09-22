@@ -42,6 +42,9 @@ class UserView(ModelView[User]):
     model = User
     category = "People"
     icon = "users"
+    list_columns = ("name", "email", "projects")
+    searchable = ("name", "email")
+    default_sort = ("name", "asc")
 
 
 @admin.register
@@ -49,9 +52,19 @@ class ProjectView(ModelView[Project]):
     model = Project
     category = "Work"
     icon = "table"
+    list_columns = ("name", "description", "members")
+    searchable = ("name", "description")
 
 
 @admin.register
 class TaskView(ModelView[Task]):
     model = Task
     category = "Work"
+    list_columns = ("title", "status", "due_date", "project", "assignee")
+    searchable = ("title",)
+    default_sort = ("due_date", "asc")
+    page_size = 5
+    page_size_options = (5, 25, 100)
+
+    def format_status(self, obj: Task) -> str:
+        return obj.status.value.upper()
