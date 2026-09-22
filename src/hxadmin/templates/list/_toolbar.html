@@ -15,7 +15,7 @@
     </label>
     {% if filters %}
     <button type="button" @click="open = !open" :aria-expanded="open" aria-controls="filter-panel"
-            class="inline-flex items-center gap-1 rounded-md border border-border px-3 py-1.5 text-sm hover:bg-surface-2">{{ m.icon('funnel', 'size-4') }} Filters
+            class="{{ m.button_classes('secondary') }}">{{ m.icon('funnel', 'size-4') }} Filters
       <span x-show="active" x-text="active"{% if not params.filters %} x-cloak{% endif %} class="rounded-full bg-accent px-1.5 text-xs text-accent-fg">{{ params.filters|length }}</span></button>
     {% endif %}
   </div>

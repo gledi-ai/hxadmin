@@ -62,7 +62,9 @@ def build(factory: AppFactory) -> FastAPI:
 
 def card_count(html: str, url: str) -> str | None:
     match = re.search(
-        rf'<a href="{re.escape(url)}" class="rounded-lg.*?tabular-nums">(\d+)</div>', html, re.S
+        rf'<a href="{re.escape(url)}" class="[^"]*rounded-lg.*?tabular-nums">(\d+)</div>',
+        html,
+        re.S,
     )
     return match.group(1) if match else None
 

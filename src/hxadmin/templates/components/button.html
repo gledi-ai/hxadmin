@@ -1,0 +1,79 @@
+{#-
+  Buttons.
+
+  Shared arguments (every component except tooltip and kbd takes them):
+    class   extra classes, appended to the component's own. Use them for layout (margins,
+            widths, flex); the look comes from variant, size and tone.
+    attrs   a mapping of extra HTML attributes, for names that are not identifiers:
+            attrs={"@click": "open = true", ":disabled": "busy"}.
+    kwargs  more extra attributes, with "_" turned into "-": hx_post=url -> hx-post="...".
+    For both, None and False drop the attribute and True renders it bare (disabled).
+
+  button(label, variant="secondary", size="md", icon=None, href=None, type="button",
+         disabled=False, class="", attrs=None, **kwargs)
+    A text button. variant: primary | secondary | ghost | danger. size: sm (32px) | md (36px).
+    icon: a Lucide name shown before the label. With href it renders an <a>; a disabled link
+    loses its href and gets aria-disabled="true". Called with {% call %}, the block replaces
+    the label as the button content.
+
+  icon_button(icon, label, variant="ghost", size="md", href=None, type="button",
+              disabled=False, class="", attrs=None, **kwargs)
+    A square icon-only button. label is required and becomes the aria-label. Variants are as
+    for button, except that ghost uses muted text and danger is a ghost button in the danger
+    colour (a solid red square reads as an alarm, not an action).
+
+  button_classes(variant="secondary", size="md", square=False)
+    The class string of a button (square=True: of an icon_button), for elements these macros
+    do not render, such as popover and menu triggers or action buttons.
+
+  Examples:
+    {{ m.button("Save", "primary", type="submit") }}
+    {{ m.button("New task", "primary", icon="plus", href=new_url) }}
+    {{ m.button("Save and add another", type="submit", name="_then", value="another") }}
+    {{ m.icon_button("x", "Close", size="sm", attrs={"@click": "open = false"}) }}
+-#}
+{% from "components/icon.html" import icon as _icon %}
+{% set _base = "inline-flex shrink-0 items-center justify-center whitespace-nowrap rounded-md text-sm font-medium transition-colors select-none disabled:pointer-events-none disabled:opacity-50 aria-disabled:pointer-events-none aria-disabled:opacity-50" %}
+{% set _variants = {
+  "primary": "bg-accent text-accent-fg shadow-sm hover:bg-accent/90",
+  "secondary": "border border-border bg-surface text-fg shadow-sm hover:bg-surface-2",
+  "ghost": "text-fg hover:bg-surface-2",
+  "danger": "bg-danger text-danger-fg shadow-sm hover:bg-danger/90",
+} %}
+{% set _square_variants = {
+  "primary": "bg-accent text-accent-fg shadow-sm hover:bg-accent/90",
+  "secondary": "border border-border bg-surface text-fg shadow-sm hover:bg-surface-2",
+  "ghost": "text-fg-muted hover:bg-surface-2 hover:text-fg",
+  "danger": "text-danger hover:bg-danger-soft",
+} %}
+{% set _sizes = {"sm": "h-8 gap-1.5 px-2.5", "md": "h-9 gap-2 px-3"} %}
+{% set _square_sizes = {"sm": "size-8", "md": "size-9"} %}
+
+{% macro button_classes(variant="secondary", size="md", square=False) -%}
+{%- if square -%}
+{{ _base }} {{ hx_pick(_square_variants, variant, "button variant") }} {{ hx_pick(_square_sizes, size, "button size") }}
+{%- else -%}
+{{ _base }} {{ hx_pick(_variants, variant, "button variant") }} {{ hx_pick(_sizes, size, "button size") }}
+{%- endif -%}
+{%- endmacro %}
+
+{% macro _element(classes, href, type, disabled, attrs, kwargs) -%}
+{%- if href is not none -%}
+<a{% if not disabled %} href="{{ href }}"{% else %} aria-disabled="true"{% endif %} class="{{ classes }}"{{ hx_attrs(attrs, kwargs) }}>{{ caller() }}</a>
+{%- else -%}
+<button type="{{ type }}" class="{{ classes }}"{% if disabled %} disabled{% endif %}{{ hx_attrs(attrs, kwargs) }}>{{ caller() }}</button>
+{%- endif -%}
+{%- endmacro %}
+
+{% macro button(label, variant="secondary", size="md", icon=None, href=None, type="button", disabled=False, class="", attrs=None) -%}
+{%- set content = caller() if caller else label -%}
+{%- call _element((button_classes(variant, size) ~ " " ~ class)|trim, href, type, disabled, attrs, kwargs) -%}
+{%- if icon %}{{ _icon(icon, "size-4 shrink-0") }}{% endif %}{{ content }}
+{%- endcall -%}
+{%- endmacro %}
+
+{% macro icon_button(icon, label, variant="ghost", size="md", href=None, type="button", disabled=False, class="", attrs=None) -%}
+{%- call _element((button_classes(variant, size, True) ~ " " ~ class)|trim, href, type, disabled, dict({"aria-label": label}, **(attrs or {})), kwargs) -%}
+{{ _icon(icon, "size-4") }}
+{%- endcall -%}
+{%- endmacro %}

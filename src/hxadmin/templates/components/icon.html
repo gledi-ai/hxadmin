@@ -1,0 +1,14 @@
+{#-
+  Icons.
+
+  icon(name, class="size-4")
+    Inlines the vendored Lucide icon `name` (https://lucide.dev/icons) as an SVG with
+    stroke="currentColor" and aria-hidden="true". `class` sets its size and colour.
+    An unknown name raises ValueError at render time.
+
+  Example:
+    {{ m.icon("inbox", "size-5 text-fg-muted") }}
+-#}
+{% macro icon(name, class="size-4") -%}
+{{ lucide_icon(name, class) }}
+{%- endmacro %}

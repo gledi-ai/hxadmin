@@ -9,10 +9,10 @@
       <option value="{{ option }}" {{ 'selected' if option == params.size }}>{{ option }} / page</option>
       {% endfor %}
     </select>
-    <a {% if result.has_prev %}href="{{ base_url }}?{{ params.qs(page=params.page - 1) }}" hx-get="{{ base_url }}?{{ params.qs(page=params.page - 1) }}" {{ hx|safe }}{% else %}aria-disabled="true"{% endif %}
-       class="rounded-md border border-border p-1 hover:bg-surface-2 aria-disabled:opacity-40" aria-label="Previous page">{{ m.icon('chevron-left', 'size-4') }}</a>
+    {% set prev_url = base_url ~ '?' ~ params.qs(page=params.page - 1) if result.has_prev else none %}
+    {% set next_url = base_url ~ '?' ~ params.qs(page=params.page + 1) if result.has_next else none %}
+    {{ m.icon_button('chevron-left', 'Previous page', 'secondary', 'sm', href=prev_url or '', disabled=not result.has_prev, hx_get=prev_url, hx_target='closest .hx-list' if prev_url, hx_push_url='true' if prev_url and push_url) }}
     <span>{{ params.page }} / {{ result.pages }}</span>
-    <a {% if result.has_next %}href="{{ base_url }}?{{ params.qs(page=params.page + 1) }}" hx-get="{{ base_url }}?{{ params.qs(page=params.page + 1) }}" {{ hx|safe }}{% else %}aria-disabled="true"{% endif %}
-       class="rounded-md border border-border p-1 hover:bg-surface-2 aria-disabled:opacity-40" aria-label="Next page">{{ m.icon('chevron-right', 'size-4') }}</a>
+    {{ m.icon_button('chevron-right', 'Next page', 'secondary', 'sm', href=next_url or '', disabled=not result.has_next, hx_get=next_url, hx_target='closest .hx-list' if next_url, hx_push_url='true' if next_url and push_url) }}
   </div>
 </div>
