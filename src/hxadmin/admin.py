@@ -23,7 +23,7 @@ from hxadmin.deps import AuthDependency, SessionDependency
 from hxadmin.fields import default_widget
 from hxadmin.nav import build_nav, build_search_targets
 from hxadmin.pages import AdminPage, PageEndpoint, PageHandler
-from hxadmin.toasts import FLASH_COOKIE, Toast, encode_flash, read_flash
+from hxadmin.toasts import FLASH_COOKIE, Toast, encode_flash, hx_trigger, read_flash
 from hxadmin.views import ModelView
 
 
@@ -125,10 +125,18 @@ class HxAdmin:
     async def _handle_http_exception(self, request: Request, exc: Exception) -> Response:
         if not isinstance(exc, StarletteHTTPException):
             raise exc
-        if exc.status_code in (401, 403) and self.login_url is not None:
-            if request.headers.get("HX-Request") == "true":
+        htmx = request.headers.get("HX-Request") == "true"
+        authenticated = hasattr(request.state, "hxadmin_user")
+        if exc.status_code in (401, 403) and self.login_url is not None and not authenticated:
+            if htmx:
                 return Response(status_code=200, headers={"HX-Redirect": self.login_url})
             return RedirectResponse(self.login_url, status_code=303)
+        if htmx:
+            toast = Toast(str(exc.detail), "error")
+            return Response(
+                status_code=exc.status_code,
+                headers={"HX-Trigger": hx_trigger(toast), "HX-Reswap": "none"},
+            )
         return self.render(
             request,
             "error.html",
