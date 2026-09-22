@@ -353,8 +353,8 @@ def test_edit_composite_pk(factory: AppFactory, make_client: MakeClient) -> None
     with make_client(build(factory)) as client:
         form = client.get("/admin/vote/2;1/edit")
         assert form.status_code == 200
-        assert '{"label": "bob@x.io", "pk": "2"}' in form.text
-        assert '{"label": "Hello", "pk": "1"}' in form.text
+        assert 'id="f-user_id" type="text" value="2" disabled' in form.text
+        assert 'id="f-post_id" type="text" value="1" disabled' in form.text
         response = client.post(
             "/admin/vote/2;1/edit",
             data={"value": "9", "user": "2", "post": "1"},
@@ -369,3 +369,30 @@ def test_edit_composite_pk(factory: AppFactory, make_client: MakeClient) -> None
 def test_edit_not_found(factory: AppFactory, make_client: MakeClient) -> None:
     with make_client(build(factory)) as client:
         assert client.get("/admin/post/999/edit").status_code == 404
+
+
+def test_edit_unknown_relation_with_conflicting_column_is_422(
+    factory: AppFactory, make_client: MakeClient
+) -> None:
+    with make_client(build(factory)) as client:
+        response = client.post(
+            "/admin/user/1/edit", data={"email": "bob@x.io", "active": "on", "group": "999"}
+        )
+        detail = client.get("/admin/user/1").text
+    assert response.status_code == 422
+    assert "Unknown selection." in response.text
+    assert "ada@x.io" in detail
+
+
+def test_edit_ignores_identifying_relations(factory: AppFactory, make_client: MakeClient) -> None:
+    with make_client(build(factory)) as client:
+        form = client.get("/admin/vote/2;1/edit").text
+        assert 'name="user"' not in form
+        assert 'name="post"' not in form
+        response = client.post(
+            "/admin/vote/2;1/edit", data={"value": "7", "user": "1"}, follow_redirects=False
+        )
+        assert response.status_code == 303
+        assert response.headers["location"] == "/admin/vote/2;1"
+        assert client.get("/admin/vote/1;1").status_code == 404
+        assert ">7<" in client.get("/admin/vote/2;1").text

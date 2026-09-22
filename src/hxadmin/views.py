@@ -70,8 +70,15 @@ class ModelView[T]:
             name for name in self.fields if callable(getattr(self, f"format_{name}", None))
         )
         self.writable_fields = self._resolve_form_fields()
+        pk_names = set(self.pk_names)
         self.edit_fields = tuple(
-            f for f in self.writable_fields if not (isinstance(f, Field) and f.primary_key)
+            f
+            for f in self.writable_fields
+            if not (
+                f.primary_key
+                if isinstance(f, Field)
+                else f.fk_columns and pk_names.issuperset(f.fk_columns)
+            )
         )
         self.create_schema: type[BaseModel] = build_schema(self.model, self.writable_fields)
         self.edit_schema: type[BaseModel] = build_schema(self.model, self.edit_fields)
