@@ -24,7 +24,7 @@ class Page:
 
 @dataclass(frozen=True, slots=True)
 class AdminPage:
-    """A registered custom page or route; exposed to templates as `page`."""
+    """A registered custom page or route; templates see it as `admin_page` (and `page`)."""
 
     path: str
     title: str
@@ -67,7 +67,6 @@ class PageEndpoint:
             request = kwargs[self.request_param]
         result = await self.handler(**kwargs)
         if isinstance(result, Page):
-            return self.admin.render(
-                request, result.template, {**result.context, "page": self.page}
-            )
+            context = {"page": self.page, **result.context, "admin_page": self.page}
+            return self.admin.render(request, result.template, context)
         return result

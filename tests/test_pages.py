@@ -245,3 +245,22 @@ def test_duplicate_page_registrations_are_rejected(factory: AppFactory) -> None:
         @admin.page("/sync", title="Sync again", methods=("POST",))
         async def post() -> Page:
             return Page("page.html")
+
+
+def test_handler_context_keeps_its_own_page_key(
+    factory: AppFactory, make_client: MakeClient, tmp_path: Path
+) -> None:
+    (tmp_path / "paged.html").write_text(
+        '{% extends "page.html" %}{% block body %}page={{ page }}{% endblock %}'
+    )
+    app = factory.app()
+    admin = HxAdmin(app, session=factory.get_session, auth=allow_all, templates_dir=tmp_path)
+
+    @admin.page("/paged", title="Paged")
+    async def paged() -> Page:
+        return Page("paged.html", {"page": 3})
+
+    with make_client(app) as client:
+        html = client.get("/admin/paged").text
+    assert "page=3" in html
+    assert "<title>Paged · HxAdmin</title>" in html
