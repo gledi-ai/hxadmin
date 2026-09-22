@@ -11,6 +11,14 @@
   <input type="hidden" name="size" value="{{ params.size }}">
 </div>
 {% endif %}
+{% if chips %}
+<div class="mb-3 flex flex-wrap items-center gap-2" aria-label="Active filters">
+  {% for chip in chips %}
+  <span class="inline-flex items-center gap-1 rounded-full border border-edge bg-surface-2 py-0.5 pl-2.5 pr-1 text-xs">{{ chip.label }}<button type="button" class="rounded-full p-0.5 text-fg-muted hover:bg-surface-3 hover:text-fg" aria-label="Remove filter {{ chip.label }}"
+      @click="hxadminClearFilter({{ chip.input|tojson|forceescape }}, {{ chip.value|tojson|forceescape }})">{{ m.icon('x', 'size-3') }}</button></span>
+  {% endfor %}
+</div>
+{% endif %}
 {% if result.total == 0 %}
 <div class="rounded-lg border border-dashed border-edge p-12 text-center text-fg-muted">
   No {{ view.name_plural|lower }} found{% if params.q %} for “{{ params.q }}”{% endif %}.

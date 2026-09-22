@@ -1,5 +1,6 @@
 import logging
 from collections.abc import Sequence
+from dataclasses import replace
 from typing import TYPE_CHECKING, Annotated, Any, cast
 from urllib.parse import urlsplit
 
@@ -16,6 +17,7 @@ from starlette.responses import HTMLResponse, Response
 
 from hxadmin.actions import Action, ActionResult
 from hxadmin.fields import Field, RelationField
+from hxadmin.filters import filter_chips, relation_labels, visible_filters
 from hxadmin.forms import (
     FormErrors,
     apply,
@@ -71,15 +73,33 @@ def _list_return_url(request: Request, list_url: str) -> str:
 def build_router(admin: "HxAdmin") -> APIRouter:
     router = APIRouter(dependencies=[Depends(admin.current_user)])
 
+    def _scoped(request: Request, view: ModelView[Any], params: ListParams) -> ListParams:
+        names = {f.name for f in visible_filters(admin, request, view.filters)}
+        return replace(params, filters=tuple(v for v in params.filters if v.name in names))
+
     async def _list_context(
-        request: Request, session: AsyncSession, view: ModelView[Any], params: ListParams
+        request: Request,
+        session: AsyncSession,
+        view: ModelView[Any],
+        params: ListParams,
+        *,
+        panel: bool = False,
     ) -> dict[str, Any]:
+        """List template context; `panel` also loads the filter panel's relation options."""
+        filters = visible_filters(admin, request, view.filters)
+        params = _scoped(request, view, params)
         result = await run_list(session, view, view.get_query(request), params)
+        labels = await relation_labels(
+            admin, request, session, filters, params.filters, with_options=panel
+        )
         return {
             "view": view,
             "result": result,
             "base_url": admin.url(request, f"/{view.identity}/"),
             "push_url": True,
+            "filters": filters,
+            "filter_options": labels,
+            "chips": filter_chips(filters, params.filters, labels),
         }
 
     async def _detail_context(
@@ -183,10 +203,10 @@ def build_router(admin: "HxAdmin") -> APIRouter:
         session: Annotated[AsyncSession, Depends(admin.current_session)],
     ) -> HTMLResponse:
         view = _view(admin, request, identity)
-        context = await _list_context(request, session, view, parse_list_params(request, view))
-        return admin.render(
-            request, "list/_table.html" if _is_htmx(request) else "list.html", context
-        )
+        htmx = _is_htmx(request)
+        params = parse_list_params(request, view)
+        context = await _list_context(request, session, view, params, panel=not htmx)
+        return admin.render(request, "list/_table.html" if htmx else "list.html", context)
 
     async def _object(
         request: Request,
