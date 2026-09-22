@@ -1,3 +1,5 @@
+from typing import Any
+
 from starlette.requests import Request
 
 from hxadmin.views import ModelView
@@ -37,6 +39,26 @@ def test_explicit_attributes_win() -> None:
     assert (view.name, view.name_plural, view.identity) == ("Team", "Teams", "teams")
     assert view.category == "Auth"
     assert view.icon == "users"
+
+
+def test_subclass_inherits_parent_naming() -> None:
+    class Sub(GroupView):
+        pass
+
+    assert (Sub.name, Sub.name_plural, Sub.identity) == ("Team", "Teams", "teams")
+
+
+def test_subclass_redefining_model_rederives_defaults() -> None:
+    class Configured(ModelView[Any]):
+        model: Any = Group
+        name = "Team"
+        name_plural = "Teams"
+        identity = "teams"
+
+    class Sub(Configured):
+        model = User
+
+    assert (Sub.name, Sub.name_plural, Sub.identity) == ("User", "Users", "user")
 
 
 def test_model_is_required() -> None:
