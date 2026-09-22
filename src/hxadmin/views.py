@@ -1,16 +1,15 @@
 from collections.abc import Sequence
 from dataclasses import replace
-from typing import Any, ClassVar, Literal, cast
+from typing import Any, ClassVar, Literal
 
 from pydantic import BaseModel
-from sqlalchemy import ColumnElement, Select, inspect, select
+from sqlalchemy import ColumnElement, Select, select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import Mapper
-from sqlalchemy.types import TypeEngine
 from starlette.requests import Request
 
 from hxadmin.fields import Field, RelationField, derive_fields
 from hxadmin.forms import build_schema
+from hxadmin.pk import pk_clauses_for, pk_string_for
 
 type SortDir = Literal["asc", "desc"]
 
@@ -154,37 +153,3 @@ class ModelView[T]:
 
     def is_accessible(self, request: Request) -> bool:
         return True
-
-
-def _pk_keys(mapper: Mapper[Any]) -> list[tuple[str, ColumnElement[Any]]]:
-    return [(mapper.get_property_by_column(c).key, c) for c in mapper.primary_key]
-
-
-def pk_string_for(model: type[Any], obj: Any) -> str:
-    """Join the primary key values of `obj` with `;` in mapper primary-key order."""
-    mapper = cast(Mapper[Any], inspect(model))
-    return ";".join(str(getattr(obj, key)) for key, _ in _pk_keys(mapper))
-
-
-def pk_clauses_for(model: type[Any], pk: str) -> list[ColumnElement[bool]]:
-    """Turn a `;`-joined pk string into equality clauses; ValueError if it does not fit."""
-    mapper = cast(Mapper[Any], inspect(model))
-    keys = _pk_keys(mapper)
-    raw = pk.split(";")
-    if len(raw) != len(keys):
-        raise ValueError(pk)
-    return [
-        getattr(model, key) == _coerce(column.type, value)
-        for (key, column), value in zip(keys, raw, strict=True)
-    ]
-
-
-def _coerce(type_: TypeEngine[Any], value: str) -> Any:
-    try:
-        python_type = type_.python_type
-    except NotImplementedError:
-        return value
-    try:
-        return python_type(value)
-    except (TypeError, ValueError):
-        raise ValueError(value) from None

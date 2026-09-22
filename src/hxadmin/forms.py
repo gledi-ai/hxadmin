@@ -16,6 +16,7 @@ from starlette.datastructures import FormData
 from starlette.requests import Request
 
 from hxadmin.fields import Field, FieldKind, RelationField
+from hxadmin.pk import fetch_by_pks, pk_string_for
 
 if TYPE_CHECKING:
     from hxadmin.admin import HxAdmin
@@ -168,8 +169,6 @@ def relation_scope(admin: "HxAdmin", request: Request, field_: RelationField) ->
 async def _relation_value(
     session: AsyncSession, stmt: Select[Any], field_: RelationField, value: Any
 ) -> Any:
-    from hxadmin.query import fetch_by_pks
-
     if field_.multiple:
         pks = list(dict.fromkeys(str(v) for v in value))
         rows = await fetch_by_pks(session, field_.target, pks, stmt=stmt)
@@ -207,8 +206,6 @@ async def apply(
 
 
 def _relation_initial(admin: "HxAdmin", field_: RelationField, obj: Any) -> list[tuple[str, str]]:
-    from hxadmin.views import pk_string_for
-
     related = getattr(obj, field_.name)
     items = related if field_.multiple else ([] if related is None else [related])
     return [(pk_string_for(field_.target, item), admin.display(item)) for item in items]
@@ -251,9 +248,6 @@ async def relabel(
     raw: Mapping[str, Any],
 ) -> dict[str, Any]:
     """Re-resolve relation pk strings in re-submitted raw values to `(pk, label)` chips."""
-    from hxadmin.query import fetch_by_pks
-    from hxadmin.views import pk_string_for
-
     values = dict(raw)
     for field_ in fields:
         if not isinstance(field_, RelationField):

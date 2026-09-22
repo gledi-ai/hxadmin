@@ -20,8 +20,9 @@ from hxadmin.forms import (
     relabel,
     validate,
 )
+from hxadmin.pk import pk_string_for
 from hxadmin.query import apply_search, fetch_one, parse_list_params, run_list
-from hxadmin.views import ModelView, pk_string_for
+from hxadmin.views import ModelView
 
 if TYPE_CHECKING:
     from hxadmin.admin import HxAdmin
