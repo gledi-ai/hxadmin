@@ -1,6 +1,48 @@
-{% macro icon(name, class="size-4") -%}
-{{ lucide_icon(name, class) }}
-{%- endmacro %}
+{#-
+  The macro library. Import it with {% import "_macros.html" as m with context %}.
+
+  Components live in templates/components/*.html (each documented at the top of its file)
+  and are re-exported here, so m.button(...) and friends work. Override one by putting a
+  template of the same name, such as components/button.html, in your templates_dir.
+
+  icon.html      icon
+  button.html    button, icon_button, button_classes
+  badge.html     badge
+  card.html      card
+  menu.html      popover, menu, menu_item, menu_separator, menu_label
+  dialog.html    dialog, dialog_footer
+  feedback.html  empty_state, stat, alert
+  misc.html      tooltip, kbd
+
+  The macros below render admin-specific pieces (cells, row actions, filters) and need the
+  request context.
+-#}
+{% import "components/icon.html" as _icon_module %}
+{% import "components/button.html" as _button_module %}
+{% import "components/badge.html" as _badge_module %}
+{% import "components/card.html" as _card_module %}
+{% import "components/menu.html" as _menu_module %}
+{% import "components/dialog.html" as _dialog_module %}
+{% import "components/feedback.html" as _feedback_module %}
+{% import "components/misc.html" as _misc_module %}
+{% set icon = _icon_module.icon %}
+{% set button = _button_module.button %}
+{% set icon_button = _button_module.icon_button %}
+{% set button_classes = _button_module.button_classes %}
+{% set badge = _badge_module.badge %}
+{% set card = _card_module.card %}
+{% set popover = _menu_module.popover %}
+{% set menu = _menu_module.menu %}
+{% set menu_item = _menu_module.menu_item %}
+{% set menu_separator = _menu_module.menu_separator %}
+{% set menu_label = _menu_module.menu_label %}
+{% set dialog = _dialog_module.dialog %}
+{% set dialog_footer = _dialog_module.dialog_footer %}
+{% set empty_state = _feedback_module.empty_state %}
+{% set stat = _feedback_module.stat %}
+{% set alert = _feedback_module.alert %}
+{% set tooltip = _misc_module.tooltip %}
+{% set kbd = _misc_module.kbd %}
 
 {% macro cell(view, field, value) -%}
 {%- if field.name in view.formatted -%}

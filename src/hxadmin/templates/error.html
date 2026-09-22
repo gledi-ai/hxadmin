@@ -1,9 +1,10 @@
 {% extends "layout.html" %}
+{% import "_macros.html" as m with context %}
 {% block breadcrumb %}Error {{ status_code }}{% endblock %}
 {% block content %}
-<div class="mx-auto max-w-lg rounded-lg border border-border bg-surface p-6">
+{% call m.card(class='mx-auto max-w-lg') %}
   <h1 class="text-xl font-semibold">{{ status_code }}</h1>
   <p class="mt-2 text-fg-muted">{{ detail }}</p>
-  <a href="{{ admin.url(request, '/') }}" class="mt-4 inline-block text-accent">Back to dashboard</a>
-</div>
+  {{ m.button('Back to dashboard', href=admin.url(request, '/'), class='mt-4') }}
+{% endcall %}
 {% endblock %}

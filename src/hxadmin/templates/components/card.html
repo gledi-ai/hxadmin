@@ -1,0 +1,34 @@
+{#-
+  Cards. Shared arguments (class, attrs, kwargs): see components/button.html.
+
+  card(title=None, description=None, href=None, padded=True, class="", attrs=None, **kwargs)
+    A bordered surface for grouping content; the {% call %} block is the body. With title
+    (and optionally description) it gets a header. padded=False drops the body padding (and
+    separates the header with a border), for tables and lists that run edge to edge. With
+    href the whole card is a link with a hover border.
+
+  Examples:
+    {% call m.card("Details", "Shown to every user") %}<p>…</p>{% endcall %}
+    {% call m.card(padded=False) %}<table>…</table>{% endcall %}
+-#}
+
+{% macro card(title=None, description=None, href=None, padded=True, class="", attrs=None) -%}
+{%- set tag = "a" if href is not none else "div" -%}
+<{{ tag }}{% if href is not none %} href="{{ href }}"{% endif %} class="{{ ('block rounded-lg border border-border bg-surface text-fg shadow-sm' ~ (' transition-colors hover:border-fg-subtle' if href is not none else '') ~ ' ' ~ class)|trim }}"{{ hx_attrs(attrs, kwargs) }}>
+  {%- if title %}
+  <div class="flex flex-col gap-1 px-4 {{ 'pt-4' if padded else 'border-b border-border py-3' }}">
+    <h3 class="text-sm font-semibold">{{ title }}</h3>
+    {%- if description %}
+    <p class="text-sm text-fg-muted">{{ description }}</p>
+    {%- endif %}
+  </div>
+  {%- endif %}
+  {%- if caller %}
+  {%- if padded %}
+  <div class="{{ 'px-4 pb-4 pt-3' if title else 'p-4' }}">{{ caller() }}</div>
+  {%- else %}
+  {{ caller() }}
+  {%- endif %}
+  {%- endif %}
+</{{ tag }}>
+{%- endmacro %}

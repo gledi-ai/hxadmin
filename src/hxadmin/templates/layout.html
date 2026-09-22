@@ -33,6 +33,44 @@
           },
         };
       });
+      Alpine.data("hxPopover", function (kind) {
+        return {
+          expanded: false,
+          toggle: function () {
+            if (this.expanded) this.close(false);
+            else this.show(0);
+          },
+          show: function (index) {
+            var self = this;
+            this.expanded = true;
+            this.$nextTick(function () {
+              if (kind === "menu") return self.focusItem(index);
+              var first = self.$focus.within(self.$refs.panel).getFirst();
+              (first || self.$refs.panel).focus();
+            });
+          },
+          close: function (restore) {
+            if (!this.expanded) return;
+            this.expanded = false;
+            if (restore) this.$refs.trigger.focus();
+          },
+          leave: function (event) {
+            if (event.relatedTarget && !this.$root.contains(event.relatedTarget)) this.close(false);
+          },
+          items: function () {
+            return Array.prototype.slice.call(this.$refs.panel.querySelectorAll("[role^=menuitem]:not([aria-disabled=true]):not(:disabled)"));
+          },
+          focusItem: function (index) {
+            var items = this.items();
+            if (!items.length) return this.$refs.panel.focus();
+            items[((index % items.length) + items.length) % items.length].focus();
+          },
+          move: function (delta) {
+            var at = this.items().indexOf(document.activeElement);
+            this.focusItem(at < 0 ? (delta > 0 ? 0 : -1) : at + delta);
+          },
+        };
+      });
       Alpine.data("combobox", function (name, multiple, initial) {
         return {
           name: name,
@@ -141,7 +179,7 @@
     </aside>
     <div class="flex min-w-0 flex-1 flex-col">
       <header class="flex h-14 items-center gap-3 border-b border-border bg-surface px-4">
-        <button type="button" class="lg:hidden" @click="sidebarOpen = !sidebarOpen" aria-label="Toggle navigation">{{ m.icon('menu') }}</button>
+        {{ m.icon_button('menu', 'Toggle navigation', class='lg:hidden', attrs={'@click': 'sidebarOpen = !sidebarOpen'}) }}
         <div class="min-w-0 flex-1 truncate text-sm text-fg-muted">{% block breadcrumb %}{% endblock %}</div>
         {% if search_targets %}
         {% set current = search_targets|selectattr('active')|first %}
@@ -156,14 +194,14 @@
         </form>
         {% endif %}
         <div x-data="theme()" x-init="apply()">
-          <button type="button" @click="cycle()" class="rounded-md p-1.5 hover:bg-surface-2" :title="'Theme: ' + mode" aria-label="Switch theme">
+          <button type="button" @click="cycle()" class="{{ m.button_classes('ghost', square=True) }}" :title="'Theme: ' + mode" aria-label="Switch theme">
             <span x-show="mode === 'light'">{{ m.icon('sun') }}</span>
             <span x-show="mode === 'dark'" x-cloak>{{ m.icon('moon') }}</span>
             <span x-show="mode === 'system'" x-cloak>{{ m.icon('monitor') }}</span>
           </button>
         </div>
         {% if user %}<span class="text-sm">{{ user.name if user.name is defined else user }}</span>{% endif %}
-        {% if admin.logout_url %}<a href="{{ admin.logout_url }}" class="rounded-md p-1.5 hover:bg-surface-2" aria-label="Log out">{{ m.icon('log-out') }}</a>{% endif %}
+        {% if admin.logout_url %}{{ m.icon_button('log-out', 'Log out', href=admin.logout_url) }}{% endif %}
       </header>
       <main id="main" class="flex-1 overflow-y-auto p-6">
         {% block content %}{% endblock %}
@@ -185,8 +223,8 @@
       <p class="text-sm" x-text="confirm && confirm.message"></p>
       <form method="post" :action="confirm && confirm.action" class="mt-4 flex justify-end gap-2"
             @submit="if (confirm && confirm.submit) { $event.preventDefault(); var run = confirm.submit; confirm = null; run(); }">
-        <button type="button" @click="dismiss()" class="rounded-md border border-border px-3 py-1.5 text-sm hover:bg-surface-2">Cancel</button>
-        <button type="submit" class="rounded-md bg-danger px-3 py-1.5 text-sm font-medium text-danger-fg">Confirm</button>
+        {{ m.button('Cancel', attrs={'@click': 'dismiss()'}) }}
+        {{ m.button('Confirm', 'danger', type='submit') }}
       </form>
     </div>
   </div>

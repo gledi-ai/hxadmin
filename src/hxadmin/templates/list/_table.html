@@ -20,11 +20,9 @@
 </div>
 {% endif %}
 {% if result.total == 0 %}
-<div class="rounded-lg border border-dashed border-border bg-surface p-12 text-center text-fg-muted">
-  No {{ view.name_plural|lower }} found{% if params.q %} for “{{ params.q }}”{% endif %}.
-</div>
+{{ m.empty_state('inbox', 'No ' ~ view.name_plural|lower ~ ' found', 'Nothing matches “' ~ params.q ~ '”.' if params.q else none, class='bg-surface') }}
 {% else %}
-<div class="overflow-x-auto rounded-lg border border-border bg-surface">
+{% call m.card(padded=False, class='overflow-x-auto') %}
   <table class="w-full text-sm">
     <thead class="bg-surface-2 text-left text-xs uppercase tracking-wide text-fg-muted">
       <tr>
@@ -68,6 +66,6 @@
       {% endfor %}
     </tbody>
   </table>
-</div>
+{% endcall %}
 {% include "list/_pagination.html" %}
 {% endif %}

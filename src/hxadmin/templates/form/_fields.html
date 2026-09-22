@@ -1,5 +1,6 @@
+{% import "_macros.html" as m with context %}
 <form method="post" action="{{ action_url }}" hx-post="{{ action_url }}" hx-target="closest .hx-form" class="mx-auto max-w-[720px]">
-  {% if errors.form %}<div role="alert" class="mb-4 rounded-md border border-danger bg-danger-soft p-3 text-sm text-danger">{{ errors.form }}</div>{% endif %}
+  {% if errors.form %}{{ m.alert(errors.form, 'danger', class='mb-4') }}{% endif %}
   <div class="space-y-4 rounded-lg border border-border bg-surface p-4">
     {% if obj is not none %}
     {% for name in view.pk_names %}
@@ -12,8 +13,8 @@
     {% for field in fields %}{% include "form/_field.html" %}{% endfor %}
   </div>
   <div class="sticky bottom-0 mt-4 flex items-center gap-2 border-t border-border bg-bg py-3">
-    <button type="submit" class="rounded-md bg-accent px-3 py-1.5 text-sm font-medium text-accent-fg">Save</button>
-    {% if view.can_create %}<button type="submit" name="_then" value="another" class="rounded-md border border-border px-3 py-1.5 text-sm hover:bg-surface-2">Save and add another</button>{% endif %}
-    <a href="{{ cancel_url }}" class="ml-auto text-sm text-fg-muted hover:underline">Cancel</a>
+    {{ m.button('Save', 'primary', type='submit') }}
+    {% if view.can_create %}{{ m.button('Save and add another', type='submit', name='_then', value='another') }}{% endif %}
+    {{ m.button('Cancel', 'ghost', href=cancel_url, class='ml-auto') }}
   </div>
 </form>
