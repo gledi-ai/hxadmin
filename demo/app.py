@@ -1,14 +1,19 @@
-from collections.abc import AsyncGenerator, AsyncIterator
+import csv
+import io
+from collections.abc import AsyncGenerator, AsyncIterator, Sequence
 from contextlib import asynccontextmanager
 from pathlib import Path
+from typing import Annotated
 
-from fastapi import FastAPI
+from fastapi import Depends, FastAPI
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from starlette.requests import Request
+from starlette.responses import Response
 
-from demo.models import Base, Project, Task, User
+from demo.models import Base, Project, Task, TaskStatus, User
 from demo.seed import seed
-from hxadmin import Field, HxAdmin, ModelView
+from hxadmin import ActionResult, Field, HxAdmin, ModelView, Page, action
 
 DB_PATH = Path(__file__).parent / "demo.db"
 engine = create_async_engine(f"sqlite+aiosqlite:///{DB_PATH}")
@@ -35,7 +40,13 @@ async def lifespan(_: FastAPI) -> AsyncGenerator[None]:
 
 
 app = FastAPI(title="Todo demo", lifespan=lifespan)
-admin = HxAdmin(app, session=get_session, auth=dev_user, title="Todo admin")
+admin = HxAdmin(
+    app,
+    session=get_session,
+    auth=dev_user,
+    title="Todo admin",
+    templates_dir=Path(__file__).parent / "templates",
+)
 
 
 @admin.register
@@ -80,3 +91,53 @@ class TaskView(ModelView[Task]):
         self, request: Request, session: AsyncSession, obj: Task, *, created: bool
     ) -> None:
         obj.title = obj.title.strip()
+
+    @action("mark_done", label="Mark done", bulk=True, confirm="Mark the selected tasks as done?")
+    async def mark_done(
+        self, request: Request, session: AsyncSession, objs: Sequence[Task]
+    ) -> ActionResult:
+        for task in objs:
+            task.status = TaskStatus.done
+        return ActionResult.message(f"{len(objs)} task(s) marked done.")
+
+    @action("export_csv", label="Export CSV", bulk=True, method="GET")
+    async def export_csv(
+        self, request: Request, session: AsyncSession, objs: Sequence[Task]
+    ) -> ActionResult:
+        buffer = io.StringIO()
+        writer = csv.writer(buffer)
+        writer.writerow(["id", "title", "status", "priority", "due_date"])
+        for task in objs:
+            writer.writerow([task.id, task.title, task.status.value, task.priority, task.due_date])
+        return ActionResult.response(
+            Response(
+                buffer.getvalue(),
+                media_type="text/csv",
+                headers={"Content-Disposition": 'attachment; filename="tasks.csv"'},
+            )
+        )
+
+    @action("raise_priority", label="Raise priority")
+    async def raise_priority(
+        self, request: Request, session: AsyncSession, obj: Task
+    ) -> ActionResult:
+        if obj.priority <= 1:
+            return ActionResult.message("Already at top priority.", level="warning")
+        obj.priority -= 1
+        return ActionResult.message(f"Priority raised to {obj.priority}.")
+
+
+@admin.page("/stats", title="Statistics", category="Reports", icon="chart")
+async def stats(session: Annotated[AsyncSession, Depends(get_session)]) -> Page:
+    rows = (await session.execute(select(Task.status, func.count()).group_by(Task.status))).all()
+    counts = dict.fromkeys(TaskStatus, 0) | {row[0]: row[1] for row in rows}
+    return Page("stats.html", {"counts": counts})
+
+
+@admin.route("/stats/{status}", title="Tasks by status")
+async def tasks_by_status(
+    status: TaskStatus, session: Annotated[AsyncSession, Depends(get_session)]
+) -> Page:
+    stmt = select(Task).where(Task.status == status).order_by(Task.due_date, Task.id)
+    tasks = (await session.scalars(stmt)).all()
+    return Page("stats_status.html", {"status": status, "tasks": tasks})
