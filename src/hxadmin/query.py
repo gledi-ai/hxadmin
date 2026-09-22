@@ -109,12 +109,17 @@ def apply_search(stmt: Select[Any], view: ModelView[Any], q: str) -> Select[Any]
     )
 
 
+async def count_rows(session: AsyncSession, stmt: Select[Any]) -> int:
+    """Row count of `stmt`, ignoring its ORDER BY."""
+    total = await session.scalar(select(func.count()).select_from(stmt.order_by(None).subquery()))
+    return total or 0
+
+
 async def run_list(
     session: AsyncSession, view: ModelView[Any], stmt: Select[Any], params: ListParams
 ) -> ListResult:
     stmt = apply_search(stmt, view, params.q)
-    total = await session.scalar(select(func.count()).select_from(stmt.order_by(None).subquery()))
-    total = total or 0
+    total = await count_rows(session, stmt)
     pages = max(1, ceil(total / params.size))
     if params.page > pages:
         params = replace(params, page=pages)
