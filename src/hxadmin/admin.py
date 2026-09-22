@@ -16,6 +16,7 @@ from starlette.requests import Request
 from starlette.responses import HTMLResponse, RedirectResponse, Response
 
 from hxadmin.deps import AuthDependency, SessionDependency
+from hxadmin.nav import build_nav
 from hxadmin.views import ModelView
 
 
@@ -113,7 +114,7 @@ class HxAdmin:
             "admin": self,
             "request": request,
             "user": getattr(request.state, "hxadmin_user", None),
-            "nav": [],
+            "nav": build_nav(self, request),
         }
         if context:
             full_context.update(context)
