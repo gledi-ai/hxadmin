@@ -2,6 +2,26 @@
 
 Admin interface for FastAPI and SQLAlchemy 2.0+, built with Tailwind CSS and htmx.
 
+## Usage
+
+```python
+from fastapi import FastAPI
+from hxadmin import HxAdmin, ModelView
+
+app = FastAPI()
+admin = HxAdmin(app, session=get_session, auth=current_admin_user, title="My Admin")
+
+
+@admin.register
+class UserView(ModelView[User]):
+    model = User
+    category = "Auth"
+```
+
+`session` yields an `AsyncSession`; `auth` returns the current user or raises `HTTPException(401)`. Both are ordinary FastAPI dependencies.
+
+Rebuild CSS after editing templates: `nox -s css` (needs Node.js).
+
 ## Development
 
 ```bash
