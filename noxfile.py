@@ -63,6 +63,15 @@ CSS_OUT = "src/hxadmin/static/hxadmin.css"
 @nox.session(python=False)
 def css(session: nox.Session) -> None:
     session.run(
+        "npm",
+        "install",
+        "--no-save",
+        "--no-package-lock",
+        "tailwindcss@4.3.3",
+        "@tailwindcss/cli@4.3.3",
+        external=True,
+    )
+    session.run(
         "npx",
         "--yes",
         "@tailwindcss/cli@4.3.3",
