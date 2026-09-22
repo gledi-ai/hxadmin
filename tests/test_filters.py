@@ -4,11 +4,13 @@ import uuid
 from typing import Any
 
 import pytest
-from sqlalchemy import select
+from sqlalchemy import Select, select
 from sqlalchemy.dialects.postgresql import asyncpg
 from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.datastructures import QueryParams
+from starlette.requests import Request
 
+from hxadmin import HxAdmin
 from hxadmin.fields import Field, RelationField, derive_fields
 from hxadmin.filters import (
     Chip,
@@ -16,10 +18,11 @@ from hxadmin.filters import (
     apply_filters,
     filter_chips,
     parse_filters,
+    relation_labels,
     resolve_filters,
 )
 from hxadmin.views import ModelView
-from tests.conftest import Group, Post, PostStatus, Reading, User
+from tests.conftest import AppFactory, Group, Post, PostStatus, Reading, User, allow_all
 
 
 class PostView(ModelView[Post]):
@@ -271,6 +274,7 @@ def test_bounds_bind_types_wide_enough_for_any_value() -> None:
         ("f.amount.min=1e-16383", True),
         ("f.amount.min=1e-16384", False),
         ("f.amount.min=1e999999", False),
+        ("f.amount.min=1.2.3", False),
         ("f.at.min=10:00%2B02:00", False),
         ("f.at.min=10:00", True),
     ],
@@ -320,3 +324,45 @@ async def test_reading_filters_narrow_rows(
     view = ReadingView()
     stmt = apply_filters(select(Reading.count), Reading, view.filters, parse(view, query))
     assert (await session.scalars(stmt.order_by(Reading.id))).all() == expected
+
+
+class ScopedUserView(ModelView[User]):
+    model = User
+
+    def get_query(self, request: Request) -> Select[tuple[User]]:
+        return super().get_query(request).where(User.email != "hidden@x.io")
+
+
+async def author_labels(
+    factory: AppFactory, session: AsyncSession, query: str, *, registered: bool
+) -> list[tuple[str, str]]:
+    session.add(User(email="hidden@x.io"))
+    session.add_all([User(email=f"u{n:03}@x.io") for n in range(2, 103)])
+    await session.commit()
+    admin = HxAdmin(factory.app(), session=factory.get_session, auth=allow_all)
+    if registered:
+        admin.register(ScopedUserView)
+    request = Request({"type": "http", "method": "GET", "query_string": b"", "headers": []})
+    view = PostView()
+    labels = await relation_labels(
+        admin, request, session, view.filters, parse(view, query), with_options=True
+    )
+    return labels["author"]
+
+
+@pytest.mark.anyio
+async def test_relation_options_are_scoped_limited_and_keep_the_selection(
+    factory: AppFactory, session: AsyncSession
+) -> None:
+    labels = await author_labels(factory, session, "f.author=102&f.author=1", registered=True)
+    assert [pk for pk, _ in labels] == [str(n) for n in range(2, 103)]
+    assert labels[-1] == ("102", "u102@x.io")
+
+
+@pytest.mark.anyio
+async def test_relation_options_of_an_unregistered_target_use_the_whole_table(
+    factory: AppFactory, session: AsyncSession
+) -> None:
+    labels = await author_labels(factory, session, "f.author=1", registered=False)
+    assert len(labels) == 100
+    assert labels[0] == ("1", "hidden@x.io")
