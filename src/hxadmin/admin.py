@@ -136,16 +136,19 @@ class HxAdmin:
             return RedirectResponse(self.login_url, status_code=303)
         if htmx:
             toast = Toast(str(exc.detail), "error")
-            return Response(
+            response: Response = Response(
                 status_code=exc.status_code,
                 headers={"HX-Trigger": hx_trigger(toast), "HX-Reswap": "none"},
             )
-        return self.render(
-            request,
-            "error.html",
-            {"status_code": exc.status_code, "detail": exc.detail},
-            status_code=exc.status_code,
-        )
+        else:
+            response = self.render(
+                request,
+                "error.html",
+                {"status_code": exc.status_code, "detail": exc.detail},
+                status_code=exc.status_code,
+            )
+        response.headers.update(exc.headers or {})
+        return response
 
     def register[V: ModelView[Any]](self, view_cls: type[V]) -> type[V]:
         view = view_cls()
