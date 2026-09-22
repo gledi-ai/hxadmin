@@ -98,7 +98,7 @@ def build_router(admin: "HxAdmin") -> APIRouter:
         if declared is None or declared.bulk is not bulk:
             raise HTTPException(status_code=404)
         if declared.method != request.method:
-            raise HTTPException(status_code=405)
+            raise HTTPException(status_code=405, headers={"Allow": declared.method})
         return declared
 
     async def _action_input(request: Request) -> FormData | QueryParams:

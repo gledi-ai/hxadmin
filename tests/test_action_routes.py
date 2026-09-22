@@ -371,3 +371,10 @@ def test_handler_denial_does_not_redirect_to_login(
     assert toast_of(htmx)["message"] == "not you"
     assert native.status_code == 403
     assert "location" not in native.headers
+
+
+def test_wrong_action_method_reports_allow(factory: AppFactory, make_client: MakeClient) -> None:
+    with make_client(build(factory)) as client:
+        response = client.get("/admin/user/1/action/activate")
+    assert response.status_code == 405
+    assert response.headers["allow"] == "POST"
