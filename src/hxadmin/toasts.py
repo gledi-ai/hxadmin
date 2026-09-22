@@ -9,6 +9,7 @@ type ToastLevel = Literal["success", "info", "warning", "error"]
 
 TOAST_EVENT = "hxadmin-toast"
 FLASH_COOKIE = "hxadmin_toast"
+_FLASH_MAX_CHARS = 200
 _LEVELS: frozenset[str] = frozenset(("success", "info", "warning", "error"))
 
 
@@ -29,8 +30,11 @@ def hx_trigger(toast: Toast) -> str:
 
 
 def encode_flash(toast: Toast) -> str:
-    """Flash-cookie value for `toast`."""
-    return quote(json.dumps(toast.as_dict()), safe="")
+    """Flash-cookie value for `toast`; long messages are cut so the cookie stays under 4 KB."""
+    message = toast.message
+    if len(message) > _FLASH_MAX_CHARS:
+        message = message[:_FLASH_MAX_CHARS] + "…"
+    return quote(json.dumps({"message": message, "level": toast.level}), safe="")
 
 
 def read_flash(request: Request) -> Toast | None:
