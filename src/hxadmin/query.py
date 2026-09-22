@@ -115,6 +115,18 @@ async def count_rows(session: AsyncSession, stmt: Select[Any]) -> int:
     return total or 0
 
 
+async def count_many(session: AsyncSession, stmts: Sequence[Select[Any]]) -> list[int]:
+    """Row counts of several statements in one round trip, in order, ignoring ORDER BY."""
+    if not stmts:
+        return []
+    columns = [
+        select(func.count()).select_from(s.order_by(None).subquery()).scalar_subquery()
+        for s in stmts
+    ]
+    row = (await session.execute(select(*columns))).one()
+    return [value or 0 for value in row]
+
+
 async def run_list(
     session: AsyncSession, view: ModelView[Any], stmt: Select[Any], params: ListParams
 ) -> ListResult:
