@@ -139,6 +139,31 @@ def test_parse_drops_out_of_range_integer_bounds() -> None:
     assert parse_filters(filters, QueryParams(query)) == ()
 
 
+@pytest.mark.parametrize(
+    ("query", "bound"),
+    [
+        ("f.taken_at.min=2026-02-01", "2026-02-01T00:00"),
+        ("f.taken_at.min=2026-02-01T10:00:30", "2026-02-01T10:00:30"),
+        ("f.taken_at.min=2026-02-01T12:00%2B02:00", "2026-02-01T10:00"),
+        ("f.day.min=20260201", "2026-02-01"),
+        ("f.at.min=10:00:00", "10:00"),
+        ("f.count.min=1_000", "1000"),
+        ("f.count.min=%2B7", "7"),
+        ("f.amount.min=1E%2B2", "100"),
+        ("f.amount.min=1.50", "1.50"),
+    ],
+)
+def test_parse_writes_bounds_as_the_inputs_do(query: str, bound: str) -> None:
+    (value,) = parse(ReadingView(), query)
+    assert value.min == bound
+
+
+def test_parse_writes_float_bounds_plainly() -> None:
+    assert parse(PostView(), "f.score.min=1_000&f.score.max=2.50") == (
+        FilterValue("score", min="1000", max="2.5"),
+    )
+
+
 def test_parse_bool_and_empty() -> None:
     assert parse(UserView(), "f.active=true&f.group.empty=1&f.email=&f.active.empty=1") == (
         FilterValue("active", ("true",)),
@@ -148,10 +173,10 @@ def test_parse_bool_and_empty() -> None:
 
 
 def test_pairs_round_trip_through_parse() -> None:
-    value = FilterValue("published_at", min="2026-01-01", max="2026-02-01", empty=True)
+    value = FilterValue("published_at", min="2026-01-01T00:00", max="2026-02-01T10:30", empty=True)
     assert value.pairs() == [
-        ("f.published_at.min", "2026-01-01"),
-        ("f.published_at.max", "2026-02-01"),
+        ("f.published_at.min", "2026-01-01T00:00"),
+        ("f.published_at.max", "2026-02-01T10:30"),
         ("f.published_at.empty", "1"),
     ]
     assert parse_filters(PostView().filters, QueryParams(value.pairs())) == (value,)
