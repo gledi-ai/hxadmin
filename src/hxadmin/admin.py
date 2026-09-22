@@ -2,7 +2,7 @@ from collections.abc import Awaitable, Callable, Mapping
 from pathlib import Path
 from typing import Any
 
-from fastapi import Depends, FastAPI
+from fastapi import Depends, FastAPI, HTTPException
 from jinja2 import (
     BaseLoader,
     ChoiceLoader,
@@ -13,7 +13,7 @@ from jinja2 import (
 )
 from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.requests import Request
-from starlette.responses import HTMLResponse
+from starlette.responses import HTMLResponse, RedirectResponse, Response
 
 from hxadmin.deps import AuthDependency, SessionDependency
 from hxadmin.views import ModelView
@@ -47,6 +47,7 @@ class HxAdmin:
         self.subapp = FastAPI(openapi_url=None, docs_url=None, redoc_url=None)
         self._build_dependencies()
         self._install_routes()
+        self.subapp.add_exception_handler(HTTPException, self._handle_http_exception)
         app.mount(self.prefix, self.subapp, name="hxadmin")
 
     def _make_environment(self, templates_dir: str | Path | None) -> Environment:
@@ -75,6 +76,20 @@ class HxAdmin:
         from hxadmin.routes import build_router
 
         self.subapp.include_router(build_router(self))
+
+    async def _handle_http_exception(self, request: Request, exc: Exception) -> Response:
+        if not isinstance(exc, HTTPException):
+            raise exc
+        if exc.status_code in (401, 403) and self.login_url is not None:
+            if request.headers.get("HX-Request") == "true":
+                return Response(status_code=200, headers={"HX-Redirect": self.login_url})
+            return RedirectResponse(self.login_url, status_code=303)
+        return self.render(
+            request,
+            "error.html",
+            {"status_code": exc.status_code, "detail": exc.detail},
+            status_code=exc.status_code,
+        )
 
     def register(self, view_cls: type[ModelView[Any]]) -> type[ModelView[Any]]:
         view = view_cls()
