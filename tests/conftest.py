@@ -85,6 +85,8 @@ class Vote(Base):
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), primary_key=True)
     post_id: Mapped[int] = mapped_column(ForeignKey("posts.id"), primary_key=True)
     value: Mapped[int] = mapped_column(default=1)
+    user: Mapped[User] = relationship()
+    post: Mapped[Post] = relationship()
 
 
 def make_engine() -> AsyncEngine:
