@@ -1,3 +1,4 @@
+from collections.abc import Sequence
 from typing import TYPE_CHECKING, Annotated, Any
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -56,9 +57,13 @@ def build_router(admin: "HxAdmin") -> APIRouter:
         )
 
     async def _object(
-        request: Request, session: AsyncSession, view: ModelView[Any], pk: str
+        request: Request,
+        session: AsyncSession,
+        view: ModelView[Any],
+        pk: str,
+        relations: Sequence[str] = (),
     ) -> Any:
-        obj = await fetch_one(session, view, view.get_query(request), pk)
+        obj = await fetch_one(session, view, view.get_query(request), pk, relations=relations)
         if obj is None:
             raise HTTPException(status_code=404)
         return obj
@@ -105,10 +110,11 @@ def build_router(admin: "HxAdmin") -> APIRouter:
         view = _view(admin, request, identity)
         if not view.can_view:
             raise HTTPException(status_code=403)
-        obj = await _object(request, session, view, pk)
         scalar_fields = [
             f for f in view.detail_fields if not (isinstance(f, RelationField) and f.multiple)
         ]
+        relations = [f.name for f in scalar_fields if isinstance(f, RelationField)]
+        obj = await _object(request, session, view, pk, relations)
         collections = [
             (f, admin.url(request, f"/{view.identity}/_related/{pk}/{f.name}"))
             for f in view.detail_fields
