@@ -90,6 +90,8 @@ def _resolve_one(owner: str, field: Field | RelationField) -> Filter:
     if isinstance(field, RelationField):
         if field.multiple:
             raise ValueError(f"{owner}: cannot filter on to-many relation {field.name!r}")
+        if not field.fk_columns:
+            raise ValueError(f"{owner}: cannot filter on non-many-to-one relation {field.name!r}")
         return Filter(field.name, field.label, "relation", field, not field.required)
     if field.kind in ("enum", "bool"):
         choices = field.choices if field.kind == "enum" else _BOOL_CHOICES
