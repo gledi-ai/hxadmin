@@ -72,7 +72,9 @@ def build_router(admin: "HxAdmin") -> APIRouter:
         session: Annotated[AsyncSession, Depends(admin.current_session)],
     ) -> HTMLResponse:
         view = _view(admin, request, identity)
-        field = view.fields.get(rel)
+        if not view.can_view:
+            raise HTTPException(status_code=403)
+        field = next((f for f in view.detail_fields if f.name == rel), None)
         if not isinstance(field, RelationField) or not field.multiple:
             raise HTTPException(status_code=404)
         obj = await _object(request, session, view, pk)

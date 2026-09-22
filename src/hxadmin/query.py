@@ -105,9 +105,15 @@ async def run_list(
             )
         )
     total = await session.scalar(select(func.count()).select_from(stmt.order_by(None).subquery()))
+    total = total or 0
+    pages = max(1, ceil(total / params.size))
+    if params.page > pages:
+        params = replace(params, page=pages)
     if params.sort is not None:
         column = getattr(view.model, params.sort)
-        stmt = stmt.order_by(None).order_by(column.desc() if params.dir == "desc" else column.asc())
+        order = column.desc() if params.dir == "desc" else column.asc()
+        pk_columns = (getattr(view.model, name) for name in view.pk_names)
+        stmt = stmt.order_by(None).order_by(order, *pk_columns)
     stmt = stmt.options(
         *(
             selectinload(getattr(view.model, f.name))
@@ -117,7 +123,7 @@ async def run_list(
     )
     stmt = stmt.offset((params.page - 1) * params.size).limit(params.size)
     rows = (await session.scalars(stmt)).all()
-    return ListResult(rows=rows, total=total or 0, params=params)
+    return ListResult(rows=rows, total=total, params=params)
 
 
 async def fetch_one(

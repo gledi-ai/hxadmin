@@ -1,10 +1,7 @@
 {% import "_macros.html" as m with context %}
 <form class="mb-4 flex items-center gap-2" role="search"
-      hx-get="{{ base_url }}" hx-target="next .hx-list" hx-push-url="true"
+      hx-get="{{ base_url }}" hx-target="next .hx-list" hx-push-url="true" hx-include="next .hx-list"
       hx-trigger="input changed delay:300ms from:[name=q], submit">
-  <input type="hidden" name="sort" value="{{ result.params.sort or '' }}">
-  <input type="hidden" name="dir" value="{{ result.params.dir }}">
-  <input type="hidden" name="size" value="{{ result.params.size }}">
   <label class="relative block w-full max-w-sm">
     <span class="pointer-events-none absolute inset-y-0 left-2 flex items-center text-fg-muted">{{ m.icon('search', 'size-4') }}</span>
     <input type="search" name="q" value="{{ result.params.q }}" placeholder="Search {{ view.name_plural|lower }}"

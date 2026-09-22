@@ -204,3 +204,41 @@ def test_related_rejects_non_collection(
         assert client.get("/admin/post/_related/1/author").status_code == 404
         assert client.get("/admin/post/_related/1/title").status_code == 404
         assert client.get("/admin/post/_related/999/tags").status_code == 404
+
+
+def test_related_403_when_parent_can_view_false(
+    factory: AppFactory, make_client: Callable[[FastAPI], TestClient]
+) -> None:
+    app = factory.app(seed=seed)
+    admin = HxAdmin(app, session=factory.get_session, auth=allow_all)
+
+    @admin.register
+    class GroupView(ModelView[Group]):
+        model = Group
+        can_view = False
+
+    @admin.register
+    class UserView(ModelView[User]):
+        model = User
+
+    with make_client(app) as client:
+        assert client.get("/admin/group/_related/1/users").status_code == 403
+
+
+def test_related_404_when_relation_excluded_from_detail_columns(
+    factory: AppFactory, make_client: Callable[[FastAPI], TestClient]
+) -> None:
+    app = factory.app(seed=seed)
+    admin = HxAdmin(app, session=factory.get_session, auth=allow_all)
+
+    @admin.register
+    class GroupView(ModelView[Group]):
+        model = Group
+        detail_columns = ("name",)
+
+    @admin.register
+    class UserView(ModelView[User]):
+        model = User
+
+    with make_client(app) as client:
+        assert client.get("/admin/group/_related/1/users").status_code == 404
