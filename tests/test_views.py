@@ -221,7 +221,7 @@ def test_default_writable_fields_skip_autoincrement_pk_and_fk_columns() -> None:
 def test_composite_pk_stays_in_create_form_but_not_edit() -> None:
     view = VoteView()
     assert [f.name for f in view.writable_fields] == ["value", "user", "post"]
-    assert [f.name for f in view.edit_fields] == ["value", "user", "post"]
+    assert [f.name for f in view.edit_fields] == ["value"]
 
 
 def test_explicit_form_fields_and_exclude() -> None:

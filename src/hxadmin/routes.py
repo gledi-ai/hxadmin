@@ -140,6 +140,9 @@ def build_router(admin: "HxAdmin") -> APIRouter:
                 with session.no_autoflush:
                     await apply(admin, request, session, view, obj, values, fields)
             except LookupError as exc:
+                if not created:
+                    await session.rollback()
+                    await session.refresh(obj)
                 errors = FormErrors({str(exc): "Unknown selection."})
         if not errors:
             if created:
