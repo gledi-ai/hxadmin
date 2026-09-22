@@ -337,3 +337,37 @@ def test_rerender_after_commit_with_expire_on_commit(
     assert "<dl" in detail.text
     assert listing.status_code == 200
     assert "ada@x.io" in listing.text
+
+
+def test_htmx_http_errors_toast_without_swapping_an_error_page(
+    factory: AppFactory, make_client: MakeClient
+) -> None:
+    with make_client(build(factory)) as client:
+        stale = client.post("/admin/user/99/action/activate", headers=HX)
+        denied = client.post("/admin/user/1/action/forbid", headers=HX)
+        native = client.post("/admin/user/99/action/activate")
+    assert stale.status_code == 404
+    assert stale.headers["HX-Reswap"] == "none"
+    assert toast_of(stale)["level"] == "error"
+    assert "<html" not in stale.text
+    assert denied.status_code == 403
+    assert denied.headers["HX-Reswap"] == "none"
+    assert toast_of(denied)["message"] == "not you"
+    assert native.status_code == 404
+    assert "<html" in native.text
+
+
+def test_handler_denial_does_not_redirect_to_login(
+    factory: AppFactory, make_client: MakeClient
+) -> None:
+    app = factory.app(seed=seed_users)
+    admin = HxAdmin(app, session=factory.get_session, auth=allow_all, login_url="/login")
+    admin.register(UserView)
+    with make_client(app) as client:
+        htmx = client.post("/admin/user/1/action/forbid", headers=HX)
+        native = client.post("/admin/user/1/action/forbid", follow_redirects=False)
+    assert "HX-Redirect" not in htmx.headers
+    assert htmx.status_code == 403
+    assert toast_of(htmx)["message"] == "not you"
+    assert native.status_code == 403
+    assert "location" not in native.headers
