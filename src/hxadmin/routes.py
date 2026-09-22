@@ -57,6 +57,17 @@ def _toast_only(status_code: int, toast: Toast) -> Response:
     )
 
 
+def _list_return_url(request: Request, list_url: str) -> str:
+    """`list_url` with the query of the `Referer` when that is the same list (search, sort, page).
+
+    Only the query string is reused, so a foreign referer cannot redirect elsewhere.
+    """
+    referer = urlsplit(request.headers.get("referer", ""))
+    if referer.path == list_url and referer.query:
+        return f"{list_url}?{referer.query}"
+    return list_url
+
+
 def build_router(admin: "HxAdmin") -> APIRouter:
     router = APIRouter(dependencies=[Depends(admin.current_user)])
 
@@ -118,7 +129,7 @@ def build_router(admin: "HxAdmin") -> APIRouter:
         otherwise the list (as shown at `HX-Current-URL`) is.
         """
         list_url = admin.url(request, f"/{view.identity}/")
-        back = list_url
+        back = _list_return_url(request, list_url)
         if detail_pk is not None:
             back = admin.url(request, f"/{view.identity}/{detail_pk}")
         try:
@@ -387,7 +398,8 @@ def build_router(admin: "HxAdmin") -> APIRouter:
             empty = Toast("No rows selected.", "warning")
             if _is_htmx(request):
                 return _toast_only(400, empty)
-            return admin.redirect(request, admin.url(request, f"/{view.identity}/"), toast=empty)
+            list_url = admin.url(request, f"/{view.identity}/")
+            return admin.redirect(request, _list_return_url(request, list_url), toast=empty)
         return await _run_action(request, session, view, declared, objs, None)
 
     @router.api_route("/{identity}/{pk}/action/{name}", methods=["GET", "POST"], name="row_action")
