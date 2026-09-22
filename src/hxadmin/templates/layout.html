@@ -31,6 +31,24 @@
           },
         };
       });
+      Alpine.data("combobox", function (name, multiple, initial) {
+        return {
+          name: name,
+          multiple: multiple,
+          selected: initial,
+          open: false,
+          query: "",
+          pick: function (pk, label) {
+            if (!this.multiple) this.selected = [];
+            if (!this.selected.some(function (s) { return s.pk === pk; })) this.selected.push({ pk: pk, label: label });
+            this.query = "";
+            this.open = false;
+          },
+          remove: function (pk) {
+            this.selected = this.selected.filter(function (s) { return s.pk !== pk; });
+          },
+        };
+      });
     });
   </script>
   {% block head %}{% endblock %}
