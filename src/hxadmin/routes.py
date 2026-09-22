@@ -1,12 +1,12 @@
 from collections.abc import Sequence
-from typing import TYPE_CHECKING, Annotated, Any
+from typing import TYPE_CHECKING, Annotated, Any, cast
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
-from sqlalchemy import select
+from sqlalchemy import inspect, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import with_parent
+from sqlalchemy.orm import Mapper, with_parent
 from starlette.requests import Request
 from starlette.responses import HTMLResponse, Response
 
@@ -20,8 +20,8 @@ from hxadmin.forms import (
     relabel,
     validate,
 )
-from hxadmin.query import fetch_one, parse_list_params, run_list
-from hxadmin.views import ModelView
+from hxadmin.query import apply_search, fetch_one, parse_list_params, run_list
+from hxadmin.views import ModelView, pk_string_for
 
 if TYPE_CHECKING:
     from hxadmin.admin import HxAdmin
@@ -226,6 +226,34 @@ def build_router(admin: "HxAdmin") -> APIRouter:
             "list/_table.html",
             {"view": target, "result": result, "base_url": base_url, "push_url": False},
         )
+
+    @router.get("/{identity}/_lookup/{field}", name="lookup", response_class=HTMLResponse)
+    async def lookup(
+        request: Request,
+        identity: str,
+        field: str,
+        session: Annotated[AsyncSession, Depends(admin.current_session)],
+    ) -> HTMLResponse:
+        view = _view(admin, request, identity)
+        if not (view.can_create or view.can_edit):
+            raise HTTPException(status_code=403)
+        relation = next((f for f in view.writable_fields if f.name == field), None)
+        if not isinstance(relation, RelationField):
+            raise HTTPException(status_code=404)
+        q = request.query_params.get("q", "").strip()[:200]
+        pk_columns = cast(Mapper[Any], inspect(relation.target)).primary_key
+        target = admin.view_for(relation.target)
+        if target is None:
+            stmt = select(relation.target)
+        else:
+            if not target.is_accessible(request):
+                raise HTTPException(status_code=403)
+            stmt = apply_search(target.get_query(request), target, q)
+        rows = (await session.scalars(stmt.order_by(*pk_columns).limit(20))).all()
+        if target is None and q:
+            rows = [row for row in rows if q.lower() in str(row).lower()]
+        options = [(pk_string_for(relation.target, row), admin.display(row)) for row in rows]
+        return admin.render(request, "form/_options.html", {"options": options, "q": q})
 
     @router.get("/{identity}/{pk}/edit", name="edit", response_class=HTMLResponse)
     async def edit_form(
