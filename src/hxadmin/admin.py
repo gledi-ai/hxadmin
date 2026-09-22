@@ -106,6 +106,13 @@ class HxAdmin:
         self.views[view.identity] = view
         return view_cls
 
+    def view_for(self, model: type[Any]) -> ModelView[Any] | None:
+        return next((v for v in self.views.values() if v.model is model), None)
+
+    def display(self, obj: Any) -> str:
+        view = self.view_for(type(obj))
+        return view.display(obj) if view is not None else str(obj)
+
     def url(self, request: Request, path: str = "/") -> str:
         return f"{request.scope.get('root_path', '')}{path}"
 
