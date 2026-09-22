@@ -42,3 +42,16 @@ def test_logout_url_rendered_when_set(
     with make_client(app) as client:
         html = client.get("/admin/").text
     assert 'href="/bye"' in html
+
+
+def test_alpine_plugins_load_before_alpine(
+    factory: AppFactory, make_client: Callable[[FastAPI], TestClient]
+) -> None:
+    app = factory.app()
+    HxAdmin(app, session=factory.get_session, auth=allow_all)
+    with make_client(app) as client:
+        html = client.get("/admin/").text
+    anchor = html.index("/static/vendor/alpine-anchor.min.js")
+    focus = html.index("/static/vendor/alpine-focus.min.js")
+    assert anchor < html.index("/static/vendor/alpine.min.js")
+    assert focus < html.index("/static/vendor/alpine.min.js")

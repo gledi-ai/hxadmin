@@ -67,7 +67,7 @@ def test_panel_reflects_the_current_filters(factory: AppFactory, make_client: Ma
     assert 'name="f.status" value="published" checked' in html
     assert 'name="f.status" value="draft" class' in html
     assert 'name="f.score.min" value="1"' in html
-    assert 'name="f.author" value="1" class="hx-filter-pick accent-accent"> ada@x.io' in html
+    assert 'name="f.author" value="1" class="hx-filter-pick"> ada@x.io' in html
     assert 'name="f.author" value="2" checked' in html
     assert 'name="f.published_at.empty"' in html
     assert 'name="f.status.empty"' not in html
