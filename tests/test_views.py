@@ -1,6 +1,8 @@
 from typing import Any
 
 import pytest
+from sqlalchemy import select
+from sqlalchemy.dialects.postgresql import asyncpg
 from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.requests import Request
 
@@ -168,6 +170,11 @@ def test_pk_roundtrip_composite() -> None:
     compiled = [str(c.compile(compile_kwargs={"literal_binds": True})) for c in clauses]
     assert "votes.user_id = 1" in compiled[0]
     assert "votes.post_id = 2" in compiled[1]
+
+
+def test_integer_pks_bind_as_bigint_so_wide_values_just_miss() -> None:
+    stmt = select(User.id).where(*UserView().pk_clauses("3000000000"))
+    assert "users.id = $1::BIGINT" in str(stmt.compile(dialect=asyncpg.dialect()))
 
 
 @pytest.mark.parametrize("pk", ["x", "1;2", ""])

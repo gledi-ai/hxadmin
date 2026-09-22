@@ -93,7 +93,9 @@ class ModelView[T]:
         self.row_actions = tuple(a for a in self.actions.values() if not a.bulk)
         self.bulk_actions = tuple(a for a in self.actions.values() if a.bulk)
         owner = type(self).__name__
-        self.filters: tuple[Filter, ...] = resolve_filters(owner, self.fields, self.list_filters)
+        self.filters: tuple[Filter, ...] = resolve_filters(
+            owner, self.model, self.fields, self.list_filters
+        )
         check_export_formats(owner, self.export_formats)
         self.export_fields = (
             self._resolve(self.export_columns) if self.export_columns else self.list_fields

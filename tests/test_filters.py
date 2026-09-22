@@ -1,8 +1,11 @@
 import datetime
+import decimal
+import uuid
 from typing import Any
 
 import pytest
 from sqlalchemy import select
+from sqlalchemy.dialects.postgresql import asyncpg
 from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.datastructures import QueryParams
 
@@ -16,7 +19,7 @@ from hxadmin.filters import (
     resolve_filters,
 )
 from hxadmin.views import ModelView
-from tests.conftest import Group, Post, PostStatus, User
+from tests.conftest import Group, Post, PostStatus, Reading, User
 
 
 class PostView(ModelView[Post]):
@@ -84,18 +87,18 @@ def test_filter_kinds_follow_field_kinds() -> None:
 )
 def test_unfilterable_names_are_rejected(names: tuple[str, ...], message: str) -> None:
     with pytest.raises(ValueError, match=message):
-        resolve_filters("PostView", derive_fields(Post), names)
+        resolve_filters("PostView", Post, derive_fields(Post), names)
 
 
 def test_reverse_one_to_one_relations_are_rejected() -> None:
     passport = RelationField("passport", "Passport", User, multiple=False)
     with pytest.raises(ValueError, match="non-many-to-one relation 'passport'"):
-        resolve_filters("PersonView", {"passport": passport}, ("passport",))
+        resolve_filters("PersonView", User, {"passport": passport}, ("passport",))
 
 
 def test_json_columns_are_rejected() -> None:
     with pytest.raises(ValueError, match="cannot filter on json column 'data'"):
-        resolve_filters("DocView", {"data": Field("data", "json")}, ("data",))
+        resolve_filters("DocView", Post, {"data": Field("data", "json")}, ("data",))
 
 
 def test_parse_keeps_valid_values_in_declaration_order() -> None:
@@ -131,7 +134,7 @@ def test_parse_drops_invalid_values(query: str) -> None:
 
 
 def test_parse_drops_out_of_range_integer_bounds() -> None:
-    filters = resolve_filters("PostView", derive_fields(Post), ("id",))
+    filters = resolve_filters("PostView", Post, derive_fields(Post), ("id",))
     query = "f.id.min=99999999999999999999&f.id.max=-99999999999999999999"
     assert parse_filters(filters, QueryParams(query)) == ()
 
@@ -215,3 +218,80 @@ def test_chips_label_every_active_value() -> None:
         Chip("Title contains “hi”", "f.title", None),
         Chip("Author: bob@x.io", "f.author", "2"),
     ]
+
+
+class ReadingView(ModelView[Reading]):
+    model = Reading
+    list_filters = ("count", "amount", "day", "at", "taken_at", "synced_at", "ref")
+
+
+def postgres_sql(query: str) -> str:
+    view = ReadingView()
+    stmt = apply_filters(select(Reading.id), Reading, view.filters, parse(view, query))
+    return str(stmt.compile(dialect=asyncpg.dialect()))
+
+
+def test_bounds_bind_types_wide_enough_for_any_value() -> None:
+    sql = postgres_sql("f.count.max=3000000000&f.amount.min=100000000")
+    assert "readings.count <= $1::BIGINT" in sql
+    assert "readings.amount >= $2::NUMERIC" in sql
+    assert "NUMERIC(10, 2)" not in sql
+
+
+@pytest.mark.parametrize(
+    ("query", "kept"),
+    [
+        ("f.amount.max=1e131071", True),
+        ("f.amount.max=1e131072", False),
+        ("f.amount.min=1e-16383", True),
+        ("f.amount.min=1e-16384", False),
+        ("f.amount.min=1e999999", False),
+        ("f.at.min=10:00%2B02:00", False),
+        ("f.at.min=10:00", True),
+    ],
+)
+def test_bounds_no_database_accepts_are_dropped(query: str, kept: bool) -> None:
+    assert bool(parse(ReadingView(), query)) is kept
+
+
+async def seed_readings(session: AsyncSession) -> None:
+    session.add_all(
+        [
+            Reading(
+                count=n,
+                amount=decimal.Decimal(f"{n}.25"),
+                day=datetime.date(2026, 1, n),
+                at=datetime.time(n, 30),
+                taken_at=datetime.datetime.fromisoformat(f"2026-01-01T{10 + n}:00"),
+                synced_at=datetime.datetime(2026, 1, 1, 10 + n, tzinfo=datetime.UTC),
+                ref=uuid.UUID(int=n),
+            )
+            for n in (1, 2, 3)
+        ]
+    )
+    await session.commit()
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize(
+    ("query", "expected"),
+    [
+        ("f.count.min=2", [2, 3]),
+        ("f.count.max=3000000000", [1, 2, 3]),
+        ("f.count.min=3000000000", []),
+        ("f.amount.min=1.3&f.amount.max=2.25", [2]),
+        ("f.amount.max=100000000", [1, 2, 3]),
+        ("f.day.min=2026-01-02&f.day.max=2026-01-02", [2]),
+        ("f.at.max=02:30", [1, 2]),
+        ("f.taken_at.min=2026-01-01T13:00%2B02:00", [1, 2, 3]),
+        ("f.taken_at.min=2026-01-01T14:00%2B02:00", [2, 3]),
+        ("f.ref=000000000003", [3]),
+    ],
+)
+async def test_reading_filters_narrow_rows(
+    session: AsyncSession, query: str, expected: list[int]
+) -> None:
+    await seed_readings(session)
+    view = ReadingView()
+    stmt = apply_filters(select(Reading.count), Reading, view.filters, parse(view, query))
+    assert (await session.scalars(stmt.order_by(Reading.id))).all() == expected

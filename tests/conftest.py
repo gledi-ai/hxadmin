@@ -1,4 +1,7 @@
+import datetime as dt
+import decimal
 import enum
+import uuid
 from collections.abc import AsyncGenerator, AsyncIterator, Awaitable, Callable
 from contextlib import asynccontextmanager
 from datetime import datetime
@@ -7,7 +10,17 @@ from typing import Any
 import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
-from sqlalchemy import Column, ForeignKey, StaticPool, Table, Text, event
+from sqlalchemy import (
+    Column,
+    DateTime,
+    ForeignKey,
+    Numeric,
+    SmallInteger,
+    StaticPool,
+    Table,
+    Text,
+    event,
+)
 from sqlalchemy.ext.asyncio import (
     AsyncEngine,
     AsyncSession,
@@ -91,6 +104,19 @@ class Vote(Base):
     value: Mapped[int] = mapped_column(default=1)
     user: Mapped[User] = relationship()
     post: Mapped[Post] = relationship()
+
+
+class Reading(Base):
+    __tablename__ = "readings"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    count: Mapped[int] = mapped_column(SmallInteger)
+    amount: Mapped[decimal.Decimal] = mapped_column(Numeric(10, 2))
+    day: Mapped[dt.date]
+    at: Mapped[dt.time]
+    taken_at: Mapped[dt.datetime]
+    synced_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True))
+    ref: Mapped[uuid.UUID]
 
 
 def make_engine() -> AsyncEngine:

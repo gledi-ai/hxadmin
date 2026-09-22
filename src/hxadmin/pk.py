@@ -1,7 +1,19 @@
 from collections.abc import Sequence
 from typing import Any, cast
 
-from sqlalchemy import ColumnElement, Select, and_, inspect, or_, select
+from sqlalchemy import (
+    BigInteger,
+    ColumnElement,
+    Float,
+    Integer,
+    Numeric,
+    Select,
+    and_,
+    inspect,
+    literal,
+    or_,
+    select,
+)
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import Mapper
 from sqlalchemy.types import TypeEngine
@@ -25,7 +37,7 @@ def pk_clauses_for(model: type[Any], pk: str) -> list[ColumnElement[bool]]:
     if len(raw) != len(keys):
         raise ValueError(pk)
     return [
-        getattr(model, key) == _coerce(column.type, value)
+        getattr(model, key) == wide_literal(column.type, _coerce(column.type, value))
         for (key, column), value in zip(keys, raw, strict=True)
     ]
 
@@ -37,6 +49,21 @@ INT64_MAX = 2**63 - 1
 def in_int64_range(value: int) -> bool:
     """SQLite and asyncpg only accept signed 64-bit integers; anything else raises at execution."""
     return INT64_MIN <= value <= INT64_MAX
+
+
+def wide_literal(type_: TypeEngine[Any], value: Any) -> Any:
+    """`value` bound as BIGINT, FLOAT or unconstrained NUMERIC for a column of that family.
+
+    asyncpg casts each bind to the column's type, so a value wider than an INTEGER or
+    NUMERIC(p, s) column would raise instead of simply not matching.
+    """
+    if isinstance(type_, Integer):
+        return literal(value, BigInteger())
+    if isinstance(type_, Float):
+        return literal(value, Float())
+    if isinstance(type_, Numeric):
+        return literal(value, Numeric(asdecimal=type_.asdecimal))
+    return value
 
 
 def _coerce(type_: TypeEngine[Any], value: str) -> Any:
