@@ -30,15 +30,27 @@ def pk_clauses_for(model: type[Any], pk: str) -> list[ColumnElement[bool]]:
     ]
 
 
+INT64_MIN = -(2**63)
+INT64_MAX = 2**63 - 1
+
+
+def in_int64_range(value: int) -> bool:
+    """SQLite and asyncpg only accept signed 64-bit integers; anything else raises at execution."""
+    return INT64_MIN <= value <= INT64_MAX
+
+
 def _coerce(type_: TypeEngine[Any], value: str) -> Any:
     try:
         python_type = type_.python_type
     except NotImplementedError:
         return value
     try:
-        return python_type(value)
+        converted = python_type(value)
     except (TypeError, ValueError):
         raise ValueError(value) from None
+    if python_type is int and not in_int64_range(converted):
+        raise ValueError(value)
+    return converted
 
 
 async def fetch_by_pks(

@@ -12,7 +12,7 @@ from starlette.datastructures import QueryParams
 from starlette.requests import Request
 
 from hxadmin.fields import Field, FieldKind, RelationField
-from hxadmin.pk import fetch_by_pks, pk_clauses_for, pk_string_for
+from hxadmin.pk import fetch_by_pks, in_int64_range, pk_clauses_for, pk_string_for
 
 if TYPE_CHECKING:
     from hxadmin.admin import HxAdmin
@@ -118,7 +118,10 @@ def resolve_filters(
 def _range_value(kind: FieldKind, raw: str) -> Any:
     try:
         if kind == "int":
-            return int(raw)
+            number = int(raw)
+            if not in_int64_range(number):
+                raise ValueError(raw)
+            return number
         if kind == "float":
             number = float(raw)
             if not math.isfinite(number):
