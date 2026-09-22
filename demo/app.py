@@ -1,13 +1,14 @@
-from collections.abc import AsyncIterator
+from collections.abc import AsyncGenerator, AsyncIterator
 from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import FastAPI
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+from starlette.requests import Request
 
 from demo.models import Base, Project, Task, User
 from demo.seed import seed
-from hxadmin import HxAdmin, ModelView
+from hxadmin import Field, HxAdmin, ModelView
 
 DB_PATH = Path(__file__).parent / "demo.db"
 engine = create_async_engine(f"sqlite+aiosqlite:///{DB_PATH}")
@@ -24,7 +25,7 @@ def dev_user() -> dict[str, str]:
 
 
 @asynccontextmanager
-async def lifespan(_: FastAPI) -> AsyncIterator[None]:
+async def lifespan(_: FastAPI) -> AsyncGenerator[None]:
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
     async with sessionmaker() as session:
@@ -45,6 +46,11 @@ class UserView(ModelView[User]):
     list_columns = ("name", "email", "projects")
     searchable = ("name", "email")
     default_sort = ("name", "asc")
+    form_fields = (
+        Field("name", "str", help_text="Full name"),
+        Field("email", "str", "E-mail", widget="email"),
+        "projects",
+    )
 
 
 @admin.register
@@ -54,6 +60,7 @@ class ProjectView(ModelView[Project]):
     icon = "table"
     list_columns = ("name", "description", "members")
     searchable = ("name", "description")
+    form_exclude = ("tasks",)
 
 
 @admin.register
@@ -68,3 +75,8 @@ class TaskView(ModelView[Task]):
 
     def format_status(self, obj: Task) -> str:
         return obj.status.value.upper()
+
+    async def on_save(
+        self, request: Request, session: AsyncSession, obj: Task, *, created: bool
+    ) -> None:
+        obj.title = obj.title.strip()

@@ -1,5 +1,5 @@
 import enum
-from collections.abc import AsyncIterator, Awaitable, Callable
+from collections.abc import AsyncGenerator, AsyncIterator, Awaitable, Callable
 from contextlib import asynccontextmanager
 from datetime import datetime
 
@@ -110,7 +110,7 @@ class AppFactory:
         sessionmaker = self.sessionmaker
 
         @asynccontextmanager
-        async def lifespan(_: FastAPI) -> AsyncIterator[None]:
+        async def lifespan(_: FastAPI) -> AsyncGenerator[None]:
             async with engine.begin() as conn:
                 await conn.run_sync(Base.metadata.create_all)
             if seed is not None:
