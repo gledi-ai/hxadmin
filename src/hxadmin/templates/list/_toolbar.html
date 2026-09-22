@@ -1,11 +1,28 @@
 {% import "_macros.html" as m with context %}
-<form class="mb-4 flex items-center gap-2" role="search"
+{% set params = result.params %}
+<form id="list-filters" class="mb-4" role="search" method="get" action="{{ base_url }}"
+      x-data="{ open: {{ 'true' if params.filters else 'false' }} }"
       hx-get="{{ base_url }}" hx-target="next .hx-list" hx-push-url="true" hx-include="#list-state"
-      hx-trigger="input changed delay:300ms from:[name=q], submit">
-  <label class="relative block w-full max-w-sm">
-    <span class="pointer-events-none absolute inset-y-0 left-2 flex items-center text-fg-muted">{{ m.icon('search', 'size-4') }}</span>
-    <input type="search" name="q" value="{{ result.params.q }}" placeholder="Search {{ view.name_plural|lower }}"
-           class="w-full rounded border border-edge bg-surface py-1.5 pl-8 pr-2 text-sm focus:border-accent focus:outline-none"
-           {% if not view.searchable %}disabled{% endif %}>
-  </label>
+      hx-trigger="input changed delay:300ms from:[name=q], input delay:300ms target:.hx-filter-text, change target:.hx-filter-pick, submit">
+  <div class="flex items-center gap-2">
+    <label class="relative block w-full max-w-sm">
+      <span class="pointer-events-none absolute inset-y-0 left-2 flex items-center text-fg-muted">{{ m.icon('search', 'size-4') }}</span>
+      <input type="search" name="q" value="{{ params.q }}" placeholder="Search {{ view.name_plural|lower }}"
+             class="w-full rounded border border-edge bg-surface py-1.5 pl-8 pr-2 text-sm focus:border-accent focus:outline-none"
+             {% if not view.searchable %}disabled{% endif %}>
+    </label>
+    {% if filters %}
+    <button type="button" @click="open = !open" :aria-expanded="open" aria-controls="filter-panel"
+            class="inline-flex items-center gap-1 rounded border border-edge px-3 py-1.5 text-sm hover:bg-surface-3">{{ m.icon('funnel', 'size-4') }} Filters</button>
+    {% endif %}
+  </div>
+  {% if filters %}
+  <div id="filter-panel" x-show="open"{% if not params.filters %} x-cloak{% endif %}
+       class="mt-3 grid grid-cols-1 gap-4 rounded-lg border border-edge bg-surface-2 p-4 sm:grid-cols-2 lg:grid-cols-3">
+    {% for filter in filters %}{{ m.filter_control(filter, params.filter_value(filter.name), filter_options.get(filter.name, [])) }}{% endfor %}
+    <div class="flex items-end">
+      <button type="button" @click="hxadminClearFilter(null, null)" class="text-sm text-fg-muted hover:text-fg hover:underline">Clear filters</button>
+    </div>
+  </div>
+  {% endif %}
 </form>
