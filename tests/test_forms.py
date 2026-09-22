@@ -97,23 +97,55 @@ def test_parse_form_normalises_empty_checkbox_and_multi() -> None:
             ("tags", ""),
         ]
     )
-    raw = parse_form(view.writable_fields, form)
+    raw = parse_form(view.writable_fields, form, created=True)
     assert raw == {
         "title": " Hi ",
         "body": "",
         "status": "draft",
-        "score": 0.0,
         "published_at": None,
         "author": "1",
         "tags": ["1", "2"],
     }
 
 
+def test_parse_form_empty_defaulted_column_is_omitted_on_create_and_kept_on_edit() -> None:
+    fields = PostView().writable_fields
+    form = FormData([("score", ""), ("status", "")])
+    assert "score" not in parse_form(fields, form, created=True)
+    assert "status" not in parse_form(fields, form, created=True)
+    edited = parse_form(fields, form, created=False)
+    assert edited["score"] == ""
+    assert edited["status"] == ""
+
+
+def test_validate_reports_empty_non_nullable_column_as_required() -> None:
+    view = PostView()
+    _, errors = validate(view.edit_schema, {"title": "x", "score": "", "status": "", "author": "1"})
+    assert errors.fields["score"] == "This field is required."
+    assert errors.fields["status"] == "This field is required."
+
+
+def test_validate_leaves_omitted_fields_out_of_values() -> None:
+    view = PostView()
+    values, errors = validate(view.create_schema, {"title": "x", "status": "draft", "author": "1"})
+    assert not errors
+    assert "score" not in values
+    assert "body" not in values
+
+
+def test_build_schema_derives_required_from_nullable_when_unset() -> None:
+    schema = build_schema(Post, (Field("score", "float"), Field("note", "str", nullable=True)))
+    assert validate(schema, {"score": ""})[1].fields["score"] == "This field is required."
+    values, errors = validate(schema, {"score": "1.5", "note": None})
+    assert not errors
+    assert values == {"score": 1.5, "note": None}
+
+
 def test_parse_form_keeps_empty_required_string_and_missing_bool() -> None:
     class UserView(ModelView[User]):
         model = User
 
-    raw = parse_form(UserView().writable_fields, FormData([("email", "")]))
+    raw = parse_form(UserView().writable_fields, FormData([("email", "")]), created=True)
     assert raw["email"] == ""
     assert raw["active"] is False
     assert raw["group"] is None
@@ -121,7 +153,7 @@ def test_parse_form_keeps_empty_required_string_and_missing_bool() -> None:
 
 def test_parse_form_skips_readonly_fields() -> None:
     fields = (Field("title", "str", readonly=True), Field("body", "text"))
-    raw = parse_form(fields, FormData([("title", "x"), ("body", "y")]))
+    raw = parse_form(fields, FormData([("title", "x"), ("body", "y")]), created=True)
     assert raw == {"body": "y"}
 
 

@@ -55,6 +55,15 @@ type Widget = Literal[
 
 @dataclass(frozen=True, slots=True)
 class Field:
+    """A form/list column.
+
+    `required` is tri-state: `True`/`False` force it, `None` (the default for `Field(...)`
+    overrides in `form_fields`) means "derive from the column": on a `ModelView` that is the
+    mapper-derived value, elsewhere it means non-nullable. `kind`, `nullable`, `primary_key`,
+    `autoincrement`, `unique`, `choices` and `default` always describe the column and are
+    replaced by the derived values when used as an override.
+    """
+
     name: str
     kind: FieldKind
     label: str = ""

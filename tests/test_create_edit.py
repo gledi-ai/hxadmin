@@ -1,5 +1,6 @@
-from collections.abc import Callable
+from collections.abc import AsyncIterator, Callable
 
+import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from sqlalchemy import Select, select
@@ -227,7 +228,7 @@ def test_edit_form_renders_combobox(factory: AppFactory, make_client: MakeClient
 
 
 def test_edit_success(factory: AppFactory, make_client: MakeClient) -> None:
-    data = {"title": "Renamed", "status": "published", "author": "2", "tags": []}
+    data = {"title": "Renamed", "status": "published", "score": "0", "author": "2", "tags": []}
     with make_client(build(factory)) as client:
         response = client.post("/admin/post/1/edit", data=data, follow_redirects=False)
         assert response.status_code == 303
@@ -240,7 +241,7 @@ def test_edit_success(factory: AppFactory, make_client: MakeClient) -> None:
 
 
 def test_edit_htmx_success_sends_hx_redirect(factory: AppFactory, make_client: MakeClient) -> None:
-    data = {"title": "Renamed", "status": "draft", "author": "1", "tags": ["1"]}
+    data = {"title": "Renamed", "status": "draft", "score": "0", "author": "1", "tags": ["1"]}
     with make_client(build(factory)) as client:
         response = client.post(
             "/admin/post/1/edit", data=data, headers={"HX-Request": "true"}, follow_redirects=False
@@ -289,7 +290,7 @@ def test_edit_can_view_false_redirects_to_list(
         can_view = False
         can_edit = True
 
-    data = {"title": "Renamed", "status": "draft", "author": "1"}
+    data = {"title": "Renamed", "status": "draft", "score": "0", "author": "1"}
     with make_client(app) as client:
         response = client.post("/admin/post/1/edit", data=data, follow_redirects=False)
     assert response.status_code == 303
@@ -396,3 +397,78 @@ def test_edit_ignores_identifying_relations(factory: AppFactory, make_client: Ma
         assert response.headers["location"] == "/admin/vote/2;1"
         assert client.get("/admin/vote/1;1").status_code == 404
         assert ">7<" in client.get("/admin/vote/2;1").text
+
+
+def test_edit_empty_non_nullable_value_is_required_error(
+    factory: AppFactory, make_client: MakeClient
+) -> None:
+    with make_client(build(factory)) as client:
+        response = client.post("/admin/vote/2;1/edit", data={"value": ""})
+        detail = client.get("/admin/vote/2;1").text
+    assert response.status_code == 422
+    assert "This field is required." in response.text
+    assert ">5<" in detail
+
+
+def test_create_empty_defaulted_column_uses_model_default(
+    factory: AppFactory, make_client: MakeClient
+) -> None:
+    with make_client(build(factory)) as client:
+        response = client.post(
+            "/admin/post/new", data={**POST_DATA, "score": ""}, follow_redirects=False
+        )
+        assert response.status_code == 303
+        detail = client.get("/admin/post/2/edit").text
+    assert 'name="score" value="0.0"' in detail
+
+
+def _committing_app(factory: AppFactory) -> tuple[FastAPI, HxAdmin]:
+    app = factory.app(seed=seed)
+
+    async def committing_session() -> AsyncIterator[AsyncSession]:
+        async with factory.sessionmaker() as session:
+            try:
+                yield session
+            finally:
+                await session.commit()
+
+    return app, HxAdmin(app, session=committing_session, auth=allow_all)
+
+
+def test_on_save_exception_rolls_back(factory: AppFactory, make_client: MakeClient) -> None:
+    app, admin = _committing_app(factory)
+
+    @admin.register
+    class PostView(ModelView[Post]):
+        model = Post
+
+        async def on_save(
+            self, request: Request, session: AsyncSession, obj: Post, *, created: bool
+        ) -> None:
+            raise RuntimeError("boom")
+
+    data = {"title": "Renamed", "status": "draft", "score": "0", "author": "1"}
+    with make_client(app) as client:
+        with pytest.raises(RuntimeError):
+            client.post("/admin/post/1/edit", data=data)
+        detail = client.get("/admin/post/1").text
+    assert "Hello" in detail
+    assert "Renamed" not in detail
+
+
+def test_on_delete_exception_rolls_back(factory: AppFactory, make_client: MakeClient) -> None:
+    app, admin = _committing_app(factory)
+
+    @admin.register
+    class PostView(ModelView[Post]):
+        model = Post
+
+        async def on_delete(self, request: Request, session: AsyncSession, obj: Post) -> None:
+            obj.title = "half-deleted"
+            raise RuntimeError("boom")
+
+    with make_client(app) as client:
+        with pytest.raises(RuntimeError):
+            client.post("/admin/post/1/delete")
+        detail = client.get("/admin/post/1").text
+    assert "Hello" in detail
