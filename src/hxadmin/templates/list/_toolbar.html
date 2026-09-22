@@ -1,7 +1,9 @@
 {% import "_macros.html" as m with context %}
 {% set params = result.params %}
 <form id="list-filters" class="mb-4" role="search" method="get" action="{{ base_url }}"
-      x-data="{ open: {{ 'true' if params.filters else 'false' }} }"
+      x-data="{ open: {{ 'true' if params.filters else 'false' }}, active: {{ params.filters|length }} }"
+      @change="active = hxadminActiveFilters($el)" @input="active = hxadminActiveFilters($el)"
+      @filters-cleared="active = hxadminActiveFilters($el)"
       hx-get="{{ base_url }}" hx-target="next .hx-list" hx-push-url="true" hx-include="#list-state"
       hx-trigger="input changed delay:300ms from:[name=q], input delay:300ms target:.hx-filter-text, change target:.hx-filter-pick, submit">
   <div class="flex items-center gap-2">
@@ -13,7 +15,8 @@
     </label>
     {% if filters %}
     <button type="button" @click="open = !open" :aria-expanded="open" aria-controls="filter-panel"
-            class="inline-flex items-center gap-1 rounded border border-edge px-3 py-1.5 text-sm hover:bg-surface-3">{{ m.icon('funnel', 'size-4') }} Filters</button>
+            class="inline-flex items-center gap-1 rounded border border-edge px-3 py-1.5 text-sm hover:bg-surface-3">{{ m.icon('funnel', 'size-4') }} Filters
+      <span x-show="active" x-text="active"{% if not params.filters %} x-cloak{% endif %} class="rounded-full bg-accent px-1.5 text-xs text-accent-fg">{{ params.filters|length }}</span></button>
     {% endif %}
   </div>
   {% if filters %}

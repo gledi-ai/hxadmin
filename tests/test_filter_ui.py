@@ -60,7 +60,10 @@ def test_panel_reflects_the_current_filters(factory: AppFactory, make_client: Ma
     with make_client(build(factory)) as client:
         html = client.get("/admin/post/?f.status=published&f.score.min=1&f.author=2").text
     assert 'id="list-filters"' in html
-    assert 'x-data="{ open: true }"' in html
+    assert 'x-data="{ open: true, active: 3 }"' in html
+    assert '@change="active = hxadminActiveFilters($el)"' in html
+    assert '@filters-cleared="active = hxadminActiveFilters($el)"' in html
+    assert '<span x-show="active" x-text="active" class="rounded-full' in html
     assert 'name="f.status" value="published" checked' in html
     assert 'name="f.status" value="draft" class' in html
     assert 'name="f.score.min" value="1"' in html
@@ -75,10 +78,11 @@ def test_panel_starts_closed_without_filters(factory: AppFactory, make_client: M
     with make_client(build(factory)) as client:
         html = client.get("/admin/post/").text
         users = client.get("/admin/user/").text
-    assert 'x-data="{ open: false }"' in html
+    assert 'x-data="{ open: false, active: 0 }"' in html
+    assert '<span x-show="active" x-text="active" x-cloak' in html
     assert 'id="filter-panel" x-show="open" x-cloak' in html
     assert 'id="filter-panel"' not in users
-    assert "Filters</button>" not in users
+    assert 'aria-controls="filter-panel"' not in users
 
 
 def test_toolbar_submits_on_filter_changes(factory: AppFactory, make_client: MakeClient) -> None:
