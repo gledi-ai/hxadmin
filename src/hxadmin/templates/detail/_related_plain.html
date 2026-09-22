@@ -1,0 +1,7 @@
+{% if rows %}
+<ul class="list-inside list-disc text-sm">
+  {% for row in rows %}<li>{{ admin.display(row) }}</li>{% endfor %}
+</ul>
+{% else %}
+<p class="text-sm text-fg-muted">Nothing here.</p>
+{% endif %}
