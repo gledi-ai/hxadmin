@@ -40,6 +40,7 @@ test = [
   "xlsxwriter~=3.2",
 ]
 demo = ["aiosqlite~=0.22", "uvicorn~=0.53"]
+docs = ["zensical>=0.0.61,<0.1"]
 dev = [
   { include-group = "lint" },
   { include-group = "test" },

@@ -56,6 +56,13 @@ def lint(session: nox.Session) -> None:
     session.run("zizmor", ".github")
 
 
+@nox.session(python=False)
+def docs(session: nox.Session) -> None:
+    session.run(
+        "uv", "run", "--group", "docs", "zensical", "build", "--strict", "--clean", external=True
+    )
+
+
 CSS_SRC = "src/hxadmin/static/src/hxadmin.css"
 CSS_OUT = "src/hxadmin/static/hxadmin.css"
 
