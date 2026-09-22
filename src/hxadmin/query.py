@@ -4,13 +4,13 @@ from math import ceil
 from typing import Any
 from urllib.parse import urlencode
 
-from sqlalchemy import Select, String, and_, func, or_, select
+from sqlalchemy import Select, String, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 from starlette.requests import Request
 
 from hxadmin.fields import RelationField
-from hxadmin.views import ModelView, SortDir, pk_clauses_for, pk_string_for
+from hxadmin.views import ModelView, SortDir
 
 
 @dataclass(frozen=True, slots=True)
@@ -149,25 +149,3 @@ async def fetch_one(
         *(selectinload(getattr(view.model, name)) for name in relations)
     )
     return await session.scalar(stmt)
-
-
-async def fetch_by_pks(
-    session: AsyncSession,
-    model: type[Any],
-    pks: Sequence[str],
-    *,
-    stmt: Select[Any] | None = None,
-) -> list[Any]:
-    """Load rows for the given pk strings in one query, ordered as `pks`; unknown pks are absent."""
-    clauses = []
-    for pk in pks:
-        try:
-            clauses.append(and_(*pk_clauses_for(model, pk)))
-        except ValueError:
-            continue
-    if not clauses:
-        return []
-    base = select(model) if stmt is None else stmt
-    rows = (await session.scalars(base.where(or_(*clauses)))).all()
-    by_pk = {pk_string_for(model, row): row for row in rows}
-    return [by_pk[pk] for pk in pks if pk in by_pk]

@@ -5,10 +5,10 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.requests import Request
 
+from hxadmin.pk import fetch_by_pks
 from hxadmin.query import (
     ListParams,
     apply_search,
-    fetch_by_pks,
     fetch_one,
     parse_list_params,
     run_list,

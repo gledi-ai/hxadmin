@@ -34,6 +34,9 @@ class User(Base):
     )
     tasks: Mapped[list["Task"]] = relationship(back_populates="assignee")
 
+    def __str__(self) -> str:
+        return self.name
+
 
 class Project(Base):
     __tablename__ = "projects"
@@ -43,6 +46,9 @@ class Project(Base):
     description: Mapped[str | None]
     members: Mapped[list[User]] = relationship(secondary=project_members, back_populates="projects")
     tasks: Mapped[list["Task"]] = relationship(back_populates="project")
+
+    def __str__(self) -> str:
+        return self.name
 
 
 class Task(Base):
@@ -56,3 +62,6 @@ class Task(Base):
     project: Mapped[Project] = relationship(back_populates="tasks")
     assignee_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"))
     assignee: Mapped[User | None] = relationship(back_populates="tasks")
+
+    def __str__(self) -> str:
+        return self.title
