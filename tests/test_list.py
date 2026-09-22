@@ -1,0 +1,189 @@
+import re
+from collections.abc import Callable
+
+from fastapi import FastAPI
+from fastapi.testclient import TestClient
+from sqlalchemy import Select
+from sqlalchemy.ext.asyncio import AsyncSession
+from starlette.requests import Request
+
+from hxadmin import HxAdmin, ModelView
+from tests.conftest import AppFactory, Group, Post, User, allow_all
+
+
+async def seed(session: AsyncSession) -> None:
+    staff = Group(name="staff")
+    users = [User(email=f"user{i:02d}@x.io", active=i % 2 == 0, group=staff) for i in range(30)]
+    session.add_all(users)
+    session.add(Post(title="Hello", author=users[0]))
+
+
+def build(factory: AppFactory) -> FastAPI:
+    app = factory.app(seed=seed)
+    admin = HxAdmin(app, session=factory.get_session, auth=allow_all)
+
+    @admin.register
+    class GroupView(ModelView[Group]):
+        model = Group
+
+    @admin.register
+    class UserView(ModelView[User]):
+        model = User
+        list_columns = ("email", "active", "group")
+        searchable = ("email",)
+        default_sort = ("email", "asc")
+        page_size = 10
+        page_size_options = (10, 20)
+
+        def format_email(self, obj: User) -> str:
+            return obj.email.upper()
+
+    @admin.register
+    class PostView(ModelView[Post]):
+        model = Post
+        list_columns = ("title", "author", "tags")
+
+        def get_query(self, request: Request) -> Select[tuple[Post]]:
+            return super().get_query(request).where(Post.title != "Hidden")
+
+    return app
+
+
+def emails(html: str) -> list[str]:
+    return re.findall(r"USER\d\d@X\.IO", html)
+
+
+def test_full_page(factory: AppFactory, make_client: Callable[[FastAPI], TestClient]) -> None:
+    with make_client(build(factory)) as client:
+        html = client.get("/admin/user/").text
+    assert "<html" in html
+    assert "<title>Users" in html
+    assert 'name="q"' in html
+    assert emails(html) == [f"USER{i:02d}@X.IO" for i in range(10)]
+    assert "Showing 1\u201310 of 30" in html
+    assert 'href="/admin/user/1"' in html
+    assert 'href="/admin/group/1"' in html
+
+
+def test_partial_on_hx_request(
+    factory: AppFactory, make_client: Callable[[FastAPI], TestClient]
+) -> None:
+    with make_client(build(factory)) as client:
+        html = client.get("/admin/user/", headers={"HX-Request": "true"}).text
+    assert "<html" not in html
+    assert 'name="q"' not in html
+    assert "<table" in html
+    assert len(emails(html)) == 10
+
+
+def test_search_sort_and_page(
+    factory: AppFactory, make_client: Callable[[FastAPI], TestClient]
+) -> None:
+    with make_client(build(factory)) as client:
+        assert emails(client.get("/admin/user/?q=user2").text) == [
+            f"USER{i}@X.IO" for i in range(20, 30)
+        ]
+        assert emails(client.get("/admin/user/?dir=desc&page=3").text) == [
+            f"USER{i:02d}@X.IO" for i in range(9, -1, -1)
+        ]
+        html = client.get("/admin/user/?size=20&page=2").text
+        assert len(emails(html)) == 10
+        assert "Showing 21\u201330 of 30" in html
+
+
+def test_sort_links_carry_state(
+    factory: AppFactory, make_client: Callable[[FastAPI], TestClient]
+) -> None:
+    with make_client(build(factory)) as client:
+        html = client.get("/admin/user/?q=user&sort=email&dir=asc").text
+    assert 'href="/admin/user/?q=user&amp;sort=email&amp;dir=desc&amp;page=1&amp;size=10"' in html
+    assert 'href="/admin/user/?q=user&amp;sort=email&amp;dir=asc&amp;page=2&amp;size=10"' in html
+    assert 'hx-target="closest .hx-list"' in html
+    assert 'hx-push-url="true"' in html
+
+
+def test_empty_state(factory: AppFactory, make_client: Callable[[FastAPI], TestClient]) -> None:
+    with make_client(build(factory)) as client:
+        html = client.get("/admin/user/?q=nomatch").text
+    assert "No users found" in html
+    assert "<tbody" not in html or emails(html) == []
+
+
+def test_relation_cells(factory: AppFactory, make_client: Callable[[FastAPI], TestClient]) -> None:
+    with make_client(build(factory)) as client:
+        html = client.get("/admin/post/").text
+    assert 'href="/admin/user/1">user00@x.io</a>' in html
+    assert "<td" in html
+    assert ">0</td>" in html
+
+
+def test_bool_cells_use_icons(
+    factory: AppFactory, make_client: Callable[[FastAPI], TestClient]
+) -> None:
+    with make_client(build(factory)) as client:
+        html = client.get("/admin/user/", headers={"HX-Request": "true"}).text
+    assert html.count('aria-label="Yes"') == 5
+    assert html.count('aria-label="No"') == 5
+
+
+def test_get_query_override_filters_rows(
+    factory: AppFactory, make_client: Callable[[FastAPI], TestClient]
+) -> None:
+    async def seed_hidden(session: AsyncSession) -> None:
+        await seed(session)
+        session.add(Post(title="Hidden", author_id=1))
+
+    app = factory.app(seed=seed_hidden)
+    admin = HxAdmin(app, session=factory.get_session, auth=allow_all)
+
+    @admin.register
+    class PostView(ModelView[Post]):
+        model = Post
+
+        def get_query(self, request: Request) -> Select[tuple[Post]]:
+            return super().get_query(request).where(Post.title != "Hidden")
+
+    with make_client(app) as client:
+        html = client.get("/admin/post/").text
+    assert "Hidden" not in html
+    assert "Hello" in html
+
+
+def test_unknown_identity_is_404(
+    factory: AppFactory, make_client: Callable[[FastAPI], TestClient]
+) -> None:
+    with make_client(build(factory)) as client:
+        assert client.get("/admin/nope/").status_code == 404
+
+
+def test_inaccessible_view_is_403(
+    factory: AppFactory, make_client: Callable[[FastAPI], TestClient]
+) -> None:
+    app = factory.app(seed=seed)
+    admin = HxAdmin(app, session=factory.get_session, auth=allow_all)
+
+    @admin.register
+    class UserView(ModelView[User]):
+        model = User
+
+        def is_accessible(self, request: Request) -> bool:
+            return False
+
+    with make_client(app) as client:
+        assert client.get("/admin/user/").status_code == 403
+
+
+def test_no_detail_links_when_can_view_false(
+    factory: AppFactory, make_client: Callable[[FastAPI], TestClient]
+) -> None:
+    app = factory.app(seed=seed)
+    admin = HxAdmin(app, session=factory.get_session, auth=allow_all)
+
+    @admin.register
+    class UserView(ModelView[User]):
+        model = User
+        can_view = False
+
+    with make_client(app) as client:
+        html = client.get("/admin/user/").text
+    assert 'href="/admin/user/1"' not in html

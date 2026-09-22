@@ -1,0 +1,43 @@
+{% import "_macros.html" as m with context %}
+{% set params = result.params %}
+{% set hx = 'hx-target="closest .hx-list"' ~ (' hx-push-url="true"' if push_url else '') %}
+{% if result.total == 0 %}
+<div class="rounded-lg border border-dashed border-edge p-12 text-center text-fg-muted">
+  No {{ view.name_plural|lower }} found{% if params.q %} for “{{ params.q }}”{% endif %}.
+</div>
+{% else %}
+<div class="overflow-x-auto rounded-lg border border-edge">
+  <table class="w-full text-sm">
+    <thead class="bg-surface-2 text-left text-xs uppercase tracking-wide text-fg-muted">
+      <tr>
+        {% for field in view.list_fields %}
+        <th class="px-3 py-2 font-semibold">
+          {% if field.name in view.sort_names %}
+            {% set active = params.sort == field.name %}
+            {% set next_dir = 'desc' if active and params.dir == 'asc' else 'asc' %}
+            <a href="{{ base_url }}?{{ params.qs(sort=field.name, dir=next_dir, page=1) }}"
+               hx-get="{{ base_url }}?{{ params.qs(sort=field.name, dir=next_dir, page=1) }}" {{ hx|safe }}
+               class="inline-flex items-center gap-1 hover:text-fg">
+              {{ field.label }}
+              {% if active %}{{ m.icon('arrow-up' if params.dir == 'asc' else 'arrow-down', 'size-3') }}{% endif %}
+            </a>
+          {% else %}
+            {{ field.label }}
+          {% endif %}
+        </th>
+        {% endfor %}
+      </tr>
+    </thead>
+    <tbody class="divide-y divide-edge">
+      {% for obj in result.rows %}
+      <tr class="hover:bg-surface-2">
+        {% for field in view.list_fields %}
+        <td class="px-3 py-2">{% if loop.first and view.can_view %}<a href="{{ admin.url(request, '/' ~ view.identity ~ '/' ~ view.pk_of(obj)) }}" class="font-medium text-accent hover:underline">{{ m.cell(view, field, view.cell(obj, field.name)) }}</a>{% else %}{{ m.cell(view, field, view.cell(obj, field.name)) }}{% endif %}</td>
+        {% endfor %}
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% include "list/_pagination.html" %}
+{% endif %}

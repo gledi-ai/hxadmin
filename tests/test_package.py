@@ -5,6 +5,8 @@ import pytest
 PACKAGE_DATA = [
     "py.typed",
     "templates/layout.html",
+    "templates/list.html",
+    "templates/list/_table.html",
     "static/hxadmin.css",
     "static/vendor/htmx.min.js",
     "static/vendor/alpine.min.js",
