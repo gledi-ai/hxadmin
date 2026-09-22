@@ -6,7 +6,7 @@ Admin interface for FastAPI and SQLAlchemy 2.0+, built with Tailwind CSS and htm
 
 ```python
 from fastapi import FastAPI
-from hxadmin import HxAdmin, ModelView
+from hxadmin import Field, HxAdmin, ModelView
 
 app = FastAPI()
 admin = HxAdmin(app, session=get_session, auth=current_admin_user, title="My Admin")
@@ -23,6 +23,7 @@ class UserView(ModelView[User]):
     default_sort = ("email", "asc")
     page_size = 25
     page_size_options = (25, 50, 100)
+    form_exclude = ("password_hash",)
 
     def format_name(self, obj: User) -> str:  # per-column display override
         return obj.name.title()
@@ -31,6 +32,10 @@ class UserView(ModelView[User]):
 `session` yields an `AsyncSession`; `auth` returns the current user or raises `HTTPException(401)`. Both are ordinary FastAPI dependencies.
 
 Lists support `?q=`, `?sort=&dir=`, `?page=&size=`; requests with `HX-Request: true` get only the table partial. Detail pages show scalar columns and single relations inline and load collection relations lazily in tabs. Override `get_query(request)` to scope rows.
+
+Forms are derived from the mapper: autoincrement primary keys and FK columns covered by a relationship are skipped, enum columns become selects, relationships become a search-as-you-type combobox (`/_lookup`). Configure with `form_fields` (names or `Field(...)` overrides for `label`, `widget`, `required`, `help_text`, `readonly`), `form_exclude`, `can_create`, `can_edit`, `can_delete`, and the `on_save(request, session, obj, *, created)` / `on_delete(request, session, obj)` hooks, which run before commit. Validation errors re-render the form in place (422); integrity errors roll back and show a form-level error.
+
+HxAdmin has no CSRF protection of its own; put it behind your session/CSRF middleware if the admin is cookie-authenticated. `DateTime(timezone=True)` columns receive naive values from `datetime-local` inputs.
 
 Rebuild CSS after editing templates: `nox -s css` (needs Node.js).
 
