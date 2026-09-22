@@ -29,8 +29,10 @@ class TaskView(ModelView[Task]):
 | string, text, uuid | text box | `f.title=report` | case-insensitive substring |
 | many-to-one relation | checkboxes of related rows | `f.project=3` (primary key; `;`-joined if composite) | any checked row |
 
+Range bounds are written back the way their inputs write them (`2026-02-01` on a datetime becomes `2026-02-01T00:00`). A bound with a UTC offset on a column without time zone is converted to UTC. Values no database could compare, such as non-finite numbers, are ignored.
+
 Nullable columns and optional relations get an extra **Empty** checkbox (`f.<name>.empty=1`) that also matches rows without a value. Different filters combine with AND.
 
-Relation filters offer the first 100 rows of the related model, through its view's `get_query` when it is registered. If the related view is not accessible to the current user, the filter is hidden. Filters on to-many relations and JSON columns are not supported and raise at registration.
+Relation filters offer the first 100 rows of the related model, through its view's `get_query` when it is registered, in that query's own order and then by primary key. If the related view is not accessible to the current user, the filter is hidden. Matching a checked row compares primary keys only; it narrows rows the list already shows and does not apply the related view's `get_query` again. Filters on to-many relations, on the side of a one-to-one without the foreign key, and on JSON columns are not supported and raise at registration.
 
-The **Filters** button opens the panel; changes apply immediately. Active filters appear as chips above the table; removing a chip clears that filter. Sorting, paging, actions and export keep the active filters.
+The **Filters** button, with the number of active filters, opens the panel; changes apply immediately. Active filters appear as chips above the table; removing a chip clears that filter. Sorting, paging, actions, export and returning to the list after a delete keep the active filters.

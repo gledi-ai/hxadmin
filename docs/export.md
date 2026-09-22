@@ -31,7 +31,7 @@ The header row has the field labels. A column with a `format_<name>` method expo
 |---|---|---|
 | empty | empty | blank cell |
 | bool | `true` / `false` | boolean |
-| number | as written | number |
+| number | as written | number; NaN is `#NUM!`, infinity `#DIV/0!` |
 | date, datetime, time | ISO 8601 | date cell; aware datetimes converted to UTC |
 | enum | its value | text |
 | many-to-one relation | the related row's `display()` | text |
@@ -39,5 +39,7 @@ The header row has the field labels. A column with a `format_<name>` method expo
 | JSON | JSON text | text |
 
 CSV files are UTF-8 with a byte-order mark so Excel detects the encoding. Text cells starting with `=`, `+`, `-`, `@`, tab or carriage return are prefixed with `'` so spreadsheet programs do not run them as formulas; XLSX cells are always written as text, never as formulas.
+
+Excel's own limits apply to XLSX files: a cell holds at most 32,767 characters (longer text is cut), dates before 1900 are not real dates to Excel, and a sheet has at most 1,048,576 rows.
 
 Files are named `{identity}-{YYYYMMDD-HHMMSS}.{csv|xlsx}` (UTC).
