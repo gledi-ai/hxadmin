@@ -65,7 +65,7 @@ class UserView(ModelView[User]):
 class ProjectView(ModelView[Project]):
     model = Project
     category = "Work"
-    icon = "table"
+    icon = "folder-kanban"
     list_columns = ("name", "description", "members")
     searchable = ("name", "description")
     form_exclude = ("tasks",)
@@ -75,6 +75,7 @@ class ProjectView(ModelView[Project]):
 class TaskView(ModelView[Task]):
     model = Task
     category = "Work"
+    icon = "list-checks"
     list_columns = ("title", "status", "priority", "due_date", "project", "assignee")
     searchable = ("title",)
     default_sort = ("due_date", "asc")
@@ -111,7 +112,7 @@ class TaskView(ModelView[Task]):
         return ActionResult.message(f"Priority raised to {obj.priority}.")
 
 
-@admin.page("/stats", title="Statistics", category="Reports", icon="chart")
+@admin.page("/stats", title="Statistics", category="Reports", icon="chart-column")
 async def stats(session: Annotated[AsyncSession, Depends(get_session)]) -> Page:
     rows = (await session.execute(select(Task.status, func.count()).group_by(Task.status))).all()
     counts = dict.fromkeys(TaskStatus, 0) | {row[0]: row[1] for row in rows}

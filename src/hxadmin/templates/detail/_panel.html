@@ -2,12 +2,12 @@
 <div class="mb-4 flex items-center justify-between gap-4">
   <h1 class="text-2xl font-semibold">{{ view.display(obj) }}</h1>
   <div class="flex items-center gap-2">
-    {% for action in view.permitted_actions(request, bulk=False) %}{{ m.action_button(view, action, obj, 'detail', 'inline-flex items-center rounded border border-edge px-3 py-1.5 text-sm font-medium hover:bg-surface-3') }}{% endfor %}
-    {% if view.can_edit %}<a href="{{ admin.url(request, '/' ~ view.identity ~ '/' ~ view.pk_of(obj) ~ '/edit') }}" class="inline-flex items-center gap-1 rounded bg-accent px-3 py-1.5 text-sm font-medium text-accent-fg">{{ m.icon('pencil', 'size-4') }} Edit</a>{% endif %}
-    {% if view.can_delete %}{{ m.delete_button(view, obj, 'inline-flex items-center gap-1 rounded border border-danger px-3 py-1.5 text-sm font-medium text-danger hover:bg-danger hover:text-danger-fg') }}{% endif %}
+    {% for action in view.permitted_actions(request, bulk=False) %}{{ m.action_button(view, action, obj, 'detail', 'inline-flex items-center rounded-md border border-border px-3 py-1.5 text-sm font-medium hover:bg-surface-2') }}{% endfor %}
+    {% if view.can_edit %}<a href="{{ admin.url(request, '/' ~ view.identity ~ '/' ~ view.pk_of(obj) ~ '/edit') }}" class="inline-flex items-center gap-1 rounded-md bg-accent px-3 py-1.5 text-sm font-medium text-accent-fg">{{ m.icon('pencil', 'size-4') }} Edit</a>{% endif %}
+    {% if view.can_delete %}{{ m.delete_button(view, obj, 'inline-flex items-center gap-1 rounded-md border border-danger px-3 py-1.5 text-sm font-medium text-danger hover:bg-danger hover:text-danger-fg') }}{% endif %}
   </div>
 </div>
-<dl class="grid grid-cols-1 gap-x-8 gap-y-3 rounded-lg border border-edge bg-surface-2 p-4 sm:grid-cols-[max-content_1fr]">
+<dl class="grid grid-cols-1 gap-x-8 gap-y-3 rounded-lg border border-border bg-surface p-4 sm:grid-cols-[max-content_1fr]">
   {% for field in scalar_fields %}
   <dt class="text-sm font-medium text-fg-muted">{{ field.label }}</dt>
   <dd class="text-sm break-words">{{ m.cell(view, field, view.cell(obj, field.name)) }}</dd>
@@ -15,7 +15,7 @@
 </dl>
 {% if collections %}
 <div class="mt-6" x-data="{ tab: '{{ collections[0][0].name }}' }">
-  <div class="flex gap-1 border-b border-edge" role="tablist">
+  <div class="flex gap-1 border-b border-border" role="tablist">
     {% for field, url in collections %}
     <button type="button" role="tab" @click="tab = '{{ field.name }}'"
             :class="tab === '{{ field.name }}' ? 'border-accent text-fg' : 'border-transparent text-fg-muted hover:text-fg'"

@@ -16,11 +16,16 @@ def test_static_assets_are_served(
         css = client.get("/admin/static/hxadmin.css")
         htmx = client.get("/admin/static/vendor/htmx.min.js")
         alpine = client.get("/admin/static/vendor/alpine.min.js")
+        plugins = [
+            client.get(f"/admin/static/vendor/alpine-{name}.min.js") for name in ("anchor", "focus")
+        ]
     assert css.status_code == 200
     assert "--color-surface" in css.text
+    assert "--color-accent-soft" in css.text
     assert ".dark" in css.text
     assert htmx.status_code == 200
     assert alpine.status_code == 200
+    assert [p.status_code for p in plugins] == [200, 200]
 
 
 def test_static_is_not_auth_guarded(

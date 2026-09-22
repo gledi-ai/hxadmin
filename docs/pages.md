@@ -8,7 +8,7 @@ from fastapi import Depends
 from hxadmin import Page
 
 
-@admin.page("/sync", title="Sync management", category="Ops", icon="refresh")
+@admin.page("/sync", title="Sync management", category="Ops", icon="refresh-cw")
 async def sync_page(session: Annotated[AsyncSession, Depends(get_session)]) -> Page:
     return Page("sync.html", {"jobs": await load_jobs(session)})
 

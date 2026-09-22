@@ -1,11 +1,11 @@
 {% set value = values.get(field.name) %}
 {% set error = errors.fields.get(field.name) %}
 {% set widget = 'relation' if field.kind == 'relation' else field.widget or default_widget(field.kind) %}
-{% set control = 'mt-1 w-full rounded border bg-surface px-2 py-1.5 text-sm focus:border-accent focus:outline-none ' ~ ('border-danger' if error else 'border-edge') %}
+{% set control = 'mt-1 w-full rounded-md border bg-surface px-2 py-1.5 text-sm ' ~ ('border-danger' if error else 'border-input') %}
 <div>
   <label for="f-{{ field.name }}" class="block text-sm font-medium">{{ field.label }}{% if field.required %} <span class="text-danger" aria-hidden="true">*</span>{% endif %}</label>
   {% if widget == 'checkbox' %}
-  <input id="f-{{ field.name }}" type="checkbox" name="{{ field.name }}" value="on" {{ 'checked' if value }} {% if error %}aria-invalid="true"{% endif %} {{ 'disabled' if field.readonly }} class="mt-1 size-4 rounded border-edge accent-accent">
+  <input id="f-{{ field.name }}" type="checkbox" name="{{ field.name }}" value="on" {{ 'checked' if value }} {% if error %}aria-invalid="true"{% endif %} {{ 'disabled' if field.readonly }} class="mt-1 size-4 rounded-sm border-input">
   {% elif widget in ('textarea', 'json') %}
   <textarea id="f-{{ field.name }}" name="{{ field.name }}" rows="{{ 6 if widget == 'json' else 4 }}" {% if error %}aria-invalid="true"{% endif %} {{ 'readonly' if field.readonly }} class="{{ control }}{{ ' font-mono' if widget == 'json' }}">{{ value|json_pretty if widget == 'json' and value is not none and value is not string else value if value is not none else '' }}</textarea>
   {% elif widget == 'select' %}
@@ -19,9 +19,9 @@
   {% set chips = [] %}{% for pk, label in value or [] %}{% set _ = chips.append({"pk": pk, "label": label}) %}{% endfor %}
   {% set lookup_url = admin.url(request, '/' ~ view.identity ~ '/_lookup/' ~ field.name) %}
   <div class="combobox relative mt-1" x-data='combobox({{ field.name|tojson }}, {{ field.multiple|tojson }}, {{ chips|tojson }})' @click.outside="open = false">
-    <div class="flex flex-wrap items-center gap-1 rounded border bg-surface px-2 py-1 {{ 'border-danger' if error else 'border-edge' }}">
+    <div class="flex flex-wrap items-center gap-1 rounded-md border bg-surface px-2 py-1 focus-within:outline-2 focus-within:-outline-offset-1 focus-within:outline-ring {{ 'border-danger' if error else 'border-input' }}">
       <template x-for="s in selected" :key="s.pk">
-        <span class="inline-flex items-center gap-1 rounded bg-surface-3 px-2 py-0.5 text-sm">
+        <span class="inline-flex items-center gap-1 rounded-md bg-surface-2 px-2 py-0.5 text-sm">
           <span x-text="s.label"></span>
           <input type="hidden" :name="name" :value="s.pk">
           <button type="button" @click="remove(s.pk)" class="text-fg-muted hover:text-fg" aria-label="Remove">&times;</button>

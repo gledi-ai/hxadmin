@@ -10,7 +10,7 @@ class TaskView(ModelView[Task]):
     name_plural = "Tasks"  # default: name + "s"
     identity = "task"  # URL segment; default: model name, lower-case
     category = "Work"  # sidebar group
-    icon = "table"  # built-in icon name
+    icon = "table"  # any Lucide icon name
 ```
 
 ## Options

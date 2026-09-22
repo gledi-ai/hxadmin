@@ -37,7 +37,7 @@ def build(factory: AppFactory, tmp_path: Path) -> tuple[FastAPI, HxAdmin]:
     admin = HxAdmin(app, session=factory.get_session, auth=allow_all, templates_dir=tmp_path)
     admin.register(UserView)
 
-    @admin.page("/sync", title="Sync management", category="Ops", icon="refresh")
+    @admin.page("/sync", title="Sync management", category="Ops", icon="refresh-cw")
     async def sync_page(
         request: Request, session: Annotated[AsyncSession, Depends(factory.get_session)]
     ) -> Page:
@@ -101,7 +101,9 @@ def test_pages_are_in_nav_and_routes_are_not(factory: AppFactory, tmp_path: Path
                 NavItem("Monthly", "/admin/reports/monthly", None, False),
             ),
         ),
-        NavGroup(label="Ops", items=(NavItem("Sync management", "/admin/sync", "refresh", True),)),
+        NavGroup(
+            label="Ops", items=(NavItem("Sync management", "/admin/sync", "refresh-cw", True),)
+        ),
     ]
 
 

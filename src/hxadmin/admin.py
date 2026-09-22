@@ -23,6 +23,7 @@ from starlette.routing import BaseRoute
 
 from hxadmin.deps import AuthDependency, SessionDependency
 from hxadmin.fields import default_widget
+from hxadmin.icons import check_icon, icon
 from hxadmin.nav import build_nav, build_search_targets
 from hxadmin.pages import AdminPage, PageEndpoint, PageHandler
 from hxadmin.toasts import FLASH_COOKIE, Toast, encode_flash, hx_trigger, read_flash
@@ -101,7 +102,9 @@ class HxAdmin:
             loaders.insert(0, FileSystemLoader(str(templates_dir)))
         env = Environment(loader=ChoiceLoader(loaders), autoescape=select_autoescape(["html"]))
         env.filters["json_pretty"] = json_pretty
-        cast(dict[str, Any], env.globals)["default_widget"] = default_widget
+        env_globals = cast(dict[str, Any], env.globals)
+        env_globals["default_widget"] = default_widget
+        env_globals["lucide_icon"] = icon
         return env
 
     def _build_dependencies(self) -> None:
@@ -157,6 +160,7 @@ class HxAdmin:
             raise ValueError(f"A view with identity {view.identity!r} is already registered")
         if any(_first_segment(page.path) == view.identity for page in self.pages):
             raise ValueError(f"A page path already uses {view.identity!r}")
+        check_icon(view.icon)
         self.views[view.identity] = view
         return view_cls
 
@@ -173,6 +177,7 @@ class HxAdmin:
         """Register a custom page under the admin prefix, guarded by `auth`, in the sidebar."""
         if "{" in path:
             raise ValueError(f"Sidebar page {path!r} cannot take path parameters; use admin.route")
+        check_icon(icon)
         return self._add_page(AdminPage(path, title, category, icon, in_nav=True), methods, name)
 
     def route[F: PageHandler](

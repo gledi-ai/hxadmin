@@ -5,16 +5,16 @@
 {% block content %}
 <div class="mb-4 flex items-center justify-between gap-4">
   <h1 class="text-2xl font-semibold">{{ view.name_plural }}</h1>
-  {% if view.can_create %}<a href="{{ admin.url(request, '/' ~ view.identity ~ '/new') }}" class="inline-flex items-center gap-1 rounded bg-accent px-3 py-1.5 text-sm font-medium text-accent-fg">{{ m.icon('plus', 'size-4') }} New {{ view.name|lower }}</a>{% endif %}
+  {% if view.can_create %}<a href="{{ admin.url(request, '/' ~ view.identity ~ '/new') }}" class="inline-flex items-center gap-1 rounded-md bg-accent px-3 py-1.5 text-sm font-medium text-accent-fg">{{ m.icon('plus', 'size-4') }} New {{ view.name|lower }}</a>{% endif %}
 </div>
 {% include "list/_toolbar.html" %}
 {% set bulk_actions = view.permitted_actions(request, bulk=True) %}
 {% if bulk_actions or view.export_formats %}
 <form id="bulk" x-data="bulk()" x-show="count" x-cloak @change.window="refresh()"
-      class="mb-4 flex flex-wrap items-center gap-2 rounded-lg border border-edge bg-surface-2 px-3 py-2 text-sm">
+      class="mb-4 flex flex-wrap items-center gap-2 rounded-lg border border-border bg-surface px-3 py-2 text-sm">
   <span class="mr-2 text-fg-muted" x-text="count + ' selected'"></span>
-  {% for action in bulk_actions %}{{ m.action_button(view, action, none, 'list', 'rounded border border-edge bg-surface px-2.5 py-1 font-medium hover:bg-surface-3') }}{% endfor %}
-  {% for fmt in view.export_formats %}<button type="submit" formmethod="get" formaction="{{ admin.url(request, '/' ~ view.identity ~ '/_export/' ~ fmt) }}" class="inline-flex items-center gap-1 rounded border border-edge bg-surface px-2.5 py-1 font-medium hover:bg-surface-3">{{ m.icon('download', 'size-4') }} Export {{ fmt|upper }}</button>{% endfor %}
+  {% for action in bulk_actions %}{{ m.action_button(view, action, none, 'list', 'rounded-md border border-border bg-surface px-2.5 py-1 font-medium hover:bg-surface-2') }}{% endfor %}
+  {% for fmt in view.export_formats %}<button type="submit" formmethod="get" formaction="{{ admin.url(request, '/' ~ view.identity ~ '/_export/' ~ fmt) }}" class="inline-flex items-center gap-1 rounded-md border border-border bg-surface px-2.5 py-1 font-medium hover:bg-surface-2">{{ m.icon('download', 'size-4') }} Export {{ fmt|upper }}</button>{% endfor %}
 </form>
 {% endif %}
 <div id="list" class="hx-list">

@@ -14,6 +14,8 @@
   </script>
   <link rel="stylesheet" href="{{ admin.url(request, '/static/hxadmin.css') }}">
   <script src="{{ admin.url(request, '/static/vendor/htmx.min.js') }}"></script>
+  <script defer src="{{ admin.url(request, '/static/vendor/alpine-anchor.min.js') }}"></script>
+  <script defer src="{{ admin.url(request, '/static/vendor/alpine-focus.min.js') }}"></script>
   <script defer src="{{ admin.url(request, '/static/vendor/alpine.min.js') }}"></script>
   <script>
     document.addEventListener("alpine:init", function () {
@@ -109,9 +111,9 @@
   </script>
   {% block head %}{% endblock %}
 </head>
-<body class="h-full bg-surface text-fg" x-data="{ sidebarOpen: false, confirm: null, dismiss() { if (this.confirm && this.confirm.cancel) this.confirm.cancel(); this.confirm = null; } }" @confirm.window="confirm = $event.detail">
+<body class="h-full bg-bg text-fg" x-data="{ sidebarOpen: false, confirm: null, dismiss() { if (this.confirm && this.confirm.cancel) this.confirm.cancel(); this.confirm = null; } }" @confirm.window="confirm = $event.detail">
   <div class="flex h-full">
-    <aside class="fixed inset-y-0 left-0 z-30 w-60 -translate-x-full border-r border-edge bg-surface-2 transition-transform lg:static lg:translate-x-0"
+    <aside class="fixed inset-y-0 left-0 z-30 w-60 -translate-x-full border-r border-border bg-bg transition-transform lg:static lg:translate-x-0"
            :class="sidebarOpen && 'translate-x-0'">
       <a href="{{ admin.url(request, '/') }}" class="flex h-14 items-center px-4 text-lg font-semibold">{{ admin.title }}</a>
       <nav class="px-2 py-2" aria-label="Main">
@@ -126,7 +128,7 @@
             {% for item in group.items %}
             <li>
               <a href="{{ item.url }}"
-                 class="flex items-center gap-2 rounded px-2 py-1.5 text-sm hover:bg-surface-3 {{ 'bg-surface-3 font-medium' if item.active }}">
+                 class="flex items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-surface-2 {{ 'bg-surface-2 font-medium' if item.active }}">
                 {{ m.icon(item.icon or 'table', 'size-4 text-fg-muted') }}
                 <span>{{ item.label }}</span>
               </a>
@@ -138,7 +140,7 @@
       </nav>
     </aside>
     <div class="flex min-w-0 flex-1 flex-col">
-      <header class="flex h-14 items-center gap-3 border-b border-edge bg-surface px-4">
+      <header class="flex h-14 items-center gap-3 border-b border-border bg-surface px-4">
         <button type="button" class="lg:hidden" @click="sidebarOpen = !sidebarOpen" aria-label="Toggle navigation">{{ m.icon('menu') }}</button>
         <div class="min-w-0 flex-1 truncate text-sm text-fg-muted">{% block breadcrumb %}{% endblock %}</div>
         {% if search_targets %}
@@ -147,21 +149,21 @@
         <form id="global-search" method="get" action="{{ target.url }}" role="search"
               x-data="{ url: {{ target.url|tojson|forceescape }} }" :action="url"
               class="hidden items-center gap-1 md:flex">
-          <select x-model="url" aria-label="Search in" class="rounded border border-edge bg-surface px-2 py-1 text-sm">
+          <select x-model="url" aria-label="Search in" class="rounded-md border border-input bg-surface px-2 py-1 text-sm">
             {% for item in search_targets %}<option value="{{ item.url }}" {{ 'selected' if item.url == target.url }}>{{ item.label }}</option>{% endfor %}
           </select>
-          <input type="search" name="q" placeholder="Search…" aria-label="Search" class="w-48 rounded border border-edge bg-surface px-2 py-1 text-sm focus:border-accent focus:outline-none">
+          <input type="search" name="q" placeholder="Search…" aria-label="Search" class="w-48 rounded-md border border-input bg-surface px-2 py-1 text-sm">
         </form>
         {% endif %}
         <div x-data="theme()" x-init="apply()">
-          <button type="button" @click="cycle()" class="rounded p-1.5 hover:bg-surface-3" :title="'Theme: ' + mode" aria-label="Switch theme">
+          <button type="button" @click="cycle()" class="rounded-md p-1.5 hover:bg-surface-2" :title="'Theme: ' + mode" aria-label="Switch theme">
             <span x-show="mode === 'light'">{{ m.icon('sun') }}</span>
             <span x-show="mode === 'dark'" x-cloak>{{ m.icon('moon') }}</span>
             <span x-show="mode === 'system'" x-cloak>{{ m.icon('monitor') }}</span>
           </button>
         </div>
         {% if user %}<span class="text-sm">{{ user.name if user.name is defined else user }}</span>{% endif %}
-        {% if admin.logout_url %}<a href="{{ admin.logout_url }}" class="rounded p-1.5 hover:bg-surface-3" aria-label="Log out">{{ m.icon('logout') }}</a>{% endif %}
+        {% if admin.logout_url %}<a href="{{ admin.logout_url }}" class="rounded-md p-1.5 hover:bg-surface-2" aria-label="Log out">{{ m.icon('log-out') }}</a>{% endif %}
       </header>
       <main id="main" class="flex-1 overflow-y-auto p-6">
         {% block content %}{% endblock %}
@@ -171,20 +173,20 @@
   <div id="toasts" class="fixed bottom-4 right-4 z-50 flex w-80 flex-col gap-2" aria-live="polite"
        x-data="toasts({{ toasts|tojson|forceescape }})" @hxadmin-toast.window="push($event.detail)">
     <template x-for="toast in items" :key="toast.id">
-      <div role="status" class="flex items-start gap-2 rounded-lg border border-l-4 border-edge bg-surface-2 p-3 text-sm shadow-lg"
+      <div role="status" class="flex items-start gap-2 rounded-lg border border-l-4 border-border bg-popover p-3 text-sm shadow-lg"
            :class="{ 'border-l-success': toast.level === 'success', 'border-l-accent': toast.level === 'info', 'border-l-warning': toast.level === 'warning', 'border-l-danger': toast.level === 'error' }">
         <span class="flex-1" x-text="toast.message"></span>
         <button type="button" @click="dismiss(toast.id)" class="text-fg-muted hover:text-fg" aria-label="Dismiss">{{ m.icon('x', 'size-4') }}</button>
       </div>
     </template>
   </div>
-  <div x-show="confirm" x-cloak class="fixed inset-0 z-40 flex items-center justify-center bg-fg/40" @click.self="dismiss()" @keydown.escape.window="dismiss()" role="dialog" aria-modal="true">
-    <div class="w-full max-w-sm rounded-lg border border-edge bg-surface p-6 shadow-lg">
+  <div x-show="confirm" x-cloak class="fixed inset-0 z-40 flex items-center justify-center bg-overlay" @click.self="dismiss()" @keydown.escape.window="dismiss()" role="dialog" aria-modal="true">
+    <div class="w-full max-w-sm rounded-lg border border-border bg-surface p-6 shadow-lg">
       <p class="text-sm" x-text="confirm && confirm.message"></p>
       <form method="post" :action="confirm && confirm.action" class="mt-4 flex justify-end gap-2"
             @submit="if (confirm && confirm.submit) { $event.preventDefault(); var run = confirm.submit; confirm = null; run(); }">
-        <button type="button" @click="dismiss()" class="rounded border border-edge px-3 py-1.5 text-sm hover:bg-surface-3">Cancel</button>
-        <button type="submit" class="rounded bg-danger px-3 py-1.5 text-sm font-medium text-danger-fg">Confirm</button>
+        <button type="button" @click="dismiss()" class="rounded-md border border-border px-3 py-1.5 text-sm hover:bg-surface-2">Cancel</button>
+        <button type="submit" class="rounded-md bg-danger px-3 py-1.5 text-sm font-medium text-danger-fg">Confirm</button>
       </form>
     </div>
   </div>

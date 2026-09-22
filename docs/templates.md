@@ -25,4 +25,4 @@ Custom templates can use the Tailwind classes compiled into `hxadmin.css`. For a
 
 ## Theme
 
-The top bar toggles light, dark and system themes; the choice is stored in `localStorage` under `hxadmin-theme`. Templates use semantic colour tokens (`bg-surface`, `bg-surface-2`, `bg-surface-3`, `text-fg`, `text-fg-muted`, `border-edge`, `text-accent`, `bg-accent`, `text-danger`, ...) defined once for light and once for dark.
+The top bar toggles light, dark and system themes; the choice is stored in `localStorage` under `hxadmin-theme`. Templates use semantic colour tokens (`bg-bg`, `bg-surface`, `bg-surface-2`, `text-fg`, `text-fg-muted`, `text-fg-subtle`, `border-border`, `border-input`, `text-accent`, `bg-accent-soft`, `text-danger`, ...) defined once for light and once for dark.
