@@ -21,6 +21,7 @@ from starlette.responses import HTMLResponse, RedirectResponse, Response
 from hxadmin.deps import AuthDependency, SessionDependency
 from hxadmin.fields import default_widget
 from hxadmin.nav import build_nav
+from hxadmin.toasts import FLASH_COOKIE, Toast, encode_flash, read_flash
 from hxadmin.views import ModelView
 
 
@@ -125,11 +126,25 @@ class HxAdmin:
     def url(self, request: Request, path: str = "/") -> str:
         return f"{request.scope.get('root_path', '')}{path}"
 
-    def redirect(self, request: Request, url: str) -> Response:
-        """Redirect after a successful write: HX-Redirect on 200 for htmx, 303 otherwise."""
+    def redirect(self, request: Request, url: str, *, toast: Toast | None = None) -> Response:
+        """Redirect after a successful write: HX-Redirect on 200 for htmx, 303 otherwise.
+
+        A `toast` rides along in a short-lived cookie and is shown on the next full page.
+        """
         if request.headers.get("HX-Request") == "true":
-            return Response(status_code=200, headers={"HX-Redirect": url})
-        return RedirectResponse(url, status_code=303)
+            response: Response = Response(status_code=200, headers={"HX-Redirect": url})
+        else:
+            response = RedirectResponse(url, status_code=303)
+        if toast is not None:
+            response.set_cookie(
+                FLASH_COOKIE,
+                encode_flash(toast),
+                max_age=60,
+                path=self.url(request, "/"),
+                httponly=True,
+                samesite="lax",
+            )
+        return response
 
     def render(
         self,
@@ -139,13 +154,21 @@ class HxAdmin:
         *,
         status_code: int = 200,
     ) -> HTMLResponse:
+        consume = request.headers.get("HX-Request") != "true" and FLASH_COOKIE in request.cookies
+        flash = read_flash(request) if consume else None
         full_context: dict[str, Any] = {
             "admin": self,
             "request": request,
             "user": getattr(request.state, "hxadmin_user", None),
             "nav": build_nav(self, request),
+            "toasts": [flash.as_dict()] if flash is not None else [],
         }
         if context:
             full_context.update(context)
         html = self.templates.get_template(template).render(full_context)
-        return HTMLResponse(html, status_code=status_code)
+        response = HTMLResponse(html, status_code=status_code)
+        if consume:
+            response.delete_cookie(
+                FLASH_COOKIE, path=self.url(request, "/"), httponly=True, samesite="lax"
+            )
+        return response
