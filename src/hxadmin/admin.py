@@ -18,6 +18,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.requests import Request
 from starlette.responses import HTMLResponse, RedirectResponse, Response
+from starlette.routing import BaseRoute
 
 from hxadmin.deps import AuthDependency, SessionDependency
 from hxadmin.fields import default_widget
@@ -40,7 +41,7 @@ def _require_async_page(path: str, handler: object) -> None:
         raise TypeError(f"Page handler for {path!r} must be an async function")
 
 
-_PAGE_METHODS = ("GET", "POST", "PUT", "PATCH", "DELETE")
+_PAGE_METHODS = ("GET", "HEAD", "POST", "PUT", "PATCH", "DELETE")
 
 
 def _method_not_allowed(allowed: Sequence[str]) -> Callable[[], Awaitable[Response]]:
@@ -77,6 +78,8 @@ class HxAdmin:
         self.logout_url = logout_url
         self.views: dict[str, ModelView[Any]] = {}
         self.pages: list[AdminPage] = []
+        self._page_methods: dict[str, set[str]] = {}
+        self._method_fallbacks: dict[str, BaseRoute] = {}
         self._session = session
         self._auth = auth
         self.templates = self._make_environment(templates_dir)
@@ -183,6 +186,16 @@ class HxAdmin:
         self, page: AdminPage, methods: Sequence[str], name: str | None
     ) -> Callable[[F], F]:
         self._check_page_path(page.path)
+        wanted = {m.upper() for m in methods}
+        if "GET" in wanted:
+            wanted.add("HEAD")
+        clash = wanted & self._page_methods.get(page.path, set())
+        if clash:
+            raise ValueError(
+                f"Page path {page.path!r} is already registered for {', '.join(sorted(clash))}"
+            )
+        if page.in_nav and any(p.in_nav and p.path == page.path for p in self.pages):
+            raise ValueError(f"Page path {page.path!r} is already in the sidebar")
 
         def decorate(handler: F) -> F:
             _require_async_page(page.path, handler)
@@ -195,26 +208,39 @@ class HxAdmin:
                 name=name or getattr(handler, "__name__", page.path),
                 dependencies=[Depends(self.current_user)],
                 response_model=None,
-                response_class=HTMLResponse,
                 include_in_schema=False,
             )
-            other = [m for m in _PAGE_METHODS if m not in {x.upper() for x in methods}]
-            if other:
-                self.subapp.add_api_route(
-                    page.path,
-                    _method_not_allowed(methods),
-                    methods=other,
-                    dependencies=[Depends(self.current_user)],
-                    include_in_schema=False,
-                )
             added = routes[start:]
             del routes[start:]
             routes[self._page_slot : self._page_slot] = added
             self._page_slot += len(added)
+            allowed = self._page_methods.get(page.path, set()) | wanted
+            self._page_methods[page.path] = allowed
+            self._set_method_fallback(page.path, allowed)
             self.pages.append(page)
             return handler
 
         return decorate
+
+    def _set_method_fallback(self, path: str, allowed: set[str]) -> None:
+        """One 405 route per page path, kept after every page handler and before model routes."""
+        routes = self.subapp.router.routes
+        old = self._method_fallbacks.pop(path, None)
+        if old is not None:
+            routes.remove(old)
+        other = [m for m in _PAGE_METHODS if m not in allowed]
+        if not other:
+            return
+        self.subapp.add_api_route(
+            path,
+            _method_not_allowed(sorted(allowed)),
+            methods=other,
+            dependencies=[Depends(self.current_user)],
+            include_in_schema=False,
+        )
+        route = routes.pop()
+        routes.insert(self._page_slot, route)
+        self._method_fallbacks[path] = route
 
     def _check_page_path(self, path: str) -> None:
         first = _first_segment(path)

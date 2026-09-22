@@ -188,3 +188,60 @@ def test_sync_handler_is_rejected(factory: AppFactory) -> None:
 def test_page_is_exported() -> None:
     assert hxadmin.Page is Page
     assert "Page" in hxadmin.__all__
+
+
+def test_json_able_results_are_serialised(factory: AppFactory, make_client: MakeClient) -> None:
+    app = factory.app()
+    admin = HxAdmin(app, session=factory.get_session, auth=allow_all)
+
+    @admin.route("/api/info")
+    async def info() -> dict[str, Any]:
+        return {"ok": True, "n": 2}
+
+    with make_client(app) as client:
+        response = client.get("/admin/api/info")
+    assert response.status_code == 200
+    assert response.json() == {"ok": True, "n": 2}
+
+
+def test_methods_split_across_registrations(factory: AppFactory, make_client: MakeClient) -> None:
+    app = factory.app(seed=seed)
+    admin = HxAdmin(app, session=factory.get_session, auth=allow_all)
+    admin.register(UserView)
+
+    @admin.route("/sync/job")
+    async def show() -> JSONResponse:
+        return JSONResponse({"method": "GET"})
+
+    @admin.route("/sync/job", methods=("POST",))
+    async def run() -> JSONResponse:
+        return JSONResponse({"method": "POST"})
+
+    with make_client(app) as client:
+        get = client.get("/admin/sync/job")
+        post = client.post("/admin/sync/job")
+        delete = client.delete("/admin/sync/job")
+    assert get.json() == {"method": "GET"}
+    assert post.json() == {"method": "POST"}
+    assert delete.status_code == 405
+    assert set(delete.headers["allow"].split(", ")) == {"GET", "HEAD", "POST"}
+
+
+def test_duplicate_page_registrations_are_rejected(factory: AppFactory) -> None:
+    admin = HxAdmin(factory.app(), session=factory.get_session, auth=allow_all)
+
+    @admin.page("/sync", title="Sync")
+    async def sync() -> Page:
+        return Page("page.html")
+
+    with pytest.raises(ValueError, match="already registered"):
+
+        @admin.route("/sync")
+        async def again() -> Page:
+            return Page("page.html")
+
+    with pytest.raises(ValueError, match="already in the sidebar"):
+
+        @admin.page("/sync", title="Sync again", methods=("POST",))
+        async def post() -> Page:
+            return Page("page.html")
