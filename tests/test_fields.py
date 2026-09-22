@@ -17,7 +17,14 @@ from sqlalchemy import (
 )
 from sqlalchemy.types import TypeEngine
 
-from hxadmin.fields import Field, RelationField, derive_fields, kind_for, label_for
+from hxadmin.fields import (
+    Field,
+    RelationField,
+    default_widget,
+    derive_fields,
+    kind_for,
+    label_for,
+)
 from tests.conftest import Post, PostStatus, Tag, User, Vote
 
 
@@ -62,13 +69,22 @@ def test_derive_columns_and_relations() -> None:
         "author",
         "tags",
     ]
-    assert fields["id"] == Field("id", "int", "Id", nullable=False, primary_key=True)
-    assert fields["body"] == Field("body", "text", "Body")
-    assert fields["status"] == Field("status", "enum", "Status")
+    assert fields["id"] == Field("id", "int", "Id", primary_key=True, autoincrement=True)
+    assert fields["title"] == Field("title", "str", "Title", required=True)
+    assert fields["body"] == Field("body", "text", "Body", default="")
+    assert fields["status"] == Field(
+        "status",
+        "enum",
+        "Status",
+        default="draft",
+        choices=(("draft", "draft"), ("published", "published")),
+    )
     assert fields["published_at"] == Field(
         "published_at", "datetime", "Published at", nullable=True
     )
-    assert fields["author"] == RelationField("author", "Author", User, multiple=False)
+    assert fields["author"] == RelationField(
+        "author", "Author", User, multiple=False, fk_columns=("author_id",), required=True
+    )
     assert fields["tags"] == RelationField("tags", "Tags", Tag, multiple=True)
     assert fields["tags"].kind == "relation"
 
@@ -79,3 +95,71 @@ def test_derive_composite_primary_key() -> None:
         "user_id",
         "post_id",
     ]
+
+
+def test_field_label_defaults_from_name() -> None:
+    assert Field("created_at", "datetime").label == "Created at"
+    assert Field("created_at", "datetime", "When").label == "When"
+
+
+def test_default_widget() -> None:
+    assert default_widget("str") == "text"
+    assert default_widget("text") == "textarea"
+    assert default_widget("bool") == "checkbox"
+    assert default_widget("datetime") == "datetime-local"
+    assert default_widget("enum") == "select"
+    assert default_widget("decimal") == "number"
+    assert default_widget("json") == "json"
+
+
+def test_derive_form_metadata() -> None:
+    fields = derive_fields(Post)
+    id_ = fields["id"]
+    assert isinstance(id_, Field)
+    assert (id_.primary_key, id_.autoincrement, id_.required) == (True, True, False)
+    title = fields["title"]
+    assert isinstance(title, Field)
+    assert (title.required, title.default, title.unique) == (True, None, False)
+    body = fields["body"]
+    assert isinstance(body, Field)
+    assert (body.required, body.default) == (False, "")
+    status = fields["status"]
+    assert isinstance(status, Field)
+    assert status.choices == (("draft", "draft"), ("published", "published"))
+    assert status.default == "draft"
+    assert status.required is False
+    published = fields["published_at"]
+    assert isinstance(published, Field)
+    assert (published.nullable, published.required) == (True, False)
+    author = fields["author"]
+    assert isinstance(author, RelationField)
+    assert author.fk_columns == ("author_id",)
+    assert author.required is True
+    tags = fields["tags"]
+    assert isinstance(tags, RelationField)
+    assert tags.fk_columns == ()
+    assert tags.required is False
+
+
+def test_derive_bool_and_nullable_relation() -> None:
+    fields = derive_fields(User)
+    email = fields["email"]
+    assert isinstance(email, Field)
+    assert email.unique is True
+    active = fields["active"]
+    assert isinstance(active, Field)
+    assert (active.required, active.default) == (False, True)
+    group = fields["group"]
+    assert isinstance(group, RelationField)
+    assert (group.fk_columns, group.required) == (("group_id",), False)
+    posts = fields["posts"]
+    assert isinstance(posts, RelationField)
+    assert posts.fk_columns == ()
+
+
+def test_composite_pk_is_not_autoincrement() -> None:
+    fields = derive_fields(Vote)
+    for name in ("user_id", "post_id"):
+        f = fields[name]
+        assert isinstance(f, Field)
+        assert (f.primary_key, f.autoincrement, f.required) == (True, False, True)

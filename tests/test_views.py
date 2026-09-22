@@ -106,9 +106,17 @@ def test_default_list_and_detail_fields() -> None:
 def test_explicit_list_columns_resolve_to_fields() -> None:
     view = PostView()
     assert view.list_fields == (
-        Field("title", "str", "Title"),
-        Field("status", "enum", "Status"),
-        RelationField("author", "Author", User, multiple=False),
+        Field("title", "str", "Title", required=True),
+        Field(
+            "status",
+            "enum",
+            "Status",
+            default="draft",
+            choices=(("draft", "draft"), ("published", "published")),
+        ),
+        RelationField(
+            "author", "Author", User, multiple=False, fk_columns=("author_id",), required=True
+        ),
     )
     assert view.sort_names == ("title", "status")
     assert view.formatted == frozenset({"title"})

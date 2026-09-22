@@ -47,7 +47,7 @@ class User(Base):
     __tablename__ = "users"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    email: Mapped[str]
+    email: Mapped[str] = mapped_column(unique=True)
     active: Mapped[bool] = mapped_column(default=True)
     group_id: Mapped[int | None] = mapped_column(ForeignKey("groups.id"))
     group: Mapped[Group | None] = relationship(back_populates="users")
