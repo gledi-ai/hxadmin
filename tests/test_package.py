@@ -13,6 +13,11 @@ PACKAGE_DATA = [
     "static/hxadmin.css",
     "static/vendor/htmx.min.js",
     "static/vendor/alpine.min.js",
+    "static/vendor/alpine-anchor.min.js",
+    "static/vendor/alpine-focus.min.js",
+    "static/vendor/alpine-plugins.LICENSE",
+    "static/vendor/lucide/LICENSE",
+    "static/vendor/lucide/house.svg",
 ]
 
 
