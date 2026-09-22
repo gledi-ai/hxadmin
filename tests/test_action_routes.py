@@ -378,3 +378,36 @@ def test_wrong_action_method_reports_allow(factory: AppFactory, make_client: Mak
         response = client.get("/admin/user/1/action/activate")
     assert response.status_code == 405
     assert response.headers["allow"] == "POST"
+
+
+class PingView(UserView):
+    @action("ping", method="GET")
+    async def ping(self, request: Request, session: AsyncSession, obj: User) -> ActionResult:
+        return ActionResult.message("pong")
+
+
+def test_native_list_actions_return_to_the_list_as_shown(
+    factory: AppFactory, make_client: MakeClient
+) -> None:
+    shown = {"referer": "http://testserver/admin/user/?q=x.io&sort=email&dir=desc&page=1"}
+    with make_client(build(factory, PingView)) as client:
+        row = client.get(
+            "/admin/user/1/action/ping?_from=list", headers=shown, follow_redirects=False
+        )
+        empty = client.get(
+            "/admin/user/action/export?pks=99", headers=shown, follow_redirects=False
+        )
+        foreign = client.get(
+            "/admin/user/1/action/ping?_from=list",
+            headers={"referer": "http://evil.example/admin/user/?q=1"},
+            follow_redirects=False,
+        )
+        other_page = client.get(
+            "/admin/user/1/action/ping?_from=list",
+            headers={"referer": "http://testserver/admin/group/?q=1"},
+            follow_redirects=False,
+        )
+    assert row.headers["location"] == "/admin/user/?q=x.io&sort=email&dir=desc&page=1"
+    assert empty.headers["location"] == "/admin/user/?q=x.io&sort=email&dir=desc&page=1"
+    assert foreign.headers["location"] == "/admin/user/?q=1"
+    assert other_page.headers["location"] == "/admin/user/"
