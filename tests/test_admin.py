@@ -52,7 +52,6 @@ def test_duplicate_identity_rejected(factory: AppFactory) -> None:
             model = User
 
 
-@pytest.mark.xfail(strict=True, reason="nav in Task 4")
 def test_dashboard_lists_registered_views(
     factory: AppFactory, make_client: Callable[[FastAPI], TestClient]
 ) -> None:
