@@ -1,4 +1,4 @@
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, replace
 from math import ceil
 from typing import Any
@@ -67,22 +67,25 @@ def _int(value: str | None, default: int) -> int:
         return default
 
 
-def parse_list_params(request: Request, view: ModelView[Any]) -> ListParams:
-    query = request.query_params
+def parse_list_params(
+    request: Request, view: ModelView[Any], *, query: Mapping[str, str] | None = None
+) -> ListParams:
+    """List params from `query` (default: the request's query string); invalid values fall back."""
+    source = request.query_params if query is None else query
     default_sort, default_dir = view.default_sort or (None, "asc")
-    sort = query.get("sort")
+    sort = source.get("sort")
     if sort not in view.sort_names:
         sort = default_sort
-    raw_dir = query.get("dir")
+    raw_dir = source.get("dir")
     dir_: SortDir = raw_dir if raw_dir in ("asc", "desc") else default_dir
-    size = _int(query.get("size"), view.page_size)
+    size = _int(source.get("size"), view.page_size)
     if size not in view.page_size_options:
         size = view.page_size
     return ListParams(
-        q=query.get("q", "").strip(),
+        q=source.get("q", "").strip(),
         sort=sort,
         dir=dir_,
-        page=max(1, _int(query.get("page"), 1)),
+        page=max(1, _int(source.get("page"), 1)),
         size=size,
     )
 
