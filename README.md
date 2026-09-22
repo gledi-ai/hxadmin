@@ -107,7 +107,7 @@ async def sync_job(job_id: int) -> Page:
 {% block body %}…{% endblock %}
 ```
 
-Handlers are ordinary `async` FastAPI endpoints (`Depends`, path and query parameters, `methods=("POST",)`) guarded by `auth`. Return `Page(template, context)` to render inside the admin shell — templates also get `admin`, `request`, `user`, `nav` and `page` — or any `Response` / JSON-able value. `admin.page` adds a sidebar entry under `category`; `admin.route` does not and may take path parameters. A page path may not start with a registered view identity or `static`. Custom templates can use the Tailwind classes compiled into `hxadmin.css`; add your own stylesheet in `{% block head %}` for anything else.
+Handlers are ordinary `async` FastAPI endpoints (`Depends`, path and query parameters, `methods=("POST",)`) guarded by `auth`. Return `Page(template, context)` to render inside the admin shell — templates also get `admin`, `request`, `user`, `nav` and `admin_page` (also as `page` unless your context sets its own) — or any `Response` / JSON-able value. `admin.page` adds a sidebar entry under `category`; `admin.route` does not and may take path parameters. A page path may not start with a registered view identity or `static`. Custom templates can use the Tailwind classes compiled into `hxadmin.css`; add your own stylesheet in `{% block head %}` for anything else.
 
 The dashboard shows a card with the row count (through `get_query`) for every visible view, and the top bar searches any view with `searchable` columns.
 
