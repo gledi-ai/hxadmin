@@ -74,7 +74,7 @@ class Filter:
 
 @dataclass(frozen=True, slots=True)
 class FilterValue:
-    """The validated query values of one active filter, kept as the strings sent."""
+    """The validated query values of one active filter; range bounds in canonical form."""
 
     name: str
     values: tuple[str, ...] = ()
@@ -191,14 +191,27 @@ def _range_value(filter_: Filter, raw: str) -> Any:
         raise ValueError(raw) from None
 
 
+def _canonical(value: Any) -> str:
+    """`value` written the way the filter's HTML input writes it."""
+    if isinstance(value, datetime.datetime | datetime.time):
+        whole_minutes = value.second == 0 and value.microsecond == 0
+        return value.isoformat(timespec="minutes" if whole_minutes else "auto")
+    if isinstance(value, datetime.date):
+        return value.isoformat()
+    if isinstance(value, decimal.Decimal):
+        return format(value, "f")
+    if isinstance(value, float) and value.is_integer() and abs(value) < 2**53:
+        return str(int(value))
+    return repr(value) if isinstance(value, float) else str(value)
+
+
 def _valid_bound(filter_: Filter, raw: str | None) -> str | None:
     if isinstance(filter_.field, RelationField) or raw is None or raw.strip() == "":
         return None
     try:
-        _range_value(filter_, raw.strip())
+        return _canonical(_range_value(filter_, raw.strip()))
     except ValueError:
         return None
-    return raw.strip()
 
 
 def _valid_choice(filter_: Filter, raw: str) -> bool:
