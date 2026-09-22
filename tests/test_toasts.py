@@ -133,3 +133,14 @@ def test_layout_has_toast_container(factory: AppFactory, make_client: MakeClient
     assert 'id="toasts"' in html
     assert '@hxadmin-toast.window="push($event.detail)"' in html
     assert 'Alpine.data("toasts"' in html
+
+
+@pytest.mark.parametrize("char", ["a", "é", "😀"])
+def test_long_flash_is_truncated_to_fit_a_cookie(char: str) -> None:
+    value = encode_flash(Toast(char * 5000, "info"))
+    toast = read_flash(_cookie_request(value))
+    assert len(value) < 4000
+    assert toast is not None
+    assert toast.level == "info"
+    assert toast.message.startswith(char * 100)
+    assert toast.message.endswith("…")
