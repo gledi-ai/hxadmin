@@ -1,6 +1,7 @@
 import datetime
 import decimal
 import io
+import math
 import uuid
 import zipfile
 from typing import Any
@@ -193,3 +194,12 @@ def test_xlsx_writes_native_cell_types() -> None:
     assert "G2" not in cells
     assert '<autoFilter ref="A1:G2"/>' in raw
     assert 'ySplit="1"' in raw
+
+
+def test_xlsx_writes_non_finite_numbers_as_errors() -> None:
+    row = [math.nan, math.inf, -math.inf, decimal.Decimal("NaN")]
+    _, cells, _ = read_sheet(xlsx_bytes("Data", ["A", "B", "C", "D"], [row]))
+    assert cells["A2"] == ("e", "#NUM!", False, True)
+    assert cells["B2"] == ("e", "#DIV/0!", False, True)
+    assert cells["C2"] == ("e", "#DIV/0!", False, True)
+    assert cells["D2"] == ("e", "#NUM!", False, True)

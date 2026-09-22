@@ -122,11 +122,14 @@ def sheet_name(title: str) -> str:
 
 
 def xlsx_bytes(title: str, headers: Sequence[str], rows: Sequence[Sequence[Any]]) -> bytes:
-    """An XLSX workbook with one sheet: bold frozen header row, autofilter, typed cells."""
+    """An XLSX workbook with one sheet: bold frozen header row, autofilter, typed cells.
+
+    NaN and infinite numbers are written as the Excel errors `#NUM!` and `#DIV/0!`.
+    """
     from xlsxwriter import Workbook
 
     buffer = io.BytesIO()
-    workbook = cast(_Workbook, Workbook(buffer, {"in_memory": True}))
+    workbook = cast(_Workbook, Workbook(buffer, {"in_memory": True, "nan_inf_to_errors": True}))
     sheet = workbook.add_worksheet(sheet_name(title))
     bold = workbook.add_format({"bold": True})
     formats = {
