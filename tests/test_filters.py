@@ -6,7 +6,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.datastructures import QueryParams
 
-from hxadmin.fields import Field, derive_fields
+from hxadmin.fields import Field, RelationField, derive_fields
 from hxadmin.filters import (
     Chip,
     FilterValue,
@@ -85,6 +85,12 @@ def test_filter_kinds_follow_field_kinds() -> None:
 def test_unfilterable_names_are_rejected(names: tuple[str, ...], message: str) -> None:
     with pytest.raises(ValueError, match=message):
         resolve_filters("PostView", derive_fields(Post), names)
+
+
+def test_reverse_one_to_one_relations_are_rejected() -> None:
+    passport = RelationField("passport", "Passport", User, multiple=False)
+    with pytest.raises(ValueError, match="non-many-to-one relation 'passport'"):
+        resolve_filters("PersonView", {"passport": passport}, ("passport",))
 
 
 def test_json_columns_are_rejected() -> None:
