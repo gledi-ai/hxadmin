@@ -1,5 +1,6 @@
+import inspect
 import json
-from collections.abc import Awaitable, Callable, Mapping
+from collections.abc import Awaitable, Callable, Mapping, Sequence
 from pathlib import Path
 from typing import Any, cast
 
@@ -21,6 +22,7 @@ from starlette.responses import HTMLResponse, RedirectResponse, Response
 from hxadmin.deps import AuthDependency, SessionDependency
 from hxadmin.fields import default_widget
 from hxadmin.nav import build_nav
+from hxadmin.pages import AdminPage, PageEndpoint, PageHandler
 from hxadmin.toasts import FLASH_COOKIE, Toast, encode_flash, read_flash
 from hxadmin.views import ModelView
 
@@ -29,9 +31,32 @@ def json_pretty(value: Any) -> str:
     return json.dumps(value, indent=2, ensure_ascii=False)
 
 
+def _first_segment(path: str) -> str:
+    return path.strip("/").split("/", 1)[0]
+
+
+def _require_async_page(path: str, handler: object) -> None:
+    if not inspect.iscoroutinefunction(handler):
+        raise TypeError(f"Page handler for {path!r} must be an async function")
+
+
+_PAGE_METHODS = ("GET", "POST", "PUT", "PATCH", "DELETE")
+
+
+def _method_not_allowed(allowed: Sequence[str]) -> Callable[[], Awaitable[Response]]:
+    """Endpoint answering 405 for a page path, so `/{identity}/{pk}` cannot claim it as a 404."""
+    allow = ", ".join(m.upper() for m in allowed)
+
+    async def not_allowed() -> Response:
+        return Response(status_code=405, headers={"Allow": allow})
+
+    return not_allowed
+
+
 class HxAdmin:
     current_user: Callable[..., Awaitable[Any]]
     current_session: Callable[..., Awaitable[AsyncSession]]
+    _page_slot: int
 
     def __init__(
         self,
@@ -51,6 +76,7 @@ class HxAdmin:
         self.login_url = login_url
         self.logout_url = logout_url
         self.views: dict[str, ModelView[Any]] = {}
+        self.pages: list[AdminPage] = []
         self._session = session
         self._auth = auth
         self.templates = self._make_environment(templates_dir)
@@ -93,6 +119,7 @@ class HxAdmin:
     def _install_routes(self) -> None:
         from hxadmin.routes import build_router
 
+        self._page_slot = len(self.subapp.router.routes)
         self.subapp.include_router(build_router(self))
 
     async def _handle_http_exception(self, request: Request, exc: Exception) -> Response:
@@ -113,8 +140,80 @@ class HxAdmin:
         view = view_cls()
         if view.identity in self.views:
             raise ValueError(f"A view with identity {view.identity!r} is already registered")
+        if any(_first_segment(page.path) == view.identity for page in self.pages):
+            raise ValueError(f"A page path already uses {view.identity!r}")
         self.views[view.identity] = view
         return view_cls
+
+    def page[F: PageHandler](
+        self,
+        path: str,
+        *,
+        title: str,
+        category: str | None = None,
+        icon: str | None = None,
+        methods: Sequence[str] = ("GET",),
+        name: str | None = None,
+    ) -> Callable[[F], F]:
+        """Register a custom page under the admin prefix, guarded by `auth`, in the sidebar."""
+        if "{" in path:
+            raise ValueError(f"Sidebar page {path!r} cannot take path parameters; use admin.route")
+        return self._add_page(AdminPage(path, title, category, icon, in_nav=True), methods, name)
+
+    def route[F: PageHandler](
+        self,
+        path: str,
+        *,
+        title: str = "",
+        methods: Sequence[str] = ("GET",),
+        name: str | None = None,
+    ) -> Callable[[F], F]:
+        """Register a route under the admin prefix, guarded by `auth`, not in the sidebar."""
+        return self._add_page(AdminPage(path, title), methods, name)
+
+    def _add_page[F: PageHandler](
+        self, page: AdminPage, methods: Sequence[str], name: str | None
+    ) -> Callable[[F], F]:
+        self._check_page_path(page.path)
+
+        def decorate(handler: F) -> F:
+            _require_async_page(page.path, handler)
+            routes = self.subapp.router.routes
+            start = len(routes)
+            self.subapp.add_api_route(
+                page.path,
+                PageEndpoint(self, page, handler),
+                methods=list(methods),
+                name=name or getattr(handler, "__name__", page.path),
+                dependencies=[Depends(self.current_user)],
+                response_model=None,
+                response_class=HTMLResponse,
+                include_in_schema=False,
+            )
+            other = [m for m in _PAGE_METHODS if m not in {x.upper() for x in methods}]
+            if other:
+                self.subapp.add_api_route(
+                    page.path,
+                    _method_not_allowed(methods),
+                    methods=other,
+                    dependencies=[Depends(self.current_user)],
+                    include_in_schema=False,
+                )
+            added = routes[start:]
+            del routes[start:]
+            routes[self._page_slot : self._page_slot] = added
+            self._page_slot += len(added)
+            self.pages.append(page)
+            return handler
+
+        return decorate
+
+    def _check_page_path(self, path: str) -> None:
+        first = _first_segment(path)
+        if not path.startswith("/") or not first or first.startswith("{"):
+            raise ValueError(f"Page path must start with a fixed segment like '/reports': {path!r}")
+        if first == "static" or first in self.views:
+            raise ValueError(f"Page path {path!r} collides with the admin's {first!r} routes")
 
     def view_for(self, model: type[Any]) -> ModelView[Any] | None:
         return next((v for v in self.views.values() if v.model is model), None)

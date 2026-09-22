@@ -9,6 +9,7 @@ PACKAGE_DATA = [
     "templates/list/_table.html",
     "templates/detail.html",
     "templates/detail/_panel.html",
+    "templates/page.html",
     "static/hxadmin.css",
     "static/vendor/htmx.min.js",
     "static/vendor/alpine.min.js",
