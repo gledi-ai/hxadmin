@@ -57,3 +57,17 @@
 <button type="button" class="{{ class }}" aria-label="Delete" title="Delete"
         @click="$dispatch('confirm', {message: {{ ('Delete ' ~ view.display(obj) ~ '?')|tojson|forceescape }}, action: {{ admin.url(request, '/' ~ view.identity ~ '/' ~ view.pk_of(obj) ~ '/delete')|tojson|forceescape }}})">{{ icon('trash', 'size-4') }}</button>
 {%- endmacro %}
+
+{% macro action_button(view, action, obj=none, origin="detail", class="") -%}
+{%- set url = admin.url(request, '/' ~ view.identity ~ ('/' ~ view.pk_of(obj) if obj is not none else '') ~ '/action/' ~ action.name) -%}
+{%- if action.method == "POST" -%}
+<button type="button" class="{{ class }}" hx-post="{{ url }}" hx-target="{{ '#detail' if origin == 'detail' else '#list' }}"
+        hx-vals="{{ {'_from': origin}|tojson|forceescape }}"{% if obj is none %} form="bulk"{% endif %}{% if action.confirm %} hx-confirm="{{ action.confirm }}"{% endif %}>{{ action.label }}</button>
+{%- elif obj is none -%}
+<button type="submit" form="bulk" formmethod="get" formaction="{{ url }}" class="{{ class }}"{% if action.confirm %}
+        @click="$event.preventDefault(); $dispatch('confirm', {message: {{ action.confirm|tojson|forceescape }}, submit: () => $el.form.requestSubmit($el)})"{% endif %}>{{ action.label }}</button>
+{%- else -%}
+<a href="{{ url }}{{ '?_from=list' if origin == 'list' else '' }}" class="{{ class }}"{% if action.confirm %}
+   @click="$event.preventDefault(); $dispatch('confirm', {message: {{ action.confirm|tojson|forceescape }}, submit: () => window.location.assign($el.href)})"{% endif %}>{{ action.label }}</a>
+{%- endif -%}
+{%- endmacro %}

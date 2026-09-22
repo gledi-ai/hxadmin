@@ -67,11 +67,29 @@
           },
         };
       });
+      Alpine.data("bulk", function () {
+        return {
+          count: 0,
+          init: function () {
+            var self = this;
+            document.addEventListener("htmx:after:swap", function () { self.refresh(); });
+          },
+          refresh: function () {
+            this.count = document.querySelectorAll('input[form=bulk][name=pks]:checked').length;
+          },
+        };
+      });
+    });
+    document.addEventListener("htmx:confirm", function (evt) {
+      evt.preventDefault();
+      window.dispatchEvent(new CustomEvent("confirm", {
+        detail: { message: evt.detail.ctx.confirm, submit: evt.detail.issueRequest, cancel: evt.detail.dropRequest },
+      }));
     });
   </script>
   {% block head %}{% endblock %}
 </head>
-<body class="h-full bg-surface text-fg" x-data="{ sidebarOpen: false, confirm: null }" @confirm.window="confirm = $event.detail">
+<body class="h-full bg-surface text-fg" x-data="{ sidebarOpen: false, confirm: null, dismiss() { if (this.confirm && this.confirm.cancel) this.confirm.cancel(); this.confirm = null; } }" @confirm.window="confirm = $event.detail">
   <div class="flex h-full">
     <aside class="fixed inset-y-0 left-0 z-30 w-60 -translate-x-full border-r border-edge bg-surface-2 transition-transform lg:static lg:translate-x-0"
            :class="sidebarOpen && 'translate-x-0'">
@@ -128,11 +146,12 @@
       </div>
     </template>
   </div>
-  <div x-show="confirm" x-cloak class="fixed inset-0 z-40 flex items-center justify-center bg-fg/40" @keydown.escape.window="confirm = null" role="dialog" aria-modal="true">
-    <div class="w-full max-w-sm rounded-lg border border-edge bg-surface p-6 shadow-lg" @click.outside="confirm = null">
+  <div x-show="confirm" x-cloak class="fixed inset-0 z-40 flex items-center justify-center bg-fg/40" @click.self="dismiss()" @keydown.escape.window="dismiss()" role="dialog" aria-modal="true">
+    <div class="w-full max-w-sm rounded-lg border border-edge bg-surface p-6 shadow-lg">
       <p class="text-sm" x-text="confirm && confirm.message"></p>
-      <form method="post" :action="confirm && confirm.action" class="mt-4 flex justify-end gap-2">
-        <button type="button" @click="confirm = null" class="rounded border border-edge px-3 py-1.5 text-sm hover:bg-surface-3">Cancel</button>
+      <form method="post" :action="confirm && confirm.action" class="mt-4 flex justify-end gap-2"
+            @submit="if (confirm && confirm.submit) { $event.preventDefault(); var run = confirm.submit; confirm = null; run(); }">
+        <button type="button" @click="dismiss()" class="rounded border border-edge px-3 py-1.5 text-sm hover:bg-surface-3">Cancel</button>
         <button type="submit" class="rounded bg-danger px-3 py-1.5 text-sm font-medium text-danger-fg">Confirm</button>
       </form>
     </div>
