@@ -14,6 +14,7 @@ from jinja2 import (
     PackageLoader,
     select_autoescape,
 )
+from sqlalchemy import Select, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.requests import Request
@@ -254,6 +255,20 @@ class HxAdmin:
 
     def view_for(self, model: type[Any]) -> ModelView[Any] | None:
         return next((v for v in self.views.values() if v.model is model), None)
+
+    def can_reach(self, request: Request, model: type[Any]) -> bool:
+        """Whether rows of `model` may be offered: it has no view, or an accessible one."""
+        target = self.view_for(model)
+        return target is None or target.is_accessible(request)
+
+    def relation_scope(self, request: Request, model: type[Any]) -> Select[Any] | None:
+        """Rows of `model` a relation may offer or accept, or None if its view is locked."""
+        target = self.view_for(model)
+        if target is None:
+            return select(model)
+        if not target.is_accessible(request):
+            return None
+        return target.get_query(request)
 
     def display(self, obj: Any) -> str:
         view = self.view_for(type(obj))

@@ -15,7 +15,6 @@ from sqlalchemy import (
     and_,
     inspect,
     or_,
-    select,
 )
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import Mapper
@@ -54,6 +53,11 @@ _NUMERIC_MAX_ADJUSTED = 131071
 _NUMERIC_MIN_EXPONENT = -16383
 
 
+def filter_key(name: str) -> str:
+    """The query param of filter `name`; `.min`, `.max` and `.empty` extend it."""
+    return f"{PREFIX}{name}"
+
+
 @dataclass(frozen=True, slots=True)
 class Filter:
     """One declared list filter, resolved from a column or many-to-one relation."""
@@ -69,7 +73,7 @@ class Filter:
 
     @property
     def key(self) -> str:
-        return f"{PREFIX}{self.name}"
+        return filter_key(self.name)
 
 
 @dataclass(frozen=True, slots=True)
@@ -83,7 +87,7 @@ class FilterValue:
     empty: bool = False
 
     def pairs(self) -> list[tuple[str, str]]:
-        key = f"{PREFIX}{self.name}"
+        key = filter_key(self.name)
         pairs = [(key, value) for value in self.values]
         if self.min is not None:
             pairs.append((f"{key}.min", self.min))
@@ -303,25 +307,14 @@ def apply_filters(
     return stmt
 
 
-def relation_scope(admin: "HxAdmin", request: Request, filter_: Filter) -> Select[Any] | None:
-    """Rows a relation filter may offer, or None when its target view is not accessible."""
-    field = filter_.field
-    if not isinstance(field, RelationField):
-        return None
-    target = admin.view_for(field.target)
-    if target is None:
-        return select(field.target)
-    if not target.is_accessible(request):
-        return None
-    return target.get_query(request)
-
-
 def visible_filters(
     admin: "HxAdmin", request: Request, filters: Sequence[Filter]
 ) -> tuple[Filter, ...]:
     """Filters the current user may use: relation filters need an accessible target."""
     return tuple(
-        f for f in filters if f.kind != "relation" or relation_scope(admin, request, f) is not None
+        f
+        for f in filters
+        if not isinstance(f.field, RelationField) or admin.can_reach(request, f.field.target)
     )
 
 
@@ -338,16 +331,18 @@ async def relation_labels(
     selected = {v.name: v.values for v in values}
     labels: dict[str, list[tuple[str, str]]] = {}
     for filter_ in filters:
-        stmt = relation_scope(admin, request, filter_)
         field = filter_.field
-        if stmt is None or not isinstance(field, RelationField):
+        chosen = selected.get(filter_.name, ())
+        if not isinstance(field, RelationField) or not (with_options or chosen):
+            continue
+        stmt = admin.relation_scope(request, field.target)
+        if stmt is None:
             continue
         rows: list[Any] = []
         if with_options:
             pk_columns = cast(Mapper[Any], inspect(field.target)).primary_key
             limited = stmt.order_by(*pk_columns).limit(RELATION_OPTIONS_LIMIT)
             rows.extend((await session.scalars(limited)).all())
-        chosen = selected.get(filter_.name, ())
         if chosen:
             rows.extend(await fetch_by_pks(session, field.target, list(chosen), stmt=stmt))
         pairs = {pk_string_for(field.target, row): admin.display(row) for row in rows}

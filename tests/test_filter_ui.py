@@ -2,7 +2,7 @@ from collections.abc import Callable, Sequence
 
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
-from sqlalchemy import select
+from sqlalchemy import Select, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.requests import Request
 
@@ -144,3 +144,25 @@ def test_related_tab_reads_no_filters(factory: AppFactory, make_client: MakeClie
     with make_client(build(factory)) as client:
         html = client.get("/admin/tag/_related/1/posts?f.status=draft").text
     assert "Showing 1\N{EN DASH}3 of 3" in html
+
+
+class CountingUserView(ModelView[User]):
+    model = User
+    queries = 0
+
+    def get_query(self, request: Request) -> Select[tuple[User]]:
+        CountingUserView.queries += 1
+        return super().get_query(request)
+
+
+def test_relation_filter_scope_is_built_once_per_render(
+    factory: AppFactory, make_client: MakeClient
+) -> None:
+    with make_client(build(factory, CountingUserView)) as client:
+        CountingUserView.queries = 0
+        client.get("/admin/post/?f.author=2")
+        full = CountingUserView.queries
+        CountingUserView.queries = 0
+        client.get("/admin/post/?f.status=draft", headers=HX)
+        partial = CountingUserView.queries
+    assert (full, partial) == (1, 0)
