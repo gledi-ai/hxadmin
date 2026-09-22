@@ -138,3 +138,26 @@ def test_toast_label_may_lazy_load(factory: AppFactory, make_client: MakeClient)
     assert flash_of(created)["message"] == "Post “New by ada@x.io” created."
     assert deleted.status_code == 303
     assert flash_of(deleted)["message"] == "Post “New by ada@x.io” deleted."
+
+
+class BlindPostView(ModelView[Post]):
+    model = Post
+    can_view = False
+
+
+def test_save_without_detail_returns_to_the_list_as_shown(
+    factory: AppFactory, make_client: MakeClient
+) -> None:
+    app = factory.app(seed=seed)
+    admin = HxAdmin(app, session=factory.get_session, auth=allow_all)
+    admin.register(BlindPostView)
+    admin.register(PlainUserView)
+    shown = "http://testserver/admin/post/?f.status=draft&page=1"
+    with make_client(app) as client:
+        response = client.post(
+            "/admin/post/new",
+            data=POST_DATA,
+            headers={"Referer": shown},
+            follow_redirects=False,
+        )
+    assert response.headers["location"] == "/admin/post/?f.status=draft&page=1"

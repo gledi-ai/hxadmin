@@ -103,3 +103,12 @@ def test_delete_button_dispatches_confirm(factory: AppFactory, make_client: Make
     assert "/admin/post/1/delete" in listing
     assert 'href="/admin/post/1/edit"' in listing
     assert "@confirm.window" in detail
+
+
+def test_delete_returns_to_the_list_as_shown(factory: AppFactory, make_client: MakeClient) -> None:
+    shown = "http://testserver/admin/vote/?f.value.min=2&sort=value&page=1"
+    with make_client(build(factory)) as client:
+        response = client.post(
+            "/admin/vote/2;1/delete", headers={"Referer": shown}, follow_redirects=False
+        )
+    assert response.headers["location"] == "/admin/vote/?f.value.min=2&sort=value&page=1"
