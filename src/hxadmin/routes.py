@@ -308,7 +308,7 @@ def build_router(admin: "HxAdmin") -> APIRouter:
                 await view.on_save(request, session, obj, created=created)
                 await session.flush()
                 pk = view.pk_of(obj)
-                label = view.display(obj)
+                label = await session.run_sync(lambda _: view.display(obj))
                 await session.commit()
             except (IntegrityError, FormError) as exc:
                 await session.rollback()
@@ -530,7 +530,7 @@ def build_router(admin: "HxAdmin") -> APIRouter:
         if not view.can_delete:
             raise HTTPException(status_code=403)
         obj = await _object(request, session, view, pk)
-        label = view.display(obj)
+        label = await session.run_sync(lambda _: view.display(obj))
         try:
             await view.on_delete(request, session, obj)
             await session.delete(obj)
