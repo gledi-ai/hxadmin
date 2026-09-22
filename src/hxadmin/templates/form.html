@@ -1,0 +1,12 @@
+{% extends "layout.html" %}
+{% import "_macros.html" as m with context %}
+{% block title %}{{ 'New ' ~ view.name|lower if obj is none else 'Edit ' ~ view.display(obj) }} · {{ admin.title }}{% endblock %}
+{% block breadcrumb %}<a href="{{ admin.url(request, '/') }}" class="hover:underline">Dashboard</a> / <a href="{{ admin.url(request, '/' ~ view.identity ~ '/') }}" class="hover:underline">{{ view.name_plural }}</a> / {% if obj is none %}New{% else %}{% if view.can_view %}<a href="{{ admin.url(request, '/' ~ view.identity ~ '/' ~ view.pk_of(obj)) }}" class="hover:underline">{{ view.display(obj) }}</a>{% else %}{{ view.display(obj) }}{% endif %} / Edit{% endif %}{% endblock %}
+{% block content %}
+<div class="mb-4 flex items-center justify-between gap-4">
+  <h1 class="text-2xl font-semibold">{{ 'New ' ~ view.name|lower if obj is none else 'Edit ' ~ view.display(obj) }}</h1>
+</div>
+<div class="hx-form">
+  {% include "form/_fields.html" %}
+</div>
+{% endblock %}

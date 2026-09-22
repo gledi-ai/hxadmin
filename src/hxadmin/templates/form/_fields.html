@@ -1,0 +1,19 @@
+<form method="post" action="{{ action_url }}" hx-post="{{ action_url }}" hx-target="closest .hx-form" class="mx-auto max-w-[720px]">
+  {% if errors.form %}<div role="alert" class="mb-4 rounded border border-danger bg-danger/10 p-3 text-sm text-danger">{{ errors.form }}</div>{% endif %}
+  <div class="space-y-4 rounded-lg border border-edge bg-surface-2 p-4">
+    {% if obj is not none %}
+    {% for name in view.pk_names %}
+    <div>
+      <label for="f-{{ name }}" class="block text-sm font-medium text-fg-muted">{{ view.fields[name].label }}</label>
+      <input id="f-{{ name }}" type="text" value="{{ obj[name] }}" disabled class="mt-1 w-full rounded border border-edge bg-surface-3 px-2 py-1.5 text-sm text-fg-muted">
+    </div>
+    {% endfor %}
+    {% endif %}
+    {% for field in fields %}{% include "form/_field.html" %}{% endfor %}
+  </div>
+  <div class="sticky bottom-0 mt-4 flex items-center gap-2 border-t border-edge bg-surface py-3">
+    <button type="submit" class="rounded bg-accent px-3 py-1.5 text-sm font-medium text-accent-fg">Save</button>
+    {% if view.can_create %}<button type="submit" name="_then" value="another" class="rounded border border-edge px-3 py-1.5 text-sm hover:bg-surface-3">Save and add another</button>{% endif %}
+    <a href="{{ cancel_url }}" class="ml-auto text-sm text-fg-muted hover:underline">Cancel</a>
+  </div>
+</form>

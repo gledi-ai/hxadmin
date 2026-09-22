@@ -5,6 +5,7 @@
 {% block content %}
 <div class="mb-4 flex items-center justify-between gap-4">
   <h1 class="text-2xl font-semibold">{{ view.name_plural }}</h1>
+  {% if view.can_create %}<a href="{{ admin.url(request, '/' ~ view.identity ~ '/new') }}" class="inline-flex items-center gap-1 rounded bg-accent px-3 py-1.5 text-sm font-medium text-accent-fg">{{ m.icon('plus', 'size-4') }} New {{ view.name|lower }}</a>{% endif %}
 </div>
 {% include "list/_toolbar.html" %}
 <div class="hx-list">

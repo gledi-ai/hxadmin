@@ -1,6 +1,7 @@
 {% import "_macros.html" as m with context %}
 {% set params = result.params %}
 {% set hx = 'hx-target="closest .hx-list"' ~ (' hx-push-url="true"' if push_url else '') %}
+{% set actions = view.can_edit or view.can_delete %}
 {% if push_url %}
 <div id="list-state">
   <input type="hidden" name="sort" value="{{ params.sort or '' }}">
@@ -33,14 +34,23 @@
           {% endif %}
         </th>
         {% endfor %}
+        {% if actions %}<th class="w-0 px-3 py-2"></th>{% endif %}
       </tr>
     </thead>
     <tbody class="divide-y divide-edge">
       {% for obj in result.rows %}
-      <tr class="hover:bg-surface-2">
+      <tr class="group hover:bg-surface-2">
         {% for field in view.list_fields %}
         <td class="px-3 py-2">{% if loop.first and view.can_view %}<a href="{{ admin.url(request, '/' ~ view.identity ~ '/' ~ view.pk_of(obj)) }}" class="font-medium text-accent hover:underline">{{ m.cell(view, field, view.cell(obj, field.name)) }}</a>{% else %}{{ m.cell(view, field, view.cell(obj, field.name)) }}{% endif %}</td>
         {% endfor %}
+        {% if actions %}
+        <td class="px-3 py-2">
+          <div class="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 focus-within:opacity-100">
+            {% if view.can_edit %}{{ m.edit_link(view, obj, 'rounded p-1 text-fg-muted hover:bg-surface-3 hover:text-fg') }}{% endif %}
+            {% if view.can_delete %}{{ m.delete_button(view, obj, 'rounded p-1 text-fg-muted hover:bg-surface-3 hover:text-danger') }}{% endif %}
+          </div>
+        </td>
+        {% endif %}
       </tr>
       {% endfor %}
     </tbody>
