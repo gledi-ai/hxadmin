@@ -1,5 +1,7 @@
+import logging
 from collections.abc import Sequence
 from typing import TYPE_CHECKING, Annotated, Any, cast
+from urllib.parse import urlsplit
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
@@ -7,9 +9,12 @@ from sqlalchemy import inspect, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import Mapper, with_parent
+from starlette.datastructures import FormData, QueryParams
+from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.requests import Request
 from starlette.responses import HTMLResponse, Response
 
+from hxadmin.actions import Action, ActionResult
 from hxadmin.fields import Field, RelationField
 from hxadmin.forms import (
     FormErrors,
@@ -20,12 +25,15 @@ from hxadmin.forms import (
     relabel,
     validate,
 )
-from hxadmin.pk import pk_string_for
-from hxadmin.query import apply_search, fetch_one, parse_list_params, run_list
+from hxadmin.pk import fetch_by_pks, pk_string_for
+from hxadmin.query import ListParams, apply_search, fetch_one, parse_list_params, run_list
+from hxadmin.toasts import Toast, hx_trigger
 from hxadmin.views import ModelView
 
 if TYPE_CHECKING:
     from hxadmin.admin import HxAdmin
+
+logger = logging.getLogger("hxadmin")
 
 
 def _is_htmx(request: Request) -> bool:
@@ -41,8 +49,112 @@ def _view(admin: "HxAdmin", request: Request, identity: str) -> ModelView[Any]:
     return view
 
 
+def _toast_only(status_code: int, toast: Toast) -> Response:
+    return Response(
+        status_code=status_code,
+        headers={"HX-Trigger": hx_trigger(toast), "HX-Reswap": "none"},
+    )
+
+
 def build_router(admin: "HxAdmin") -> APIRouter:
     router = APIRouter(dependencies=[Depends(admin.current_user)])
+
+    async def _list_context(
+        request: Request, session: AsyncSession, view: ModelView[Any], params: ListParams
+    ) -> dict[str, Any]:
+        result = await run_list(session, view, view.get_query(request), params)
+        return {
+            "view": view,
+            "result": result,
+            "base_url": admin.url(request, f"/{view.identity}/"),
+            "push_url": True,
+        }
+
+    async def _detail_context(
+        request: Request, session: AsyncSession, view: ModelView[Any], pk: str
+    ) -> dict[str, Any] | None:
+        scalar_fields = [
+            f for f in view.detail_fields if not (isinstance(f, RelationField) and f.multiple)
+        ]
+        relations = [f.name for f in scalar_fields if isinstance(f, RelationField)]
+        obj = await fetch_one(session, view, view.get_query(request), pk, relations=relations)
+        if obj is None:
+            return None
+        collections = [
+            (f, admin.url(request, f"/{view.identity}/_related/{pk}/{f.name}"))
+            for f in view.detail_fields
+            if isinstance(f, RelationField) and f.multiple
+        ]
+        return {
+            "view": view,
+            "obj": obj,
+            "scalar_fields": scalar_fields,
+            "collections": collections,
+        }
+
+    def _declared(view: ModelView[Any], name: str, request: Request, *, bulk: bool) -> Action:
+        declared = view.actions.get(name)
+        if declared is None or declared.bulk is not bulk:
+            raise HTTPException(status_code=404)
+        if declared.method != request.method:
+            raise HTTPException(status_code=405)
+        return declared
+
+    async def _action_input(request: Request) -> FormData | QueryParams:
+        return await request.form() if request.method == "POST" else request.query_params
+
+    async def _run_action(
+        request: Request,
+        session: AsyncSession,
+        view: ModelView[Any],
+        declared: Action,
+        target: Any,
+        detail_pk: str | None,
+    ) -> Response:
+        """Run a handler, commit or roll back, and answer for htmx or a native submit.
+
+        `detail_pk` is set when the detail panel of that row is the view to re-render;
+        otherwise the list (as shown at `HX-Current-URL`) is.
+        """
+        list_url = admin.url(request, f"/{view.identity}/")
+        back = list_url
+        if detail_pk is not None:
+            back = admin.url(request, f"/{view.identity}/{detail_pk}")
+        try:
+            result = await view.action_handler(declared.name)(request, session, target)
+            if not isinstance(result, ActionResult):
+                raise TypeError(f"expected ActionResult, got {type(result).__name__}")
+            await session.commit()
+        except StarletteHTTPException:
+            await session.rollback()
+            raise
+        except Exception:
+            await session.rollback()
+            logger.exception("Action %r on %r failed", declared.name, view.identity)
+            failed = Toast(f"{declared.label} failed.", "error")
+            if _is_htmx(request):
+                return _toast_only(500, failed)
+            return admin.redirect(request, back, toast=failed)
+        if result.raw is not None:
+            return result.raw
+        if result.url is not None:
+            return admin.redirect(request, result.url)
+        if not _is_htmx(request):
+            return admin.redirect(request, back, toast=result.toast)
+        session.expire_all()
+        if detail_pk is not None:
+            context = await _detail_context(request, session, view, detail_pk)
+            if context is None:
+                return admin.redirect(request, list_url, toast=result.toast)
+            response: Response = admin.render(request, "detail/_panel.html", context)
+        else:
+            current = QueryParams(urlsplit(request.headers.get("HX-Current-URL", "")).query)
+            params = parse_list_params(request, view, query=current)
+            context = await _list_context(request, session, view, params)
+            response = admin.render(request, "list/_table.html", context)
+        if result.toast is not None:
+            response.headers["HX-Trigger"] = hx_trigger(result.toast)
+        return response
 
     @router.get("/", name="dashboard", response_class=HTMLResponse)
     async def dashboard(request: Request) -> HTMLResponse:
@@ -55,17 +167,9 @@ def build_router(admin: "HxAdmin") -> APIRouter:
         session: Annotated[AsyncSession, Depends(admin.current_session)],
     ) -> HTMLResponse:
         view = _view(admin, request, identity)
-        params = parse_list_params(request, view)
-        result = await run_list(session, view, view.get_query(request), params)
+        context = await _list_context(request, session, view, parse_list_params(request, view))
         return admin.render(
-            request,
-            "list/_table.html" if _is_htmx(request) else "list.html",
-            {
-                "view": view,
-                "result": result,
-                "base_url": admin.url(request, f"/{view.identity}/"),
-                "push_url": True,
-            },
+            request, "list/_table.html" if _is_htmx(request) else "list.html", context
         )
 
     async def _object(
@@ -262,6 +366,40 @@ def build_router(admin: "HxAdmin") -> APIRouter:
         options = [(pk_string_for(relation.target, row), admin.display(row)) for row in rows]
         return admin.render(request, "form/_options.html", {"options": options, "q": q})
 
+    @router.api_route("/{identity}/action/{name}", methods=["GET", "POST"], name="bulk_action")
+    async def bulk_action(
+        request: Request,
+        identity: str,
+        name: str,
+        session: Annotated[AsyncSession, Depends(admin.current_session)],
+    ) -> Response:
+        view = _view(admin, request, identity)
+        declared = _declared(view, name, request, bulk=True)
+        data = await _action_input(request)
+        pks = list(dict.fromkeys(v for v in data.getlist("pks") if isinstance(v, str)))
+        objs = await fetch_by_pks(session, view.model, pks, stmt=view.get_query(request))
+        if not objs:
+            empty = Toast("No rows selected.", "warning")
+            if _is_htmx(request):
+                return _toast_only(400, empty)
+            return admin.redirect(request, admin.url(request, f"/{view.identity}/"), toast=empty)
+        return await _run_action(request, session, view, declared, objs, None)
+
+    @router.api_route("/{identity}/{pk}/action/{name}", methods=["GET", "POST"], name="row_action")
+    async def row_action(
+        request: Request,
+        identity: str,
+        pk: str,
+        name: str,
+        session: Annotated[AsyncSession, Depends(admin.current_session)],
+    ) -> Response:
+        view = _view(admin, request, identity)
+        declared = _declared(view, name, request, bulk=False)
+        data = await _action_input(request)
+        obj = await _object(request, session, view, pk)
+        from_detail = view.can_view and data.get("_from") != "list"
+        return await _run_action(request, session, view, declared, obj, pk if from_detail else None)
+
     @router.get("/{identity}/{pk}/edit", name="edit", response_class=HTMLResponse)
     async def edit_form(
         request: Request,
@@ -329,25 +467,11 @@ def build_router(admin: "HxAdmin") -> APIRouter:
         view = _view(admin, request, identity)
         if not view.can_view:
             raise HTTPException(status_code=403)
-        scalar_fields = [
-            f for f in view.detail_fields if not (isinstance(f, RelationField) and f.multiple)
-        ]
-        relations = [f.name for f in scalar_fields if isinstance(f, RelationField)]
-        obj = await _object(request, session, view, pk, relations)
-        collections = [
-            (f, admin.url(request, f"/{view.identity}/_related/{pk}/{f.name}"))
-            for f in view.detail_fields
-            if isinstance(f, RelationField) and f.multiple
-        ]
+        context = await _detail_context(request, session, view, pk)
+        if context is None:
+            raise HTTPException(status_code=404)
         return admin.render(
-            request,
-            "detail/_panel.html" if _is_htmx(request) else "detail.html",
-            {
-                "view": view,
-                "obj": obj,
-                "scalar_fields": scalar_fields,
-                "collections": collections,
-            },
+            request, "detail/_panel.html" if _is_htmx(request) else "detail.html", context
         )
 
     return router
