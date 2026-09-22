@@ -1,3 +1,4 @@
+import json
 from collections.abc import Awaitable, Callable, Mapping
 from pathlib import Path
 from typing import Any
@@ -20,6 +21,10 @@ from starlette.responses import HTMLResponse, RedirectResponse, Response
 from hxadmin.deps import AuthDependency, SessionDependency
 from hxadmin.nav import build_nav
 from hxadmin.views import ModelView
+
+
+def json_pretty(value: Any) -> str:
+    return json.dumps(value, indent=2, ensure_ascii=False)
 
 
 class HxAdmin:
@@ -62,7 +67,9 @@ class HxAdmin:
         loaders: list[BaseLoader] = [PackageLoader("hxadmin", "templates")]
         if templates_dir is not None:
             loaders.insert(0, FileSystemLoader(str(templates_dir)))
-        return Environment(loader=ChoiceLoader(loaders), autoescape=select_autoescape(["html"]))
+        env = Environment(loader=ChoiceLoader(loaders), autoescape=select_autoescape(["html"]))
+        env.filters["json_pretty"] = json_pretty
+        return env
 
     def _build_dependencies(self) -> None:
         auth = self._auth

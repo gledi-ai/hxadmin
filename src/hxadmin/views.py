@@ -70,10 +70,6 @@ class ModelView[T]:
         self.formatted = frozenset(
             name for name in self.fields if callable(getattr(self, f"format_{name}", None))
         )
-        mapper = cast(Mapper[T], inspect(self.model))
-        self._pk_types: dict[str, TypeEngine[Any]] = {
-            name: mapper.columns[name].type for name in self.pk_names
-        }
         self.writable_fields = self._resolve_form_fields()
         self.edit_fields = tuple(
             f for f in self.writable_fields if not (isinstance(f, Field) and f.primary_key)
@@ -128,16 +124,10 @@ class ModelView[T]:
         return select(self.model)
 
     def pk_of(self, obj: T) -> str:
-        return ";".join(str(getattr(obj, name)) for name in self.pk_names)
+        return pk_string_for(self.model, obj)
 
     def pk_clauses(self, pk: str) -> list[ColumnElement[bool]]:
-        raw = pk.split(";")
-        if len(raw) != len(self.pk_names):
-            raise ValueError(pk)
-        clauses: list[ColumnElement[bool]] = []
-        for name, value in zip(self.pk_names, raw, strict=True):
-            clauses.append(getattr(self.model, name) == _coerce(self._pk_types[name], value))
-        return clauses
+        return pk_clauses_for(self.model, pk)
 
     def display(self, obj: T) -> str:
         if type(obj).__str__ is not object.__str__:
@@ -164,6 +154,29 @@ class ModelView[T]:
         return True
 
 
+def _pk_keys(mapper: Mapper[Any]) -> list[tuple[str, ColumnElement[Any]]]:
+    return [(mapper.get_property_by_column(c).key, c) for c in mapper.primary_key]
+
+
+def pk_string_for(model: type[Any], obj: Any) -> str:
+    """Join the primary key values of `obj` with `;` in mapper primary-key order."""
+    mapper = cast(Mapper[Any], inspect(model))
+    return ";".join(str(getattr(obj, key)) for key, _ in _pk_keys(mapper))
+
+
+def pk_clauses_for(model: type[Any], pk: str) -> list[ColumnElement[bool]]:
+    """Turn a `;`-joined pk string into equality clauses; ValueError if it does not fit."""
+    mapper = cast(Mapper[Any], inspect(model))
+    keys = _pk_keys(mapper)
+    raw = pk.split(";")
+    if len(raw) != len(keys):
+        raise ValueError(pk)
+    return [
+        getattr(model, key) == _coerce(column.type, value)
+        for (key, column), value in zip(keys, raw, strict=True)
+    ]
+
+
 def _coerce(type_: TypeEngine[Any], value: str) -> Any:
     try:
         python_type = type_.python_type
@@ -171,5 +184,5 @@ def _coerce(type_: TypeEngine[Any], value: str) -> Any:
         return value
     try:
         return python_type(value)
-    except TypeError:
-        return value
+    except (TypeError, ValueError):
+        raise ValueError(value) from None

@@ -4,13 +4,13 @@ from math import ceil
 from typing import Any
 from urllib.parse import urlencode
 
-from sqlalchemy import Select, String, func, or_, select
+from sqlalchemy import Select, String, and_, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 from starlette.requests import Request
 
 from hxadmin.fields import RelationField
-from hxadmin.views import ModelView, SortDir
+from hxadmin.views import ModelView, SortDir, pk_clauses_for, pk_string_for
 
 
 @dataclass(frozen=True, slots=True)
@@ -91,19 +91,25 @@ def _escape_like(text: str) -> str:
     return text.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
 
 
+def apply_search(stmt: Select[Any], view: ModelView[Any], q: str) -> Select[Any]:
+    """Filter `stmt` with a case-insensitive substring match over `view.searchable`."""
+    if not q or not view.searchable:
+        return stmt
+    pattern = f"%{_escape_like(q)}%"
+    return stmt.where(
+        or_(
+            *(
+                getattr(view.model, name).cast(String).ilike(pattern, escape="\\")
+                for name in view.searchable
+            )
+        )
+    )
+
+
 async def run_list(
     session: AsyncSession, view: ModelView[Any], stmt: Select[Any], params: ListParams
 ) -> ListResult:
-    if params.q and view.searchable:
-        pattern = f"%{_escape_like(params.q)}%"
-        stmt = stmt.where(
-            or_(
-                *(
-                    getattr(view.model, name).cast(String).ilike(pattern, escape="\\")
-                    for name in view.searchable
-                )
-            )
-        )
+    stmt = apply_search(stmt, view, params.q)
     total = await session.scalar(select(func.count()).select_from(stmt.order_by(None).subquery()))
     total = total or 0
     pages = max(1, ceil(total / params.size))
@@ -127,17 +133,41 @@ async def run_list(
 
 
 async def fetch_one(
-    session: AsyncSession, view: ModelView[Any], stmt: Select[Any], pk: str
+    session: AsyncSession,
+    view: ModelView[Any],
+    stmt: Select[Any],
+    pk: str,
+    *,
+    relations: Sequence[str] = (),
 ) -> Any | None:
+    """Load one row by pk string, eager-loading exactly the named relations."""
     try:
         clauses = view.pk_clauses(pk)
     except ValueError:
         return None
     stmt = stmt.where(*clauses).options(
-        *(
-            selectinload(getattr(view.model, f.name))
-            for f in view.detail_fields
-            if isinstance(f, RelationField) and not f.multiple
-        )
+        *(selectinload(getattr(view.model, name)) for name in relations)
     )
     return await session.scalar(stmt)
+
+
+async def fetch_by_pks(
+    session: AsyncSession,
+    model: type[Any],
+    pks: Sequence[str],
+    *,
+    stmt: Select[Any] | None = None,
+) -> list[Any]:
+    """Load rows for the given pk strings in one query, ordered as `pks`; unknown pks are absent."""
+    clauses = []
+    for pk in pks:
+        try:
+            clauses.append(and_(*pk_clauses_for(model, pk)))
+        except ValueError:
+            continue
+    if not clauses:
+        return []
+    base = select(model) if stmt is None else stmt
+    rows = (await session.scalars(base.where(or_(*clauses)))).all()
+    by_pk = {pk_string_for(model, row): row for row in rows}
+    return [by_pk[pk] for pk in pks if pk in by_pk]

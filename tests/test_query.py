@@ -1,10 +1,18 @@
 from typing import Any
 
 import pytest
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.requests import Request
 
-from hxadmin.query import ListParams, fetch_one, parse_list_params, run_list
+from hxadmin.query import (
+    ListParams,
+    apply_search,
+    fetch_by_pks,
+    fetch_one,
+    parse_list_params,
+    run_list,
+)
 from hxadmin.views import ModelView
 from tests.conftest import Group, Post, User, Vote
 
@@ -183,7 +191,9 @@ async def test_fetch_one(session: AsyncSession) -> None:
     await session.commit()
     session.expunge_all()
     view = PostView()
-    found: Any = await fetch_one(session, view, view.get_query(_request()), str(post.id))
+    found: Any = await fetch_one(
+        session, view, view.get_query(_request()), str(post.id), relations=("author",)
+    )
     assert found.title == "p"
     assert found.author.email == "a@x.io"
     assert await fetch_one(session, view, view.get_query(_request()), "999") is None
@@ -192,3 +202,40 @@ async def test_fetch_one(session: AsyncSession) -> None:
         session, VoteView(), VoteView().get_query(_request()), f"{author.id};{post.id}"
     )
     assert vote.value == 3
+
+
+async def test_fetch_one_loads_only_requested_relations(session: AsyncSession) -> None:
+    user = User(email="a@x.io", group=Group(name="staff"))
+    session.add(user)
+    await session.commit()
+    pk = str(user.id)
+    session.expunge_all()
+    view = UserView()
+    loaded: Any = await fetch_one(
+        session, view, view.get_query(_request()), pk, relations=("group",)
+    )
+    session.expunge_all()
+    assert loaded.group.name == "staff"
+    bare: Any = await fetch_one(session, view, view.get_query(_request()), pk)
+    session.expunge_all()
+    assert "group" not in bare.__dict__
+
+
+async def test_fetch_by_pks_preserves_order_and_skips_missing(session: AsyncSession) -> None:
+    users = [User(email=f"u{i}@x.io") for i in range(3)]
+    post = Post(title="p", author=users[0])
+    session.add_all([*users, post, Vote(user=users[1], post=post, value=2)])
+    await session.commit()
+    ids = [u.id for u in users]
+    found = await fetch_by_pks(session, User, [str(ids[2]), str(ids[0]), "999", "abc"])
+    assert [u.id for u in found] == [ids[2], ids[0]]
+    assert await fetch_by_pks(session, User, []) == []
+    votes: list[Any] = await fetch_by_pks(session, Vote, [f"{ids[1]};{post.id}"])
+    assert [v.value for v in votes] == [2]
+    assert await fetch_by_pks(session, Vote, [str(ids[1])]) == []
+
+
+def test_apply_search_is_noop_without_q_or_searchable() -> None:
+    assert "like" not in str(apply_search(select(Post), PostView(), "x")).lower()
+    assert "like" not in str(apply_search(select(User), UserView(), "")).lower()
+    assert "like" in str(apply_search(select(User), UserView(), "x")).lower()
