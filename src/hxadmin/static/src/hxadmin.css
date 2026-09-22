@@ -1,0 +1,30 @@
+@import "tailwindcss" source(none);
+@source "../../templates";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme {
+  --color-surface: oklch(100% 0 0);
+  --color-surface-2: oklch(98% 0.003 250);
+  --color-surface-3: oklch(94% 0.006 250);
+  --color-fg: oklch(20% 0.02 250);
+  --color-fg-muted: oklch(50% 0.02 250);
+  --color-edge: oklch(89% 0.008 250);
+  --color-accent: oklch(55% 0.18 260);
+  --color-accent-fg: oklch(100% 0 0);
+}
+
+.dark {
+  --color-surface: oklch(18% 0.015 250);
+  --color-surface-2: oklch(22% 0.015 250);
+  --color-surface-3: oklch(28% 0.015 250);
+  --color-fg: oklch(95% 0.005 250);
+  --color-fg-muted: oklch(70% 0.01 250);
+  --color-edge: oklch(32% 0.015 250);
+  --color-accent: oklch(72% 0.15 260);
+  --color-accent-fg: oklch(15% 0.02 260);
+}
+
+[x-cloak] {
+  display: none !important;
+}
