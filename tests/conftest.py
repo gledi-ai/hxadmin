@@ -2,11 +2,12 @@ import enum
 from collections.abc import AsyncGenerator, AsyncIterator, Awaitable, Callable
 from contextlib import asynccontextmanager
 from datetime import datetime
+from typing import Any
 
 import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
-from sqlalchemy import Column, ForeignKey, StaticPool, Table, Text
+from sqlalchemy import Column, ForeignKey, StaticPool, Table, Text, event
 from sqlalchemy.ext.asyncio import (
     AsyncEngine,
     AsyncSession,
@@ -93,7 +94,15 @@ class Vote(Base):
 
 
 def make_engine() -> AsyncEngine:
-    return create_async_engine("sqlite+aiosqlite://", poolclass=StaticPool)
+    engine = create_async_engine("sqlite+aiosqlite://", poolclass=StaticPool)
+
+    @event.listens_for(engine.sync_engine, "connect")
+    def enforce_foreign_keys(dbapi_connection: Any, _: Any) -> None:
+        cursor = dbapi_connection.cursor()
+        cursor.execute("PRAGMA foreign_keys=ON")
+        cursor.close()
+
+    return engine
 
 
 class AppFactory:

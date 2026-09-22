@@ -77,6 +77,20 @@ def test_lookup_registered_without_q_lists_first_20(
     assert html.count('role="option"') == 20
 
 
+def test_lookup_registered_without_searchable_filters_by_display(
+    factory: AppFactory, make_client: MakeClient
+) -> None:
+    class Users(ModelView[User]):
+        model = User
+
+    with make_client(build(factory, user_view=Users)) as client:
+        hit = client.get("/admin/post/_lookup/author?q=ADA").text
+        miss = client.get("/admin/post/_lookup/author?q=zzzz").text
+    assert "ada@x.io" in hit
+    assert "bob" not in hit
+    assert "No matches" in miss
+
+
 def test_lookup_unregistered_target_filters_by_str(
     factory: AppFactory, make_client: MakeClient
 ) -> None:

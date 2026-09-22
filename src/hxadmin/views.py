@@ -118,6 +118,8 @@ class ModelView[T]:
             autoincrement=derived.autoincrement,
             unique=derived.unique,
             choices=derived.choices,
+            required=derived.required if item.required is None else item.required,
+            default=derived.default if item.default is None else item.default,
         )
 
     def get_query(self, request: Request) -> Select[tuple[T]]:
