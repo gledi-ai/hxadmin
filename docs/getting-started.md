@@ -42,7 +42,7 @@ class UserView(ModelView[User]):
     model = User
 ```
 
-Run it with `uvicorn myapp:app` and open `/admin/`. The admin is mounted at `prefix` (default `/admin`); the dashboard lists every registered view with its row count.
+Run it with `uvicorn myapp:app` and open `/admin/`. The admin is mounted at `prefix` (default `/admin`); the dashboard lists every registered view with its row count, grouped under a heading per `category`; a category holding a single view joins the ungrouped cards, labelled with its category, instead of heading one card.
 
 `session` and `auth` are ordinary FastAPI dependencies; see [Auth and sessions](auth.md).
 

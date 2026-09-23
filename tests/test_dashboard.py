@@ -139,3 +139,31 @@ def test_broken_view_does_not_break_the_dashboard(
     assert card_count(response.text, "/admin/user/") == "2"
     assert re.search(r'href="/admin/post/".*?tabular-nums">—</div>', response.text, re.S)
     assert "Broken" in caplog.text
+
+
+def test_single_model_categories_join_the_unheaded_grid(
+    factory: AppFactory, make_client: MakeClient
+) -> None:
+    app = factory.app()
+    admin = HxAdmin(app, session=factory.get_session, auth=allow_all)
+
+    @admin.register
+    class UserView(ModelView[User]):
+        model = User
+        category = "People"
+
+    @admin.register
+    class PostView(ModelView[Post]):
+        model = Post
+        category = "Content"
+
+    @admin.register
+    class GroupView(ModelView[Group]):
+        model = Group
+        category = "Content"
+
+    with make_client(app) as client:
+        main = client.get("/admin/").text.split('<main id="main"', 1)[1].split("</main>")[0]
+    assert re.findall(r"<h2[^>]*>([^<]+)</h2>", main) == ["Content"]
+    assert re.findall(r"data-card-category>([^<]+)<", main) == ["People"]
+    assert main.index("/admin/user/") < main.index("<h2")
