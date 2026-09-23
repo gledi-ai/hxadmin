@@ -212,3 +212,14 @@ def test_no_detail_links_when_can_view_false(
     with make_client(app) as client:
         html = client.get("/admin/user/").text
     assert 'href="/admin/user/1"' not in html
+
+
+def test_only_the_primary_column_takes_the_remaining_width(
+    factory: AppFactory, make_client: Callable[[FastAPI], TestClient]
+) -> None:
+    with make_client(build(factory)) as client:
+        table = table_section(client.get("/admin/user/").text)
+    headers = re.findall(r'<th class="px-3 py-2 font-medium([^"]*)"', table)
+    assert headers[0] == ""
+    assert all(" w-px whitespace-nowrap" in extra for extra in headers[1:])
+    assert "font-semibold" not in table[: table.index("</thead>")]
