@@ -19,6 +19,7 @@
   {% set chips = [] %}{% for pk, label in value or [] %}{% set _ = chips.append({"pk": pk, "label": label}) %}{% endfor %}
   {% set lookup_url = admin.url(request, '/' ~ view.identity ~ '/_lookup/' ~ field.name) %}
   <div class="combobox relative mt-1" x-data='combobox({{ field.name|tojson }}, {{ field.multiple|tojson }}, {{ chips|tojson }})' @click.outside="open = false">
+    {% if field.multiple %}
     <div class="flex flex-wrap items-center gap-1 rounded-md border bg-surface px-2 py-1 focus-within:outline-2 focus-within:-outline-offset-1 focus-within:outline-ring {{ 'border-danger' if error else 'border-input' }}">
       <template x-for="s in selected" :key="s.pk">
         <span class="inline-flex items-center gap-1 rounded-md bg-surface-2 px-2 py-0.5 text-sm">
@@ -34,6 +35,19 @@
              placeholder="Search {{ field.target.__name__|lower }}…"
              class="min-w-32 flex-1 bg-transparent py-0.5 text-sm focus:outline-none">
     </div>
+    {% else %}
+    <div class="flex h-9 items-center gap-1 rounded-md border bg-surface pl-2 pr-1.5 focus-within:outline-2 focus-within:-outline-offset-1 focus-within:outline-ring {{ 'border-danger' if error else 'border-input' }}">
+      <span class="flex-1 truncate text-sm" x-show="!open && selected.length" x-cloak x-text="selected[0] && selected[0].label"></span>
+      <input type="hidden" :name="name" :value="selected.length ? selected[0].pk : ''">
+      <input id="f-{{ field.name }}" type="text" name="q" autocomplete="off" role="combobox" {% if error %}aria-invalid="true"{% endif %}
+             x-show="open || !selected.length" x-model="query" @focus="open = true" :aria-expanded="open"
+             hx-get="{{ lookup_url }}" hx-trigger="input changed delay:300ms, focus once" hx-target="next .combobox-options"
+             placeholder="Search {{ field.target.__name__|lower }}…"
+             class="min-w-0 flex-1 bg-transparent py-1.5 text-sm focus:outline-none">
+      <button type="button" x-show="selected.length" x-cloak tabindex="-1" @click="remove(selected[0].pk)" class="text-fg-muted hover:text-fg" aria-label="Clear">{{ m.icon('x', 'size-3.5') }}</button>
+      {{ m.icon('chevron-down', 'size-3.5 shrink-0 text-fg-muted') }}
+    </div>
+    {% endif %}
     <div class="combobox-options absolute z-10 mt-1 w-full" x-show="open" x-cloak></div>
   </div>
   {% else %}
@@ -41,5 +55,5 @@
   <input id="f-{{ field.name }}" type="{{ widget }}" name="{{ field.name }}" value="{{ value if value is not none else '' }}" {% if error %}aria-invalid="true"{% endif %} {{ 'readonly' if field.readonly }} {% if field.kind in ('float', 'decimal') %}step="any"{% endif %} class="{{ control }}">
   {% endif %}
   {% if field.help_text %}<p class="mt-1 text-xs text-fg-muted">{{ field.help_text }}</p>{% endif %}
-  {% if error %}<p class="mt-1 text-xs text-danger">{{ error }}</p>{% endif %}
+  {% if error %}<p class="mt-1 flex items-center gap-1 text-xs text-danger">{{ m.icon('circle-x', 'size-3.5 shrink-0') }}{{ error }}</p>{% endif %}
 </div>

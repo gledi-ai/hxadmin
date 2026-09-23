@@ -1,20 +1,16 @@
 {% import "_macros.html" as m with context %}
-<form method="post" action="{{ action_url }}" hx-post="{{ action_url }}" hx-target="closest .hx-form" class="mx-auto max-w-[720px]">
-  {% if errors.form %}{{ m.alert(errors.form, 'danger', class='mb-4') }}{% endif %}
-  <div class="space-y-4 rounded-lg border border-border bg-surface p-4">
-    {% if obj is not none %}
-    {% for name in view.pk_names %}
-    <div>
-      <label for="f-{{ name }}" class="block text-sm font-medium text-fg-muted">{{ view.fields[name].label }}</label>
-      <input id="f-{{ name }}" type="text" value="{{ obj[name] }}" disabled class="mt-1 w-full rounded-md border border-input bg-surface-2 px-2 py-1.5 text-sm text-fg-muted">
+<form method="post" action="{{ action_url }}" hx-post="{{ action_url }}" hx-target="closest .hx-form">
+  <div class="mx-auto max-w-[720px]">
+    {% if errors.form %}{{ m.alert(errors.form, 'danger', class='mb-4') }}{% endif %}
+    <div class="space-y-4 rounded-lg border border-border bg-surface p-4">
+      {% for field in fields %}{% include "form/_field.html" %}{% endfor %}
     </div>
-    {% endfor %}
-    {% endif %}
-    {% for field in fields %}{% include "form/_field.html" %}{% endfor %}
   </div>
   <div class="sticky bottom-0 mt-4 flex items-center gap-2 border-t border-border bg-bg py-3">
-    {{ m.button('Save', 'primary', type='submit') }}
-    {% if view.can_create %}{{ m.button('Save and add another', type='submit', name='_then', value='another') }}{% endif %}
-    {{ m.button('Cancel', 'ghost', href=cancel_url, class='ml-auto') }}
+    {{ m.button('Cancel', 'ghost', href=cancel_url) }}
+    <div class="ml-auto flex items-center gap-2">
+      {% if view.can_create %}{{ m.button('Save and add another', 'secondary', type='submit', name='_then', value='another') }}{% endif %}
+      {{ m.button('Save', 'primary', type='submit') }}
+    </div>
   </div>
 </form>
