@@ -13,6 +13,7 @@
   dialog.html    dialog, dialog_footer
   feedback.html  empty_state, stat, alert
   misc.html      tooltip, kbd
+  date.html      date_input
 
   The macros below render admin-specific pieces (cells, row actions, filters) and need the
   request context.
@@ -25,6 +26,7 @@
 {% import "components/dialog.html" as _dialog_module %}
 {% import "components/feedback.html" as _feedback_module %}
 {% import "components/misc.html" as _misc_module %}
+{% import "components/date.html" as _date_module %}
 {% set icon = _icon_module.icon %}
 {% set button = _button_module.button %}
 {% set icon_button = _button_module.icon_button %}
@@ -43,6 +45,7 @@
 {% set alert = _feedback_module.alert %}
 {% set tooltip = _misc_module.tooltip %}
 {% set kbd = _misc_module.kbd %}
+{% set date_input = _date_module.date_input %}
 
 {% macro cell(view, field, value) -%}
 {%- if field.name in view.formatted -%}
@@ -79,8 +82,24 @@
 {%- endmacro %}
 
 {% macro delete_button(view, obj, class="") -%}
+{%- set payload = {
+    "title": "Delete " ~ view.name|lower ~ "?",
+    "message": "Delete " ~ view.display(obj) ~ "? This cannot be undone.",
+    "danger": true,
+    "action": admin.url(request, '/' ~ view.identity ~ '/' ~ view.pk_of(obj) ~ '/delete'),
+} -%}
 <button type="button" class="{{ class }}" aria-label="Delete" title="Delete"
-        @click="$dispatch('confirm', {message: {{ ('Delete ' ~ view.display(obj) ~ '?')|tojson|forceescape }}, action: {{ admin.url(request, '/' ~ view.identity ~ '/' ~ view.pk_of(obj) ~ '/delete')|tojson|forceescape }}})">{{ icon('trash-2', 'size-4') }}</button>
+        @click="$dispatch('confirm', {{ payload|tojson|forceescape }})">{{ icon('trash-2', 'size-4') }}</button>
+{%- endmacro %}
+
+{% macro delete_menu_item(view, obj) -%}
+{%- set payload = {
+    "title": "Delete " ~ view.name|lower ~ "?",
+    "message": "Delete " ~ view.display(obj) ~ "? This cannot be undone.",
+    "danger": true,
+    "action": admin.url(request, '/' ~ view.identity ~ '/' ~ view.pk_of(obj) ~ '/delete'),
+} -%}
+{{ menu_item("Delete", icon="trash-2", tone="danger", attrs={"@click": "close(true); $dispatch('confirm', " ~ (payload|tojson|forceescape) ~ ")"}) }}
 {%- endmacro %}
 
 {% macro bulk_bar(view) -%}
@@ -103,10 +122,6 @@
 {%- endif -%}
 {%- endmacro %}
 
-{% macro delete_menu_item(view, obj) -%}
-<button type="button" role="menuitem" tabindex="-1" class="flex w-full select-none items-center gap-2 rounded-sm px-2 py-1.5 text-left text-sm text-danger outline-none focus-visible:outline-none focus:bg-danger-soft" @mouseenter="$el.focus()"
-        @click="close(true); $dispatch('confirm', {message: {{ ('Delete ' ~ view.display(obj) ~ '?')|tojson|forceescape }}, action: {{ admin.url(request, '/' ~ view.identity ~ '/' ~ view.pk_of(obj) ~ '/delete')|tojson|forceescape }}})">{{ icon('trash-2', 'size-4 shrink-0') }}<span class="min-w-0 flex-1 truncate">Delete</span></button>
-{%- endmacro %}
 
 {% macro action_button(view, action, obj=none, origin="detail", class="") -%}
 {%- set url = admin.url(request, '/' ~ view.identity ~ ('/' ~ view.pk_of(obj) if obj is not none else '') ~ '/action/' ~ action.name) -%}
@@ -241,18 +256,26 @@
 {%- endcall -%}
 {%- endmacro %}
 
-{% macro action_menu_item(view, action, obj=none, origin="list") -%}
+{% macro action_menu_item(view, action, obj=none, origin="detail") -%}
 {%- set url = admin.url(request, '/' ~ view.identity ~ ('/' ~ view.pk_of(obj) if obj is not none else '') ~ '/action/' ~ action.name) -%}
-{%- set item_class = "flex w-full select-none items-center gap-2 rounded-sm px-2 py-1.5 text-left text-sm outline-none focus-visible:outline-none text-fg focus:bg-surface-2" -%}
 {%- if action.method == "POST" -%}
-<button type="button" role="menuitem" tabindex="-1" class="{{ item_class }}" @mouseenter="$el.focus()"
-        hx-post="{{ url }}" hx-target="#list" hx-vals="{{ {'_from': origin}|tojson|forceescape }}"{% if obj is none %} form="bulk"{% endif %}{% if action.confirm %} hx-confirm="{{ action.confirm }}"{% endif %}
-        @click="close(true)">{{ action.label }}</button>
+{{ menu_item(action.label, attrs={
+    "hx-post": url,
+    "hx-target": "#detail" if origin == "detail" else "#list",
+    "hx-vals": {"_from": origin}|tojson|forceescape,
+    "hx-confirm": action.confirm,
+    "form": "bulk" if obj is none else none,
+}) }}
 {%- elif obj is none -%}
-<button type="submit" form="bulk" formmethod="get" formaction="{{ url }}" role="menuitem" tabindex="-1" class="{{ item_class }}" @mouseenter="$el.focus()"{% if action.confirm %}
-        @click="$event.preventDefault(); close(true); $dispatch('confirm', {message: {{ action.confirm|tojson|forceescape }}, submit: () => document.getElementById('bulk').requestSubmit($el)})"{% else %} @click="close(true)"{% endif %}>{{ action.label }}</button>
+{{ menu_item(action.label, type="submit", attrs={
+    "form": "bulk",
+    "formmethod": "get",
+    "formaction": url,
+    "@click": "$event.preventDefault(); close(true); $dispatch('confirm', {message: " ~ (action.confirm|tojson|forceescape) ~ ", submit: () => $el.form.requestSubmit($el)})" if action.confirm else none,
+}) }}
 {%- else -%}
-<a href="{{ url }}{{ '?_from=list' if origin == 'list' else '' }}" role="menuitem" tabindex="-1" class="{{ item_class }}" @mouseenter="$el.focus()"{% if action.confirm %}
-   @click="$event.preventDefault(); close(true); $dispatch('confirm', {message: {{ action.confirm|tojson|forceescape }}, submit: () => window.location.assign($el.href)})"{% else %} @click="close(true)"{% endif %}>{{ action.label }}</a>
+{{ menu_item(action.label, href=url ~ ("?_from=list" if origin == "list" else ""), attrs={
+    "@click": "$event.preventDefault(); close(true); $dispatch('confirm', {message: " ~ (action.confirm|tojson|forceescape) ~ ", submit: () => window.location.assign($el.href)})" if action.confirm else none,
+}) }}
 {%- endif -%}
 {%- endmacro %}

@@ -98,7 +98,10 @@ def test_delete_button_dispatches_confirm(factory: AppFactory, make_client: Make
     with make_client(build(factory)) as client:
         detail = client.get("/admin/post/1").text
         listing = client.get("/admin/post/").text
-    assert "$dispatch('confirm'" in detail
+    assert "$dispatch(&#39;confirm&#39;," in detail
+    assert "&#34;danger&#34;: true" in detail
+    assert "This cannot be undone." in detail
+    assert "&#34;title&#34;: &#34;Delete post?&#34;" in detail
     assert "/admin/post/1/delete" in detail
     assert "/admin/post/1/delete" in listing
     assert 'href="/admin/post/1/edit"' in listing

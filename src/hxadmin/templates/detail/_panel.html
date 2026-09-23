@@ -1,10 +1,34 @@
 {% import "_macros.html" as m with context %}
-<div class="mb-4 flex items-center justify-between gap-4">
-  <h1 class="text-2xl font-semibold">{{ view.display(obj) }}</h1>
-  <div class="flex items-center gap-2">
-    {% for action in view.permitted_actions(request, bulk=False) %}{{ m.action_button(view, action, obj, 'detail', m.button_classes('secondary')) }}{% endfor %}
-    {% if view.can_edit %}{{ m.button('Edit', 'primary', icon='pencil', href=admin.url(request, '/' ~ view.identity ~ '/' ~ view.pk_of(obj) ~ '/edit')) }}{% endif %}
-    {% if view.can_delete %}{{ m.delete_button(view, obj, m.button_classes('danger', square=True)) }}{% endif %}
+{% set row_actions = view.permitted_actions(request, bulk=False) %}
+{% set inline_actions = row_actions|length <= 2 and not (row_actions|selectattr('confirm')|list) %}
+{% set menu_actions = [] if inline_actions else row_actions %}
+{% set show_menu = menu_actions or view.can_delete %}
+{% set badge_fields = (view.detail_fields|selectattr('kind', 'equalto', 'enum')|list)[:2] %}
+<div class="mb-4 flex flex-col gap-1">
+  {% if back_url %}
+  <a href="{{ back_url }}" class="inline-flex w-fit items-center gap-1 text-sm text-fg-muted hover:text-fg">
+    {{ m.icon('chevron-left', 'size-4') }}Back to {{ view.name_plural }}
+  </a>
+  {% endif %}
+  <div class="flex items-center justify-between gap-4">
+    <div class="flex min-w-0 items-center gap-2">
+      <h1 class="truncate text-2xl font-semibold">{{ view.display(obj) }}</h1>
+      {% for field in badge_fields %}{{ m.badge(m.cell(view, field, view.cell(obj, field.name))) }}{% endfor %}
+    </div>
+    <div class="flex shrink-0 items-center gap-2">
+      {% if inline_actions %}
+      {% for action in row_actions %}{{ m.action_button(view, action, obj, 'detail', m.button_classes('secondary')) }}{% endfor %}
+      {% endif %}
+      {% if view.can_edit %}{{ m.button('Edit', 'primary', icon='pencil', href=admin.url(request, '/' ~ view.identity ~ '/' ~ view.pk_of(obj) ~ '/edit')) }}{% endif %}
+      {% if show_menu %}
+      {% set _menu_trigger %}{{ m.icon('ellipsis', 'size-4') }}{% endset %}
+      {% call m.menu(view.identity ~ '-detail-actions', _menu_trigger, label="More actions", trigger_class=m.button_classes('secondary', square=True), placement="bottom-end") %}
+      {% for action in menu_actions %}{{ m.action_menu_item(view, action, obj, 'detail') }}{% endfor %}
+      {% if menu_actions and view.can_delete %}{{ m.menu_separator() }}{% endif %}
+      {% if view.can_delete %}{{ m.delete_menu_item(view, obj) }}{% endif %}
+      {% endcall %}
+      {% endif %}
+    </div>
   </div>
 </div>
 {% call m.card() %}

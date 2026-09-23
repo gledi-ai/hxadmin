@@ -85,9 +85,8 @@ def test_form_error_on_a_field_rerenders_the_form(
         response = client.post("/admin/post/new", data={**POST_DATA, "title": "bad"})
         listing = client.get("/admin/post/").text
     assert response.status_code == 422
-    assert (
-        '<p class="mt-1 text-xs text-danger">Titles cannot be &#39;bad&#39;.</p>' in response.text
-    )
+    assert '<p class="mt-1 flex items-center gap-1 text-xs text-danger">' in response.text
+    assert "Titles cannot be &#39;bad&#39;.</p>" in response.text
     assert 'role="alert"' not in response.text
     assert 'value="bad"' in response.text
     assert "Showing 1\N{EN DASH}1 of 1" in listing

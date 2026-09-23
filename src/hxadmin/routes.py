@@ -125,6 +125,16 @@ def build_router(admin: "HxAdmin") -> APIRouter:
             f for f in view.detail_fields if not (isinstance(f, RelationField) and f.multiple)
         ]
         relations = [f.name for f in scalar_fields if isinstance(f, RelationField)]
+        if not view.detail_columns:
+            # FK columns whose relation is also shown are redundant next to the relation link.
+            shown_fk_columns = {
+                name for f in scalar_fields if isinstance(f, RelationField) for name in f.fk_columns
+            }
+            scalar_fields = [
+                f
+                for f in scalar_fields
+                if not (isinstance(f, Field) and f.name in shown_fk_columns)
+            ]
         obj = await fetch_one(session, view, view.get_query(request), pk, relations=relations)
         if obj is None:
             return None
@@ -138,6 +148,7 @@ def build_router(admin: "HxAdmin") -> APIRouter:
             "obj": obj,
             "scalar_fields": scalar_fields,
             "collections": collections,
+            "back_url": _list_return_url(request, admin.url(request, f"/{view.identity}/")),
         }
 
     def _declared(view: ModelView[Any], name: str, request: Request, *, bulk: bool) -> Action:

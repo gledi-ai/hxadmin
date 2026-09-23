@@ -1,0 +1,29 @@
+{#-
+  Date, datetime and time picker.
+
+  date_input(name, value, kind="date", id=None, required=False, error=False,
+             readonly=False, form=None, class="")
+    A visible, styled text input backed by Air Datepicker, plus a hidden input named
+    `name` carrying the ISO value actually submitted: "YYYY-MM-DD" for kind="date",
+    "YYYY-MM-DDTHH:MM" for kind="datetime", "HH:MM" for kind="time". `value`, if given,
+    must already be in that same ISO form (or empty/None). `form` sets the hidden
+    input's form= attribute, for inputs living outside their <form> (e.g. a filter
+    popover). Clearing the visible input clears the hidden value too.
+
+  Example:
+    {{ m.date_input("published_at", "2026-09-23T14:30", kind="datetime") }}
+-#}
+{% from "components/icon.html" import icon as _icon %}
+{% macro date_input(name, value=None, kind="date", id=None, required=False, error=False, readonly=False, form=None, class="") -%}
+{%- set id = id or ("f-" ~ name) -%}
+<div class="relative" x-data='dateInput({{ kind|tojson }}, {{ (value or "")|tojson }})'>
+  <input type="hidden" name="{{ name }}" :value="value" {% if form %}form="{{ form }}"{% endif %}>
+  <input id="{{ id }}" type="text" autocomplete="off" x-ref="visible" placeholder="{{ {'date': 'mm/dd/yyyy', 'datetime': 'mm/dd/yyyy hh:mm', 'time': 'hh:mm'}[kind] }}"
+         {% if required %}required{% endif %} {% if readonly %}readonly{% endif %} {% if error %}aria-invalid="true"{% endif %}
+         class="{{ class }} pr-8">
+  <button type="button" x-show="value" x-cloak @click="clear()" tabindex="-1"
+          class="absolute inset-y-0 right-2 my-auto flex size-5 items-center justify-center text-fg-muted hover:text-fg" aria-label="Clear">
+    {{ _icon("x", "size-3.5") }}
+  </button>
+</div>
+{%- endmacro %}
