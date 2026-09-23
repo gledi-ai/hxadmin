@@ -17,7 +17,7 @@ from starlette.responses import HTMLResponse, Response
 from hxadmin.actions import Action, ActionResult
 from hxadmin.export import export_response
 from hxadmin.fields import Field, RelationField
-from hxadmin.filters import filter_chips, relation_labels, visible_filters
+from hxadmin.filters import relation_labels, visible_filters
 from hxadmin.forms import (
     FormError,
     FormErrors,
@@ -115,7 +115,7 @@ def build_router(admin: "HxAdmin") -> APIRouter:
             "push_url": True,
             "filters": filters,
             "filter_options": labels,
-            "chips": filter_chips(filters, params.filters, labels),
+            "htmx": _is_htmx(request),
         }
 
     async def _detail_context(

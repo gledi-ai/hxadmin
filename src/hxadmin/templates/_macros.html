@@ -48,7 +48,7 @@
 {%- if field.name in view.formatted -%}
   {{ value }}
 {%- elif value is none -%}
-  <span class="text-fg-muted">—</span>
+  <span class="text-fg-subtle">—</span>
 {%- elif field.kind == "relation" -%}
   {%- if field.multiple -%}
     {{ value|length }}
@@ -60,10 +60,13 @@
       {{ admin.display(value) }}
     {%- endif -%}
   {%- endif -%}
+{%- elif field.kind == "bool" and field.name in view.badges -%}
+  {{ badge('Yes' if value else 'No', view.badge_tone(field.name, 'true' if value else 'false')) }}
 {%- elif field.kind == "bool" -%}
   <span aria-label="{{ 'Yes' if value else 'No' }}" class="{{ 'text-accent' if value else 'text-fg-muted' }}">{{ icon('check' if value else 'x', 'size-4 inline') }}</span>
 {%- elif field.kind == "enum" -%}
-  {{ value.value if value.value is defined else value }}
+  {%- set raw = value.value if value.value is defined else value -%}
+  {{ badge(raw, view.badge_tone(field.name, raw)) }}
 {%- elif field.kind in ("datetime", "date", "time") -%}
   {{ value.isoformat(" ", "minutes") if field.kind == "datetime" else value.isoformat() }}
 {%- else -%}
@@ -80,6 +83,31 @@
         @click="$dispatch('confirm', {message: {{ ('Delete ' ~ view.display(obj) ~ '?')|tojson|forceescape }}, action: {{ admin.url(request, '/' ~ view.identity ~ '/' ~ view.pk_of(obj) ~ '/delete')|tojson|forceescape }}})">{{ icon('trash-2', 'size-4') }}</button>
 {%- endmacro %}
 
+{% macro bulk_bar(view) -%}
+{%- set bulk_actions = view.permitted_actions(request, bulk=True) -%}
+{%- if bulk_actions or view.export_formats %}
+<form id="bulk" x-show="count" x-cloak
+      class="fixed inset-x-0 bottom-6 z-40 mx-auto flex w-fit max-w-[calc(100vw-2rem)] flex-wrap items-center gap-2 rounded-lg border border-border bg-popover px-3 py-2 text-sm text-fg shadow-lg">
+  <span class="mr-1 font-medium" x-text="count + ' selected'"></span>
+  {%- for action in bulk_actions %}{{ action_button(view, action, none, 'list', button_classes('secondary', 'sm')) }}{% endfor %}
+  {%- if view.export_formats %}
+  {%- set trigger -%}{{ icon('download', 'size-4') }} Export{%- endset -%}
+  {%- call menu('bulk-export', trigger, trigger_class=button_classes('secondary', 'sm'), placement='top') -%}
+    {%- for fmt in view.export_formats %}
+    {{ menu_item(fmt|upper, type='submit', attrs={'formmethod': 'get', 'formaction': admin.url(request, '/' ~ view.identity ~ '/_export/' ~ fmt)}) }}
+    {%- endfor %}
+  {%- endcall %}
+  {%- endif %}
+  {{ icon_button('x', 'Clear selection', 'ghost', 'sm', attrs={'@click': "document.querySelectorAll('input[form=bulk][name=pks]:checked').forEach(function (c) { c.checked = false; c.dispatchEvent(new Event('change', {bubbles: true})); })"}) }}
+</form>
+{%- endif -%}
+{%- endmacro %}
+
+{% macro delete_menu_item(view, obj) -%}
+<button type="button" role="menuitem" tabindex="-1" class="flex w-full select-none items-center gap-2 rounded-sm px-2 py-1.5 text-left text-sm text-danger outline-none focus-visible:outline-none focus:bg-danger-soft" @mouseenter="$el.focus()"
+        @click="close(true); $dispatch('confirm', {message: {{ ('Delete ' ~ view.display(obj) ~ '?')|tojson|forceescape }}, action: {{ admin.url(request, '/' ~ view.identity ~ '/' ~ view.pk_of(obj) ~ '/delete')|tojson|forceescape }}})">{{ icon('trash-2', 'size-4 shrink-0') }}<span class="min-w-0 flex-1 truncate">Delete</span></button>
+{%- endmacro %}
+
 {% macro action_button(view, action, obj=none, origin="detail", class="") -%}
 {%- set url = admin.url(request, '/' ~ view.identity ~ ('/' ~ view.pk_of(obj) if obj is not none else '') ~ '/action/' ~ action.name) -%}
 {%- if action.method == "POST" -%}
@@ -94,27 +122,137 @@
 {%- endif -%}
 {%- endmacro %}
 
-{% macro filter_control(filter, active, options) -%}
-{%- set input_class = "w-full rounded-md border border-input bg-surface px-2 py-1 text-sm" -%}
-<fieldset class="min-w-0">
-  <legend class="mb-1 text-xs font-semibold uppercase tracking-wide text-fg-muted">{{ filter.label }}</legend>
-  {%- if filter.kind == "range" %}
-  <div class="flex items-center gap-2">
-    <input type="{{ filter.input_type }}" name="{{ filter.key }}.min" value="{{ active.min or '' }}" aria-label="{{ filter.label }} from"{% if filter.input_type == "number" %} step="any"{% endif %} class="hx-filter-pick {{ input_class }}">
-    <span class="text-fg-muted">–</span>
-    <input type="{{ filter.input_type }}" name="{{ filter.key }}.max" value="{{ active.max or '' }}" aria-label="{{ filter.label }} to"{% if filter.input_type == "number" %} step="any"{% endif %} class="hx-filter-pick {{ input_class }}">
-  </div>
-  {%- elif filter.kind == "text" %}
-  <input type="search" name="{{ filter.key }}" value="{{ active.values[0] if active.values else '' }}" aria-label="{{ filter.label }} contains" class="hx-filter-text {{ input_class }}">
-  {%- else %}
-  <div class="max-h-40 space-y-1 overflow-y-auto">
-    {%- for value, label in (filter.choices if filter.kind == "choice" else options) %}
-    <label class="flex items-center gap-2 text-sm"><input type="checkbox" name="{{ filter.key }}" value="{{ value }}"{% if value in active.values %} checked{% endif %} class="hx-filter-pick"> {{ label }}</label>
+{% macro filter_summary(filter, value, options) -%}
+{%- if filter.kind == "range" -%}
+  {%- if value.min and value.max -%}{{ value.min }}–{{ value.max }}
+  {%- elif value.min -%}≥{{ value.min }}
+  {%- elif value.max -%}≤{{ value.max }}
+  {%- endif -%}
+  {%- if value.empty %}{{ ' + Empty' if (value.min or value.max) else 'Empty' }}{% endif -%}
+{%- elif filter.kind == "text" -%}
+  {%- if value.values -%}“{{ value.values[0] }}”{%- endif -%}
+  {%- if value.empty %}{{ ' + Empty' if value.values else 'Empty' }}{% endif -%}
+{%- else -%}
+  {%- set names = dict(filter.choices) -%}
+  {%- if filter.kind == "relation" -%}{%- set _ = names.update(dict(options)) -%}{%- endif -%}
+  {%- if value.values|length > 2 -%}
+    {{ value.values|length }} selected
+  {%- elif value.values -%}
+    {%- for raw in value.values %}{{ badge(names.get(raw, raw)) }}{% if not loop.last %} {% endif %}{% endfor -%}
+  {%- endif -%}
+  {%- if value.empty %}{{ ' + Empty' if value.values else 'Empty' }}{% endif -%}
+{%- endif -%}
+{%- endmacro %}
+
+{% macro filter_panel(filter, value, options) -%}
+{%- if filter.kind in ("choice", "relation") %}
+<div x-data="{ q: '' }" class="space-y-2">
+  <label class="relative block">
+    <span class="pointer-events-none absolute inset-y-0 left-2 flex items-center text-fg-muted">{{ icon('search', 'size-3.5') }}</span>
+    <input type="search" x-model="q" placeholder="Search…" aria-label="Search {{ filter.label|lower }} options" class="w-full rounded-md border border-input bg-surface py-1 pl-7 pr-2 text-sm">
+  </label>
+  <div class="max-h-48 space-y-0.5 overflow-y-auto">
+    {%- for raw, label in (filter.choices if filter.kind == "choice" else options) %}
+    <label class="flex items-center gap-2 rounded px-1 py-1 text-sm hover:bg-surface-2" x-show="!q || {{ label|lower|tojson|forceescape }}.includes(q.toLowerCase())">
+      <input type="checkbox" name="{{ filter.key }}" value="{{ raw }}"{% if raw in value.values %} checked{% endif %} class="hx-filter-pick"> {{ label }}
+    </label>
     {%- endfor %}
   </div>
-  {%- endif %}
   {%- if filter.nullable %}
-  <label class="mt-1 flex items-center gap-2 text-sm text-fg-muted"><input type="checkbox" name="{{ filter.key }}.empty" value="1"{% if active.empty %} checked{% endif %} class="hx-filter-pick"> Empty</label>
+  <label class="flex items-center gap-2 border-t border-border pt-2 text-sm text-fg-muted"><input type="checkbox" name="{{ filter.key }}.empty" value="1"{% if value.empty %} checked{% endif %} class="hx-filter-pick"> Empty</label>
   {%- endif %}
-</fieldset>
+  <div class="flex justify-end border-t border-border pt-2">
+    <button type="button" class="text-sm text-fg-muted hover:text-fg hover:underline" @click="hxadminClearFilter({{ filter.key|tojson|forceescape }})">Clear</button>
+  </div>
+</div>
+{%- elif filter.kind == "range" %}
+<div class="space-y-2">
+  <label class="block text-xs text-fg-muted">From
+    <input type="{{ filter.input_type }}" name="{{ filter.key }}.min" value="{{ value.min or '' }}" aria-label="{{ filter.label }} from"{% if filter.input_type == "number" %} step="any"{% endif %} class="hx-filter-pick mt-1 w-full rounded-md border border-input bg-surface px-2 py-1 text-sm">
+  </label>
+  <label class="block text-xs text-fg-muted">To
+    <input type="{{ filter.input_type }}" name="{{ filter.key }}.max" value="{{ value.max or '' }}" aria-label="{{ filter.label }} to"{% if filter.input_type == "number" %} step="any"{% endif %} class="hx-filter-pick mt-1 w-full rounded-md border border-input bg-surface px-2 py-1 text-sm">
+  </label>
+  {%- if filter.nullable %}
+  <label class="flex items-center gap-2 border-t border-border pt-2 text-sm text-fg-muted"><input type="checkbox" name="{{ filter.key }}.empty" value="1"{% if value.empty %} checked{% endif %} class="hx-filter-pick"> Empty</label>
+  {%- endif %}
+  <div class="flex justify-end border-t border-border pt-2">
+    <button type="button" class="text-sm text-fg-muted hover:text-fg hover:underline" @click="hxadminClearFilter({{ filter.key|tojson|forceescape }})">Clear</button>
+  </div>
+</div>
+{%- else %}
+<div class="space-y-2">
+  <input type="search" name="{{ filter.key }}" value="{{ value.values[0] if value.values else '' }}" aria-label="{{ filter.label }} contains" placeholder="Contains…" class="hx-filter-text w-full rounded-md border border-input bg-surface px-2 py-1 text-sm">
+  {%- if filter.nullable %}
+  <label class="flex items-center gap-2 border-t border-border pt-2 text-sm text-fg-muted"><input type="checkbox" name="{{ filter.key }}.empty" value="1"{% if value.empty %} checked{% endif %} class="hx-filter-pick"> Empty</label>
+  {%- endif %}
+  <div class="flex justify-end border-t border-border pt-2">
+    <button type="button" class="text-sm text-fg-muted hover:text-fg hover:underline" @click="hxadminClearFilter({{ filter.key|tojson|forceescape }})">Clear</button>
+  </div>
+</div>
+{%- endif -%}
+{%- endmacro %}
+
+{% macro filter_summary_span(filter, value, options, oob=False) -%}
+{%- set active = value.values or value.min or value.max or value.empty -%}
+{%- set pill = "inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm font-medium " ~ ("border-input bg-surface text-fg" if active else "border-dashed border-border text-fg-muted hover:border-fg-subtle hover:text-fg") -%}
+<span id="filter-{{ filter.name }}-summary"{% if oob %} hx-swap-oob="true"{% endif %} class="{{ pill }}">{% if active %}{{ filter.label }}<span class="mx-0.5 h-3 w-px bg-border" aria-hidden="true"></span><span class="text-fg-muted">{{ filter_summary(filter, value, options) }}</span>{% else %}{{ icon('plus', 'size-3.5') }}{{ filter.label }}{% endif %}</span>
+{%- endmacro %}
+
+{% macro filter_button(filter, value, options) -%}
+{%- set trigger -%}
+{{- filter_summary_span(filter, value, options) -}}
+{%- endset -%}
+{%- call popover('filter-' ~ filter.name, trigger, label=filter.label, trigger_class="rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-bg", size="sm") -%}
+{{ filter_panel(filter, value, options) }}
+{%- endcall -%}
+{%- endmacro %}
+
+{% macro filter_reset(active, oob=False) -%}
+<span id="list-reset"{% if oob %} hx-swap-oob="true"{% endif %}>{% if active %}<button type="button" class="{{ button_classes('ghost', 'sm') }}" @click="hxadminClearFilter('f.')">Reset</button>{% endif %}</span>
+{%- endmacro %}
+
+{% macro export_menu_items(view, base_url, params, oob=False) -%}
+<div id="list-export-items"{% if oob %} hx-swap-oob="true"{% endif %}>
+  {%- for fmt in view.export_formats %}
+  {{ menu_item(fmt|upper, href=base_url ~ '_export/' ~ fmt ~ '?' ~ params.qs(page=none, size=none)) }}
+  {%- endfor %}
+</div>
+{%- endmacro %}
+
+{% macro export_menu(view, base_url, params) -%}
+{%- if view.export_formats -%}
+{%- set trigger -%}{{ icon('download', 'size-4') }} Export{%- endset -%}
+{%- call menu('list-export', trigger, trigger_class=button_classes('secondary', 'md')) -%}
+{{ export_menu_items(view, base_url, params) }}
+{%- endcall -%}
+{%- endif -%}
+{%- endmacro %}
+
+{% macro row_menu(view, obj, row_actions) -%}
+{%- set trigger -%}{{ icon('ellipsis', 'size-4') }}{%- endset -%}
+{%- set has_head = view.can_view or view.can_edit or row_actions -%}
+{%- call menu('row-menu-' ~ view.pk_of(obj), trigger, label='Row actions', trigger_class=button_classes('ghost', 'sm', square=True), placement='bottom-end') -%}
+  {%- if view.can_view %}{{ menu_item('View', href=admin.url(request, '/' ~ view.identity ~ '/' ~ view.pk_of(obj)), icon='eye') }}{% endif %}
+  {%- if view.can_edit %}{{ menu_item('Edit', href=admin.url(request, '/' ~ view.identity ~ '/' ~ view.pk_of(obj) ~ '/edit'), icon='pencil') }}{% endif %}
+  {%- for action in row_actions %}{{ action_menu_item(view, action, obj, 'list') }}{% endfor %}
+  {%- if view.can_delete and has_head %}{{ menu_separator() }}{% endif %}
+  {%- if view.can_delete %}{{ delete_menu_item(view, obj) }}{% endif %}
+{%- endcall -%}
+{%- endmacro %}
+
+{% macro action_menu_item(view, action, obj=none, origin="list") -%}
+{%- set url = admin.url(request, '/' ~ view.identity ~ ('/' ~ view.pk_of(obj) if obj is not none else '') ~ '/action/' ~ action.name) -%}
+{%- set item_class = "flex w-full select-none items-center gap-2 rounded-sm px-2 py-1.5 text-left text-sm outline-none focus-visible:outline-none text-fg focus:bg-surface-2" -%}
+{%- if action.method == "POST" -%}
+<button type="button" role="menuitem" tabindex="-1" class="{{ item_class }}" @mouseenter="$el.focus()"
+        hx-post="{{ url }}" hx-target="#list" hx-vals="{{ {'_from': origin}|tojson|forceescape }}"{% if obj is none %} form="bulk"{% endif %}{% if action.confirm %} hx-confirm="{{ action.confirm }}"{% endif %}
+        @click="close(true)">{{ action.label }}</button>
+{%- elif obj is none -%}
+<button type="submit" form="bulk" formmethod="get" formaction="{{ url }}" role="menuitem" tabindex="-1" class="{{ item_class }}" @mouseenter="$el.focus()"{% if action.confirm %}
+        @click="$event.preventDefault(); close(true); $dispatch('confirm', {message: {{ action.confirm|tojson|forceescape }}, submit: () => document.getElementById('bulk').requestSubmit($el)})"{% else %} @click="close(true)"{% endif %}>{{ action.label }}</button>
+{%- else -%}
+<a href="{{ url }}{{ '?_from=list' if origin == 'list' else '' }}" role="menuitem" tabindex="-1" class="{{ item_class }}" @mouseenter="$el.focus()"{% if action.confirm %}
+   @click="$event.preventDefault(); close(true); $dispatch('confirm', {message: {{ action.confirm|tojson|forceescape }}, submit: () => window.location.assign($el.href)})"{% else %} @click="close(true)"{% endif %}>{{ action.label }}</a>
+{%- endif -%}
 {%- endmacro %}

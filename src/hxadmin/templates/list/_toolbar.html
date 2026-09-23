@@ -1,31 +1,19 @@
 {% import "_macros.html" as m with context %}
 {% set params = result.params %}
-<form id="list-filters" class="mb-4" role="search" method="get" action="{{ base_url }}"
-      x-data="{ open: {{ 'true' if params.filters else 'false' }}, active: {{ params.filters|length }} }"
-      @change="active = hxadminActiveFilters($el)" @input="active = hxadminActiveFilters($el)"
-      @filters-cleared="active = hxadminActiveFilters($el)"
+<form id="list-filters" class="mb-4 flex flex-wrap items-center gap-2" role="search" method="get" action="{{ base_url }}"
       hx-get="{{ base_url }}" hx-target="next .hx-list" hx-push-url="true" hx-include="#list-state"
       hx-trigger="input changed delay:300ms from:[name=q], input delay:300ms target:.hx-filter-text, change target:.hx-filter-pick, submit">
-  <div class="flex items-center gap-2">
-    <label class="relative block w-full max-w-sm">
-      <span class="pointer-events-none absolute inset-y-0 left-2 flex items-center text-fg-muted">{{ m.icon('search', 'size-4') }}</span>
-      <input type="search" name="q" value="{{ params.q }}" placeholder="Search {{ view.name_plural|lower }}"
-             class="w-full rounded-md border border-input bg-surface py-1.5 pl-8 pr-2 text-sm"
-             {% if not view.searchable %}disabled{% endif %}>
-    </label>
-    {% if filters %}
-    <button type="button" @click="open = !open" :aria-expanded="open" aria-controls="filter-panel"
-            class="{{ m.button_classes('secondary') }}">{{ m.icon('funnel', 'size-4') }} Filters
-      <span x-show="active" x-text="active"{% if not params.filters %} x-cloak{% endif %} class="rounded-full bg-accent px-1.5 text-xs text-accent-fg">{{ params.filters|length }}</span></button>
-    {% endif %}
-  </div>
+  <label class="relative block w-full max-w-sm">
+    <span class="pointer-events-none absolute inset-y-0 left-2 flex items-center text-fg-muted">{{ m.icon('search', 'size-4') }}</span>
+    <input type="search" name="q" value="{{ params.q }}" placeholder="Search {{ view.name_plural|lower }}"
+           class="w-full rounded-md border border-input bg-surface py-1.5 pl-8 pr-2 text-sm"
+           {% if not view.searchable %}disabled{% endif %}>
+  </label>
   {% if filters %}
-  <div id="filter-panel" x-show="open"{% if not params.filters %} x-cloak{% endif %}
-       class="mt-3 grid grid-cols-1 gap-4 rounded-lg border border-border bg-surface p-4 sm:grid-cols-2 lg:grid-cols-3">
-    {% for filter in filters %}{{ m.filter_control(filter, params.filter_value(filter.name), filter_options.get(filter.name, [])) }}{% endfor %}
-    <div class="flex items-end">
-      <button type="button" @click="hxadminClearFilter(null, null)" class="text-sm text-fg-muted hover:text-fg hover:underline">Clear filters</button>
-    </div>
+  <div class="flex flex-1 flex-wrap items-center gap-2 overflow-x-auto">
+    {% for filter in filters %}{{ m.filter_button(filter, params.filter_value(filter.name), filter_options.get(filter.name, [])) }}{% endfor %}
+    {{ m.filter_reset(params.filters) }}
   </div>
   {% endif %}
+  <span class="ml-auto">{{ m.export_menu(view, base_url, params) }}</span>
 </form>
