@@ -63,7 +63,7 @@ def test_panel_reflects_the_current_filters(factory: AppFactory, make_client: Ma
     assert 'id="filter-status-summary"' in html
     assert 'id="filter-score-summary"' in html
     assert 'id="filter-author-summary"' in html
-    assert "≥1" in html
+    assert "≥ 1" in html
     assert "bob@x.io" in html
     assert 'name="f.status" value="published" checked class="hx-filter-pick"' in html
     assert 'name="f.status" value="draft" class="hx-filter-pick"' in html
@@ -203,3 +203,14 @@ def test_date_range_filters_use_the_date_picker(
     assert 'name="f.published_at.max" value="" :value="value" x-ref="hidden"' in html
     assert 'id="filter-published_at-min"' in html
     assert 'name="f.score.min" value="" aria-label="Score from" step="any"' in html
+
+
+def test_toolbar_controls_share_one_height(factory: AppFactory, make_client: MakeClient) -> None:
+    with make_client(build(factory)) as client:
+        html = client.get("/admin/post/").text
+    toolbar = html[
+        html.index('id="list-filters"') : html.index("</form>", html.index('id="list-filters"'))
+    ]
+    assert 'class="h-8 w-full rounded-md border border-input' in toolbar
+    assert toolbar.count("inline-flex h-8 items-center gap-1.5 whitespace-nowrap rounded-full") == 5
+    assert "items-start" in toolbar[:200]
