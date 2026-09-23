@@ -58,7 +58,7 @@
   <table class="w-full text-sm">
     <thead class="bg-surface-2 text-left text-xs uppercase tracking-wide text-fg-muted">
       <tr>
-        {% if selectable %}<th class="w-8 px-3 py-2"><input type="checkbox" aria-label="Select all" :indeterminate="count > 0 && count < total" @change="var checked = $el.checked; $el.closest('table').querySelectorAll('input[name=pks]:not(:disabled)').forEach(function (c) { c.checked = checked; c.dispatchEvent(new Event('change', {bubbles: true})); })"></th>{% endif %}
+        {% if selectable %}<th class="w-8 px-3 py-2"><input type="checkbox" aria-label="Select all" x-effect="$el.indeterminate = count > 0 && count < total; $el.checked = total > 0 && count === total" @change="$el.closest('table').querySelectorAll('input[name=pks]:not(:disabled)').forEach((c) => { c.checked = $el.checked; c.dispatchEvent(new Event('change', {bubbles: true})); })"></th>{% endif %}
         {% for field in view.list_fields %}
         <th class="px-3 py-2 font-medium{{ '' if loop.first else ' w-px whitespace-nowrap' }}{{ ' text-right' if field.kind in ('int', 'float', 'decimal') else '' }}">
           {% if field.name in view.sort_names %}
