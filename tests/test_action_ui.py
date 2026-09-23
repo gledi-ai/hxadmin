@@ -2,9 +2,11 @@ from collections.abc import Callable
 
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
+from sqlalchemy.ext.asyncio import AsyncSession
+from starlette.requests import Request
 
-from hxadmin import HxAdmin, ModelView
-from tests.conftest import AppFactory, Group, allow_all
+from hxadmin import ActionResult, HxAdmin, ModelView, action
+from tests.conftest import AppFactory, Group, User, allow_all
 from tests.test_action_routes import UserView, seed_users
 
 type MakeClient = Callable[[FastAPI], TestClient]
@@ -30,6 +32,28 @@ def test_detail_renders_row_actions(factory: AppFactory, make_client: MakeClient
     assert 'hx-vals="{&#34;_from&#34;: &#34;detail&#34;}"' in html
     assert 'href="/admin/user/2/action/download"' in html
     assert "/admin/user/action/deactivate" not in html
+    assert 'id="user-detail-actions"' in html
+
+
+class PingUserView(ModelView[User]):
+    model = User
+    can_delete = False
+
+    @action("ping")
+    async def ping(self, request: Request, session: AsyncSession, obj: User) -> ActionResult:
+        return ActionResult.message("pong")
+
+
+def test_detail_inline_actions_render_as_buttons_not_menu_items(
+    factory: AppFactory, make_client: MakeClient
+) -> None:
+    app = factory.app(seed=seed_users)
+    admin = HxAdmin(app, session=factory.get_session, auth=allow_all)
+    admin.register(PingUserView)
+    with make_client(app) as client:
+        html = client.get("/admin/user/2").text
+    assert 'hx-post="/admin/user/2/action/ping"' in html
+    assert 'id="user-detail-actions"' not in html
 
 
 def test_list_renders_selection_bulk_bar_and_row_actions(
@@ -77,7 +101,8 @@ def test_layout_bridges_htmx_confirm_into_the_modal(
     assert 'addEventListener("htmx:confirm"' in html
     assert "evt.detail.issueRequest" in html
     assert "evt.detail.dropRequest" in html
-    assert '@click.self="dismiss()"' in html
+    assert 'id="confirm-dialog"' in html
+    assert 'x-show="confirm"' in html
     assert 'Alpine.data("bulk"' in html
     assert "@confirm.window" in html
 
