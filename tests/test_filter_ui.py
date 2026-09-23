@@ -96,7 +96,7 @@ def test_toolbar_submits_on_filter_changes(factory: AppFactory, make_client: Mak
         'target:.hx-filter-text, change target:.hx-filter-pick, submit"'
     ) in html
     assert 'hx-include="#list-state"' in html
-    assert "window.hxadminClearFilter = function (prefix)" in html
+    assert "window.hxadminClearFilter = function (key)" in html
     assert "onclick" not in html
 
 
@@ -118,9 +118,20 @@ def test_reset_button_clears_every_active_filter(
 ) -> None:
     with make_client(build(factory)) as client:
         html = client.get("/admin/post/?f.status=published&f.author=2").text
-    assert "@click=\"hxadminClearFilter('f.')\"" in html
+    assert '@click="hxadminResetFilters(false)"' in html
     assert '@click="hxadminClearFilter(&#34;f.status&#34;)"' in html
     assert '@click="hxadminClearFilter(&#34;f.author&#34;)"' in html
+
+
+def test_clearing_one_filter_leaves_filters_sharing_its_prefix(
+    factory: AppFactory, make_client: MakeClient
+) -> None:
+    with make_client(build(factory)) as client:
+        html = client.get("/admin/post/").text
+    assert 'return name === key || name.indexOf(key + ".") === 0;' in html
+    assert "[name^=" not in html
+    assert "filters-cleared" not in html
+    assert '@hxadmin-clear="reset()"' in html
 
 
 def test_partial_swaps_filter_summaries_out_of_band(

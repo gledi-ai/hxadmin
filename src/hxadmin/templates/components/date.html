@@ -20,7 +20,7 @@
 {% macro date_input(name, value=None, kind="date", id=None, required=False, error=False, readonly=False, form=None, class="", value_class="") -%}
 {%- set id = id or ("f-" ~ name) -%}
 <div class="relative" x-data='dateInput({{ kind|tojson }}, {{ (value or "")|tojson }})'>
-  <input type="hidden" name="{{ name }}" value="{{ value or '' }}" :value="value" x-ref="hidden"{% if value_class %} class="{{ value_class }}"{% endif %}{% if form %} form="{{ form }}"{% endif %}>
+  <input type="hidden" name="{{ name }}" value="{{ value or '' }}" :value="value" x-ref="hidden"{% if value_class %} class="{{ value_class }}"{% endif %}{% if form %} form="{{ form }}"{% endif %} @hxadmin-clear="reset()">
   <input id="{{ id }}" type="text" autocomplete="off" x-ref="visible" @keydown.down.prevent="picker.show()" placeholder="{{ {'date': 'mm/dd/yyyy', 'datetime': 'mm/dd/yyyy hh:mm', 'time': 'hh:mm'}[kind] }}"
          {% if required %}required{% endif %} {% if readonly %}readonly{% endif %} {% if error %}aria-invalid="true"{% endif %}
          class="{{ class }} pr-8">
