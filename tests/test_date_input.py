@@ -1,8 +1,14 @@
 import datetime
 import decimal
+import json
+import os
+import re
+import shutil
+import subprocess
 import uuid
 from collections.abc import Callable
 
+import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -116,3 +122,70 @@ def test_picker_hides_its_pointer_and_sits_4px_below_the_input() -> None:
     css = (root / "static" / "src" / "hxadmin.css").read_text()
     assert ".air-datepicker--pointer {\n  display: none;\n}" in css
     assert "offset: 4," in (root / "templates" / "layout.html").read_text()
+
+
+DATES_JS = re.compile(r"window\.hxadminDates = \(function \(\) \{.*?\n    \}\)\(\);", re.DOTALL)
+
+DATES_PROBE = """
+const d = window.hxadminDates;
+const show = (date) => (date ? d.toIso("datetime", date) : null);
+console.log(JSON.stringify({
+  isoDate: show(d.parseIso("date", "2026-09-23")),
+  isoDatetime: show(d.parseIso("datetime", "2026-09-23T14:30")),
+  isoTime: d.toIso("time", d.parseIso("time", "09:05")),
+  isoBad: show(d.parseIso("date", "2026-02-30")),
+  typedDate: show(d.parseTyped("date", "12/25/2026")),
+  typedDatetime: show(d.parseTyped("datetime", "1/5/2026 7:45")),
+  typedDatetimeNoTime: show(d.parseTyped("datetime", "01/05/2026")),
+  typedTime: d.toIso("time", d.parseTyped("time", "7:45")),
+  typedBadDay: show(d.parseTyped("date", "02/30/2026")),
+  typedBadText: show(d.parseTyped("date", "tomorrow")),
+  typedTimeInDate: show(d.parseTyped("date", "12/25/2026 10:00")),
+  typedBadTime: show(d.parseTyped("time", "25:00")),
+  roundTrip: d.toIso("date", d.parseIso("date", "2026-01-01")),
+}));
+"""
+
+
+NODE = shutil.which("node")
+
+
+@pytest.mark.skipif(NODE is None, reason="needs node")
+def test_date_helpers_parse_local_dates_and_typed_input(
+    factory: AppFactory, make_client: MakeClient
+) -> None:
+    with make_client(build(factory)) as client:
+        html = client.get("/admin/reading/new").text
+    match = DATES_JS.search(html)
+    assert match is not None
+    script = "var window = {};\n" + match.group(0) + DATES_PROBE
+    out = subprocess.run(
+        [str(NODE), "-e", script],
+        capture_output=True,
+        text=True,
+        check=True,
+        env={**os.environ, "TZ": "America/New_York"},
+    ).stdout
+    assert json.loads(out) == {
+        "isoDate": "2026-09-23T00:00",
+        "isoDatetime": "2026-09-23T14:30",
+        "isoTime": "09:05",
+        "isoBad": None,
+        "typedDate": "2026-12-25T00:00",
+        "typedDatetime": "2026-01-05T07:45",
+        "typedDatetimeNoTime": "2026-01-05T00:00",
+        "typedTime": "07:45",
+        "typedBadDay": None,
+        "typedBadText": None,
+        "typedTimeInDate": None,
+        "typedBadTime": None,
+        "roundTrip": "2026-01-01",
+    }
+
+
+def test_typed_dates_are_committed_on_change(factory: AppFactory, make_client: MakeClient) -> None:
+    with make_client(build(factory)) as client:
+        html = client.get("/admin/reading/new").text
+    assert '@change="commit()"' in html
+    assert "dates.parseTyped(kind, text)" in html
+    assert "new Date(iso)" not in html
