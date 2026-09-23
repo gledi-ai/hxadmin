@@ -1,13 +1,14 @@
 {% set value = values.get(field.name) %}
 {% set error = errors.fields.get(field.name) %}
 {% set widget = 'relation' if field.kind == 'relation' else field.widget or default_widget(field.kind) %}
-{% set control = 'mt-1 w-full rounded-md border bg-surface px-2 py-1.5 text-sm ' ~ ('border-danger' if error else 'border-input') %}
+{% set control_base = 'mt-1 w-full rounded-md border bg-surface px-3 text-sm ' ~ ('border-danger' if error else 'border-input') %}
+{% set control = 'h-9 ' ~ control_base %}
 <div>
   <label for="f-{{ field.name }}" class="block text-sm font-medium">{{ field.label }}{% if field.required %} <span class="text-danger" aria-hidden="true">*</span>{% endif %}</label>
   {% if widget == 'checkbox' %}
   <input id="f-{{ field.name }}" type="checkbox" name="{{ field.name }}" value="on" {{ 'checked' if value }} {% if error %}aria-invalid="true"{% endif %} {{ 'disabled' if field.readonly }} class="mt-1 size-4 rounded-sm border-input">
   {% elif widget in ('textarea', 'json') %}
-  <textarea id="f-{{ field.name }}" name="{{ field.name }}" rows="{{ 6 if widget == 'json' else 4 }}" {% if error %}aria-invalid="true"{% endif %} {{ 'readonly' if field.readonly }} class="{{ control }}{{ ' font-mono' if widget == 'json' }}">{{ value|json_pretty if widget == 'json' and value is not none and value is not string else value if value is not none else '' }}</textarea>
+  <textarea id="f-{{ field.name }}" name="{{ field.name }}" rows="{{ 6 if widget == 'json' else 4 }}" {% if error %}aria-invalid="true"{% endif %} {{ 'readonly' if field.readonly }} class="py-2 {{ control_base }}{{ ' font-mono' if widget == 'json' }}">{{ value|json_pretty if widget == 'json' and value is not none and value is not string else value if value is not none else '' }}</textarea>
   {% elif widget == 'select' %}
   <select name="{{ field.name }}" id="f-{{ field.name }}" {% if error %}aria-invalid="true"{% endif %} {{ 'disabled' if field.readonly }} class="{{ control }}">
     {% if not field.required %}<option value="">—</option>{% endif %}
@@ -20,7 +21,7 @@
   {% set lookup_url = admin.url(request, '/' ~ view.identity ~ '/_lookup/' ~ field.name) %}
   <div class="combobox relative mt-1" x-data='combobox({{ field.name|tojson }}, {{ field.multiple|tojson }}, {{ chips|tojson }})' @click.outside="open = false">
     {% if field.multiple %}
-    <div class="flex flex-wrap items-center gap-1 rounded-md border bg-surface px-2 py-1 focus-within:outline-2 focus-within:-outline-offset-1 focus-within:outline-ring {{ 'border-danger' if error else 'border-input' }}">
+    <div class="flex min-h-9 flex-wrap items-center gap-1 rounded-md border bg-surface px-2 py-1 focus-within:outline-2 focus-within:-outline-offset-1 focus-within:outline-ring {{ 'border-danger' if error else 'border-input' }}">
       <template x-for="s in selected" :key="s.pk">
         <span class="inline-flex items-center gap-1 rounded-md bg-surface-2 px-2 py-0.5 text-sm">
           <span x-text="s.label"></span>
@@ -36,7 +37,7 @@
              class="min-w-32 flex-1 bg-transparent py-0.5 text-sm focus:outline-none">
     </div>
     {% else %}
-    <div class="flex h-9 items-center gap-1 rounded-md border bg-surface pl-2 pr-1.5 focus-within:outline-2 focus-within:-outline-offset-1 focus-within:outline-ring {{ 'border-danger' if error else 'border-input' }}">
+    <div class="flex h-9 items-center gap-1 rounded-md border bg-surface pl-3 pr-2 focus-within:outline-2 focus-within:-outline-offset-1 focus-within:outline-ring {{ 'border-danger' if error else 'border-input' }}">
       <span class="flex-1 truncate text-sm" x-show="!open && selected.length" x-cloak x-text="selected[0] && selected[0].label"></span>
       <input type="hidden" :name="name" :value="selected.length ? selected[0].pk : ''">
       <input id="f-{{ field.name }}" type="text" name="q" autocomplete="off" role="combobox" {% if error %}aria-invalid="true"{% endif %}
