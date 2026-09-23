@@ -10,7 +10,7 @@
            {% if not view.searchable %}disabled{% endif %}>
   </label>
   {% if filters %}
-  <div class="-mx-1 flex min-w-0 flex-1 items-center gap-2 overflow-x-auto px-1 pb-1 sm:mx-0 sm:flex-wrap sm:overflow-visible sm:px-0 sm:pb-0">
+  <div class="-mx-1 flex min-w-0 flex-1 items-center gap-2 overflow-x-auto px-1 [scrollbar-width:none] sm:mx-0 sm:flex-wrap sm:overflow-visible sm:px-0">
     {% for filter in filters %}{{ m.filter_button(filter, params.filter_value(filter.name), filter_options.get(filter.name, [])) }}{% endfor %}
     {{ m.filter_reset(params.filters) }}
   </div>
