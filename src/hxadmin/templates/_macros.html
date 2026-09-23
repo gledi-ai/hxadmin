@@ -13,6 +13,7 @@
   dialog.html    dialog, dialog_footer
   feedback.html  empty_state, stat, alert
   misc.html      tooltip, kbd
+  date.html      date_input
 
   The macros below render admin-specific pieces (cells, row actions, filters) and need the
   request context.
@@ -25,6 +26,7 @@
 {% import "components/dialog.html" as _dialog_module %}
 {% import "components/feedback.html" as _feedback_module %}
 {% import "components/misc.html" as _misc_module %}
+{% import "components/date.html" as _date_module %}
 {% set icon = _icon_module.icon %}
 {% set button = _button_module.button %}
 {% set icon_button = _button_module.icon_button %}
@@ -43,6 +45,7 @@
 {% set alert = _feedback_module.alert %}
 {% set tooltip = _misc_module.tooltip %}
 {% set kbd = _misc_module.kbd %}
+{% set date_input = _date_module.date_input %}
 
 {% macro cell(view, field, value) -%}
 {%- if field.name in view.formatted -%}

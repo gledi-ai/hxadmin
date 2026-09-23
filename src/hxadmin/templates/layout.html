@@ -16,7 +16,9 @@
     })();
   </script>
   <link rel="stylesheet" href="{{ admin.url(request, '/static/hxadmin.css') }}">
+  <link rel="stylesheet" href="{{ admin.url(request, '/static/vendor/air-datepicker.css') }}">
   <script src="{{ admin.url(request, '/static/vendor/htmx.min.js') }}"></script>
+  <script src="{{ admin.url(request, '/static/vendor/air-datepicker.min.js') }}"></script>
   <script defer src="{{ admin.url(request, '/static/vendor/alpine-anchor.min.js') }}"></script>
   <script defer src="{{ admin.url(request, '/static/vendor/alpine-focus.min.js') }}"></script>
   <script defer src="{{ admin.url(request, '/static/vendor/alpine.min.js') }}"></script>
@@ -138,6 +140,53 @@
           },
           remove: function (pk) {
             this.selected = this.selected.filter(function (s) { return s.pk !== pk; });
+          },
+        };
+      });
+      Alpine.data("dateInput", function (kind, initial) {
+        function pad(n) { return String(n).padStart(2, "0"); }
+        function parse(iso) {
+          if (!iso) return null;
+          if (kind === "time") {
+            var parts = iso.split(":");
+            var t = new Date();
+            t.setHours(+parts[0] || 0, +parts[1] || 0, 0, 0);
+            return t;
+          }
+          var d = new Date(iso);
+          return isNaN(d.getTime()) ? null : d;
+        }
+        function toIso(date) {
+          if (!date) return "";
+          if (kind === "time") return pad(date.getHours()) + ":" + pad(date.getMinutes());
+          var s = date.getFullYear() + "-" + pad(date.getMonth() + 1) + "-" + pad(date.getDate());
+          if (kind === "datetime") s += "T" + pad(date.getHours()) + ":" + pad(date.getMinutes());
+          return s;
+        }
+        return {
+          picker: null,
+          value: initial || "",
+          init: function () {
+            var self = this;
+            var initialDate = parse(this.value);
+            this.picker = new AirDatepicker(this.$refs.visible, {
+              selectedDates: initialDate ? [initialDate] : [],
+              timepicker: kind === "datetime",
+              onlyTimepicker: kind === "time",
+              dateFormat: kind === "time" ? "HH:mm" : "MM/dd/yyyy",
+              timeFormat: "HH:mm",
+              autoClose: kind !== "datetime",
+              onSelect: function (opts) {
+                self.value = toIso(Array.isArray(opts.date) ? opts.date[0] : opts.date);
+              },
+            });
+            this.$el.addEventListener("htmx:beforeCleanupElement", function () {
+              self.picker.destroy();
+            }, { once: true });
+          },
+          clear: function () {
+            this.value = "";
+            this.picker.clear();
           },
         };
       });

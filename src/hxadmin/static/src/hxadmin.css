@@ -95,3 +95,69 @@
 [x-cloak] {
   display: none !important;
 }
+
+.air-datepicker {
+  --adp-font-family: inherit;
+  --adp-font-size: 0.8125rem;
+  --adp-width: 246px;
+  --adp-z-index: 60;
+  --adp-padding: 8px;
+  --adp-grid-areas: "nav" "body" "timepicker" "buttons";
+  --adp-background-color: var(--color-popover);
+  --adp-color: var(--color-fg);
+  --adp-color-secondary: var(--color-fg-muted);
+  --adp-border-color: var(--color-border);
+  --adp-border-color-inline: var(--color-border);
+  --adp-border-color-inner: var(--color-border);
+  --adp-border-radius: var(--radius-lg);
+  --adp-poiner-border-radius: 2px;
+  --adp-pointer-size: 10px;
+  --adp-accent-color: var(--color-accent);
+  --adp-color-current-date: var(--color-accent);
+  --adp-color-disabled: var(--color-fg-subtle);
+  --adp-color-disabled-in-range: var(--color-fg-muted);
+  --adp-color-other-month: var(--color-fg-subtle);
+  --adp-color-other-month-hover: var(--color-fg-muted);
+  --adp-background-color-hover: var(--color-surface-2);
+  --adp-background-color-active: var(--color-accent-soft);
+  --adp-background-color-in-range: var(--color-accent-soft);
+  --adp-background-color-in-range-focused: var(--color-accent-soft);
+  --adp-background-color-selected-other-month: var(--color-accent);
+  --adp-background-color-selected-other-month-focused: var(--color-accent);
+  --adp-cell-background-color-selected: var(--color-accent);
+  --adp-cell-background-color-selected-hover: var(--color-accent);
+  --adp-cell-background-color-in-range: var(--color-accent-soft);
+  --adp-cell-background-color-in-range-hover: var(--color-accent-soft);
+  --adp-cell-background-color-hover: var(--color-surface-2);
+  --adp-cell-border-radius: var(--radius-sm);
+  --adp-cell-border-color-in-range: var(--color-accent);
+  --adp-day-name-color: var(--color-fg-muted);
+  --adp-day-name-color-hover: var(--color-fg);
+  --adp-day-cell-height: 32px;
+  --adp-day-cell-width: 14.28%;
+  --adp-month-cell-height: 42px;
+  --adp-year-cell-height: 42px;
+  --adp-nav-height: 32px;
+  --adp-nav-arrow-color: var(--color-fg-muted);
+  --adp-nav-action-size: 28px;
+  --adp-nav-color-secondary: var(--color-fg-muted);
+  --adp-btn-color: var(--color-fg);
+  --adp-btn-color-hover: var(--color-fg);
+  --adp-btn-background-color-hover: var(--color-surface-2);
+  --adp-btn-background-color-active: var(--color-accent-soft);
+  --adp-btn-border-radius: var(--radius-sm);
+  --adp-btn-height: 32px;
+  --adp-overlay-background-color: var(--color-overlay);
+  --adp-overlay-z-index: 61;
+  --adp-time-track-color: var(--color-border);
+  --adp-time-track-color-hover: var(--color-accent);
+  --adp-time-thumb-size: 12px;
+  --adp-time-day-period-color: var(--color-fg-muted);
+  border: 1px solid var(--color-border);
+  box-shadow: var(--shadow-md);
+}
+
+.air-datepicker-cell.-focus- {
+  outline: 2px solid var(--color-ring);
+  outline-offset: -2px;
+}
