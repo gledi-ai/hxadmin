@@ -23,6 +23,46 @@ A file with the same name as a built-in template replaces it:
 
 Custom templates can use the Tailwind classes compiled into `hxadmin.css`. For anything else, add your own stylesheet in `{% block head %}`.
 
+`components/<name>.html` (`button.html`, `badge.html`, `card.html`, `menu.html`, `dialog.html`, `feedback.html`, `misc.html`, `icon.html`) each override independently, the same way: a file of that name in `templates_dir` replaces just that component everywhere, because the loader tries your directory first.
+
+## Components
+
+`templates/components/*.html` hold one Jinja macro per shared UI piece. `_macros.html` re-exports all of them, so `{% import "_macros.html" as m with context %}` gives you `m.button(...)`, `m.card(...)` and the rest in your own templates — including custom page bodies (see [Custom pages](pages.md)).
+
+| Macro | Renders |
+|---|---|
+| `button`, `icon_button` | Buttons, with `variant` (`primary`, `secondary`, `ghost`, `danger`) and `size` |
+| `badge` | A small pill for an enum or bool value, with a `tone` |
+| `card` | A bordered surface, optionally a link (`href`) or with a header (`title`) |
+| `popover`, `menu`, `menu_item` | Keyboard-navigable overlays anchored to a trigger |
+| `dialog` | A modal with a focus trap, `Esc` to close and an overlay |
+| `empty_state` | A centred "nothing here" placeholder, with an icon, title, text and action |
+| `stat` | A card with a label and a large tabular value, for dashboards and custom pages |
+| `alert` | An inline message with a tone |
+| `tooltip`, `kbd` | A hover/focus tooltip; a keyboard-key badge |
+
+Every macro takes `class` (appended to its own classes) and `attrs` / `**kwargs` (extra HTML or Alpine attributes, `_` becoming `-`).
+
+## Icons
+
+`{{ icon("name", class="size-4") }}` inlines a vendored [Lucide](https://lucide.dev) SVG, read once from disk and cached, with `stroke="currentColor"` and `aria-hidden="true"`. Names are Lucide's kebab-case names (`list-checks`, `chart-column`, ...); an unknown name raises `ValueError`. The same validation applies to `icon` on views, pages and `@admin.page(icon=...)`. `icon` is also available as `m.icon(...)` through `_macros.html`. The Lucide licence ships alongside the vendored icons.
+
+## Tokens
+
+Templates use only semantic tokens; raw palette colours (`gray-500`, `blue-600`, ...) exist solely inside `@theme` in `static/src/hxadmin.css`.
+
+| Group | Tokens |
+|---|---|
+| Surfaces | `bg`, `surface` (cards), `surface-2` (muted / hover), `popover`, `overlay` |
+| Text | `fg`, `fg-muted`, `fg-subtle` |
+| Lines | `border`, `input`, `ring` |
+| Accent | `accent`, `accent-fg`, `accent-soft` |
+| Status | `success`, `warning`, `danger`, each with a `-soft` tint and a `-fg` |
+| Radius | `radius-sm` / `radius-md` / `radius-lg` |
+| Shadows | `shadow-sm` (cards), `shadow-md` (popovers), `shadow-lg` (dialogs, floating bar) |
+
+Each token is defined once in `@theme` and overridden under `.dark`, so a template never branches on theme itself.
+
 ## Theme
 
-The top bar toggles light, dark and system themes; the choice is stored in `localStorage` under `hxadmin-theme`. Templates use semantic colour tokens (`bg-bg`, `bg-surface`, `bg-surface-2`, `text-fg`, `text-fg-muted`, `text-fg-subtle`, `border-border`, `border-input`, `text-accent`, `bg-accent-soft`, `text-danger`, ...) defined once for light and once for dark.
+The top bar toggles light, dark and system themes; the choice is stored in `localStorage` under `hxadmin-theme` and applied before paint, so there is no flash.

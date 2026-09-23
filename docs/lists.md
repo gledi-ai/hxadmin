@@ -35,4 +35,12 @@ Nullable columns and optional relations get an extra **Empty** checkbox (`f.<nam
 
 Relation filters offer the first 100 rows of the related model, through its view's `get_query` when it is registered, in that query's own order and then by primary key. If the related view is not accessible to the current user, the filter is hidden. Matching a checked row compares primary keys only; it narrows rows the list already shows and does not apply the related view's `get_query` again. Filters on to-many relations, on the side of a one-to-one without the foreign key, and on JSON columns are not supported and raise at registration.
 
-The **Filters** button, with the number of active filters, opens the panel; changes apply immediately. Active filters appear as chips above the table; removing a chip clears that filter. Sorting, paging, actions, export and returning to the list after a delete keep the active filters.
+Each visible filter gets its own toolbar button: a dashed outline with a `+` icon and the label when inactive, a solid button with a summary of the active value when it has one — up to two values as badges (otherwise "N selected"), a range as "≥ 2", "≤ 5" or "2–5", and text as the quoted value, with "Empty" appended when set. Clicking a button opens its popover — a search box and checkbox list for choice and relation filters, from/to inputs for ranges, a single input for text — and changes apply immediately. A "Reset" ghost button appears once any filter is active. Sorting, paging, actions, export and returning to the list after a delete keep the active filters.
+
+## Row menu
+
+Every row has a `⋯` button in its last column, always visible, opening a menu with View, Edit, the row's permitted actions, a separator, then Delete in danger colour. Destructive items open the shared confirm dialog.
+
+## Bulk actions
+
+Checking one or more rows shows a floating bar centred at the bottom of the viewport: the selection count, the bulk actions as buttons, an Export menu for the selection when export is enabled, and a `✕` to clear the selection. It never shifts the page layout, and the header's select-all checkbox shows an indeterminate state when some but not all visible rows are checked.

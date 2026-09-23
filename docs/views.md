@@ -10,7 +10,7 @@ class TaskView(ModelView[Task]):
     name_plural = "Tasks"  # default: name + "s"
     identity = "task"  # URL segment; default: model name, lower-case
     category = "Work"  # sidebar group
-    icon = "table"  # any Lucide icon name
+    icon = "table"  # any Lucide icon name; unknown names raise ValueError at registration
 ```
 
 ## Options
@@ -27,6 +27,21 @@ class TaskView(ModelView[Task]):
 | `form_fields` / `form_exclude` | derived / `()` | See [Forms](forms.md) |
 | `export_formats` / `export_columns` / `export_max_rows` | `()` / list columns / `10_000` | See [Export](export.md) |
 | `can_view` / `can_create` / `can_edit` / `can_delete` | `True` | Enable pages and buttons |
+
+## Badges
+
+Every enum column renders as a badge; `badges` declares which tone each value gets. Undeclared enum values fall back to a neutral badge. Bool columns render as plain text unless declared here.
+
+```python
+class TaskView(ModelView[Task]):
+    model = Task
+    badges = {
+        "status": {"done": "success", "doing": "accent", "todo": "neutral"},
+        "archived": {"true": "neutral"},
+    }
+```
+
+Keys are column names; inner keys are the enum's `.value` strings, or `"true"` / `"false"` for a bool column. Tones are `"neutral" | "accent" | "success" | "warning" | "danger"`. An unknown column name or an unknown tone raises `ValueError` at registration.
 
 ## Hooks
 
