@@ -160,3 +160,16 @@ def test_mobile_drawer_has_a_close_button_instead_of_the_rail_toggle(
     assert "shrink-0 max-lg:hidden" in toggle[toggle.rindex("<button") :]
     close = html[: html.index('aria-label="Close navigation"')]
     assert "shrink-0 lg:hidden" in close[close.rindex("<button") :]
+
+
+def test_theme_and_logout_render_without_a_user(
+    factory: AppFactory, make_client: MakeClient
+) -> None:
+    app = factory.app()
+    HxAdmin(app, session=factory.get_session, auth=lambda: None, logout_url="/logout")
+    with make_client(app) as client:
+        html = client.get("/admin/").text
+    assert 'aria-label="Account menu"' in html
+    assert html.count('role="menuitemradio"') == 3
+    assert ">Log out<" in html
+    assert "<span data-avatar" in html
