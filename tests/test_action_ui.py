@@ -38,8 +38,8 @@ def test_list_renders_selection_bulk_bar_and_row_actions(
     with make_client(build(factory)) as client:
         html = client.get("/admin/user/").text
         partial = client.get("/admin/user/", headers={"HX-Request": "true"}).text
-    assert '<div id="list" class="hx-list">' in html
-    assert '<form id="bulk" x-data="bulk()"' in html
+    assert '<div id="list" class="hx-list" x-data="bulk()">' in html
+    assert '<form id="bulk" x-show="count"' in html
     assert 'hx-post="/admin/user/action/deactivate"' in html
     assert 'hx-target="#list"' in html
     assert 'hx-confirm="Deactivate selected users?"' in html
@@ -53,7 +53,7 @@ def test_list_renders_selection_bulk_bar_and_row_actions(
     assert 'href="/admin/user/1/action/download?_from=list"' in html
     assert 'hx-include="#list-state"' in html
     assert 'name="pks" value="1" form="bulk"' in partial
-    assert '<form id="bulk"' not in partial
+    assert '<form id="bulk"' in partial
 
 
 def test_related_tables_and_views_without_actions_have_no_selection(
@@ -87,4 +87,5 @@ def test_row_controls_stay_visible_without_hover(
 ) -> None:
     with make_client(build(factory)) as client:
         listing = client.get("/admin/user/").text
-    assert "group-hover:opacity-100 focus-within:opacity-100 pointer-coarse:opacity-100" in listing
+    assert 'aria-label="Row actions"' in listing
+    assert 'id="row-menu-1-trigger"' in listing
