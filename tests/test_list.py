@@ -68,7 +68,8 @@ def test_full_page(factory: AppFactory, make_client: Callable[[FastAPI], TestCli
     assert emails(html) == [f"USER{i:02d}@X.IO" for i in range(10)]
     assert "Showing 1\u201310 of 30" in html
     assert 'href="/admin/user/1"' in html
-    assert 'href="/admin/group/1"' in html
+    assert 'href="/admin/group/1"' not in html
+    assert '<span class="text-fg-muted">Group 1</span>' in table_section(html)
 
 
 def test_partial_on_hx_request(
@@ -132,7 +133,10 @@ def test_empty_state(factory: AppFactory, make_client: Callable[[FastAPI], TestC
 def test_relation_cells(factory: AppFactory, make_client: Callable[[FastAPI], TestClient]) -> None:
     with make_client(build(factory)) as client:
         html = client.get("/admin/post/").text
-    assert 'href="/admin/user/1">user00@x.io</a>' in html
+    table = table_section(html)
+    assert 'class="font-medium text-fg hover:underline">Hello</a>' in table
+    assert '<span class="text-fg-muted">user00@x.io</span>' in table
+    assert 'href="/admin/user/1"' not in table
     assert "<td" in html
     assert ">0</td>" in html
 

@@ -47,7 +47,7 @@
 {% set kbd = _misc_module.kbd %}
 {% set date_input = _date_module.date_input %}
 
-{% macro cell(view, field, value) -%}
+{% macro cell(view, field, value, link=True) -%}
 {%- if field.name in view.formatted -%}
   {{ value }}
 {%- elif value is none -%}
@@ -57,7 +57,9 @@
     {{ value|length }}
   {%- else -%}
     {%- set target = admin.view_for(field.target) -%}
-    {%- if target and target.can_view -%}
+    {%- if not link -%}
+      <span class="text-fg-muted">{{ target.display(value) if target else admin.display(value) }}</span>
+    {%- elif target and target.can_view -%}
       <a class="text-accent hover:underline" href="{{ admin.url(request, '/' ~ target.identity ~ '/' ~ target.pk_of(value)) }}">{{ target.display(value) }}</a>
     {%- else -%}
       {{ admin.display(value) }}
