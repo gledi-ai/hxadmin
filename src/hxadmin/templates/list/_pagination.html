@@ -1,12 +1,12 @@
 {% import "_macros.html" as m with context %}
-<div class="mt-3 flex items-center justify-between text-sm text-fg-muted">
-  <span>Showing {{ result.start }}–{{ result.end }} of {{ result.total }}</span>
+<div class="mt-3 flex items-center justify-between gap-2 text-sm text-fg-muted">
+  <span class="whitespace-nowrap tabular-nums">Showing {{ result.start }}–{{ result.end }} of {{ result.total }}</span>
   <div class="flex items-center gap-2">
     <label class="flex items-center gap-2">
-      <span>Rows per page</span>
+      <span class="hidden whitespace-nowrap sm:inline">Rows per page</span>
       <select name="size" aria-label="Rows per page"
               hx-get="{{ base_url }}?{{ params.qs(page=1, size=None) }}" hx-trigger="change" {{ hx|safe }}
-              class="rounded-md border border-input bg-surface px-2 py-1">
+              class="h-8 rounded-md border border-input bg-surface px-2">
         {% for option in view.page_size_options %}
         <option value="{{ option }}" {{ 'selected' if option == params.size }}>{{ option }}</option>
         {% endfor %}
@@ -16,10 +16,10 @@
     {% set prev_url = base_url ~ '?' ~ params.qs(page=params.page - 1) if result.has_prev else none %}
     {% set next_url = base_url ~ '?' ~ params.qs(page=params.page + 1) if result.has_next else none %}
     {% set last_url = base_url ~ '?' ~ params.qs(page=result.pages) if result.has_next else none %}
-    {{ m.icon_button('chevrons-left', 'First page', 'secondary', 'sm', href=first_url or '', disabled=not result.has_prev, hx_get=first_url, hx_target='closest .hx-list' if first_url, hx_push_url='true' if first_url and push_url) }}
+    {{ m.icon_button('chevrons-left', 'First page', 'secondary', 'sm', class='max-sm:hidden', href=first_url or '', disabled=not result.has_prev, hx_get=first_url, hx_target='closest .hx-list' if first_url, hx_push_url='true' if first_url and push_url) }}
     {{ m.icon_button('chevron-left', 'Previous page', 'secondary', 'sm', href=prev_url or '', disabled=not result.has_prev, hx_get=prev_url, hx_target='closest .hx-list' if prev_url, hx_push_url='true' if prev_url and push_url) }}
-    <span>{{ params.page }} / {{ result.pages }}</span>
+    <span class="whitespace-nowrap tabular-nums">{{ params.page }} / {{ result.pages }}</span>
     {{ m.icon_button('chevron-right', 'Next page', 'secondary', 'sm', href=next_url or '', disabled=not result.has_next, hx_get=next_url, hx_target='closest .hx-list' if next_url, hx_push_url='true' if next_url and push_url) }}
-    {{ m.icon_button('chevrons-right', 'Last page', 'secondary', 'sm', href=last_url or '', disabled=not result.has_next, hx_get=last_url, hx_target='closest .hx-list' if last_url, hx_push_url='true' if last_url and push_url) }}
+    {{ m.icon_button('chevrons-right', 'Last page', 'secondary', 'sm', class='max-sm:hidden', href=last_url or '', disabled=not result.has_next, hx_get=last_url, hx_target='closest .hx-list' if last_url, hx_push_url='true' if last_url and push_url) }}
   </div>
 </div>
