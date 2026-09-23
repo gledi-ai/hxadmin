@@ -285,3 +285,15 @@ def test_related_404_when_relation_excluded_from_detail_columns(
 
     with make_client(app) as client:
         assert client.get("/admin/group/_related/1/users").status_code == 404
+
+
+def test_header_stacks_and_fields_group_on_small_screens(
+    factory: AppFactory, make_client: Callable[[FastAPI], TestClient]
+) -> None:
+    with make_client(build(factory)) as client:
+        html = client.get("/admin/user/1").text
+    assert (
+        'class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4"'
+        in html
+    )
+    assert '<div class="space-y-0.5 sm:contents">' in html

@@ -10,7 +10,7 @@
     {{ m.icon('chevron-left', 'size-4') }}Back to {{ view.name_plural }}
   </a>
   {% endif %}
-  <div class="flex items-center justify-between gap-4">
+  <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
     <div class="flex min-w-0 items-center gap-2">
       <h1 class="truncate text-2xl font-semibold">{{ view.display(obj) }}</h1>
       {% for field in badge_fields %}{{ m.badge(m.cell(view, field, view.cell(obj, field.name))) }}{% endfor %}
@@ -34,8 +34,10 @@
 {% call m.card() %}
 <dl class="grid grid-cols-1 gap-x-8 gap-y-3 sm:grid-cols-[max-content_1fr]">
   {% for field in scalar_fields %}
-  <dt class="text-sm font-medium text-fg-muted">{{ field.label }}</dt>
-  <dd class="text-sm break-words">{{ m.cell(view, field, view.cell(obj, field.name)) }}</dd>
+  <div class="space-y-0.5 sm:contents">
+    <dt class="text-sm font-medium text-fg-muted">{{ field.label }}</dt>
+    <dd class="text-sm break-words">{{ m.cell(view, field, view.cell(obj, field.name)) }}</dd>
+  </div>
   {% endfor %}
 </dl>
 {% endcall %}
