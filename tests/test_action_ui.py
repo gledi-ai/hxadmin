@@ -78,7 +78,6 @@ def test_layout_bridges_htmx_confirm_into_the_modal(
     assert "evt.detail.issueRequest" in html
     assert "evt.detail.dropRequest" in html
     assert '@click.self="dismiss()"' in html
-    assert "@click.outside" not in html
     assert 'Alpine.data("bulk"' in html
     assert "@confirm.window" in html
 

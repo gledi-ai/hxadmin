@@ -1,0 +1,105 @@
+from collections.abc import Callable
+
+from fastapi import FastAPI
+from fastapi.testclient import TestClient
+
+from hxadmin import HxAdmin, ModelView
+from tests.conftest import AppFactory, Group, User, allow_all
+
+type MakeClient = Callable[[FastAPI], TestClient]
+
+
+def test_sidebar_rail_toggle_markup(factory: AppFactory, make_client: MakeClient) -> None:
+    app = factory.app()
+    admin = HxAdmin(app, session=factory.get_session, auth=allow_all)
+
+    @admin.register
+    class UserView(ModelView[User]):
+        model = User
+
+    with make_client(app) as client:
+        html = client.get("/admin/").text
+    assert "lg:collapsed:w-14" in html
+    assert "hxadmin-sidebar" in html
+    assert "localStorage.getItem('hxadmin-sidebar')" in html
+    assert "document.documentElement.classList.toggle('hxadmin-collapsed'" in html
+
+
+def test_nav_groups_have_aria_expanded(factory: AppFactory, make_client: MakeClient) -> None:
+    app = factory.app()
+    admin = HxAdmin(app, session=factory.get_session, auth=allow_all)
+
+    @admin.register
+    class GroupView(ModelView[Group]):
+        model = Group
+        category = "Auth"
+
+    with make_client(app) as client:
+        html = client.get("/admin/").text
+    assert 'aria-expanded="false" :aria-expanded="open"' in html
+    assert ">Auth</span>" in html
+
+
+def test_logo_url_rendered(factory: AppFactory, make_client: MakeClient) -> None:
+    app = factory.app()
+    HxAdmin(app, session=factory.get_session, auth=allow_all, logo_url="/static/logo.svg")
+    with make_client(app) as client:
+        html = client.get("/admin/").text
+    assert '<img src="/static/logo.svg"' in html
+
+
+def test_no_logo_url_falls_back_to_letter_tile(
+    factory: AppFactory, make_client: MakeClient
+) -> None:
+    app = factory.app()
+    HxAdmin(app, session=factory.get_session, auth=allow_all)
+    with make_client(app) as client:
+        html = client.get("/admin/").text
+    assert "<img" not in html
+    assert 'bg-accent text-xs font-semibold text-accent-fg">H</span>' in html
+
+
+def test_user_menu_shows_logout_when_set(factory: AppFactory, make_client: MakeClient) -> None:
+    app = factory.app()
+    HxAdmin(app, session=factory.get_session, auth=allow_all, logout_url="/admin/logout")
+    with make_client(app) as client:
+        html = client.get("/admin/").text
+    assert 'href="/admin/logout"' in html
+    assert ">Log out<" in html
+
+
+def test_user_menu_hides_logout_without_logout_url(
+    factory: AppFactory, make_client: MakeClient
+) -> None:
+    app = factory.app()
+    HxAdmin(app, session=factory.get_session, auth=allow_all)
+    with make_client(app) as client:
+        html = client.get("/admin/").text
+    assert ">Log out<" not in html
+
+
+def test_theme_radio_items(factory: AppFactory, make_client: MakeClient) -> None:
+    app = factory.app()
+    HxAdmin(app, session=factory.get_session, auth=allow_all)
+    with make_client(app) as client:
+        html = client.get("/admin/").text
+    assert 'role="menuitemradio"' in html
+    for label, mode in (("Light", "light"), ("Dark", "dark"), ("System", "system")):
+        assert f"set(&#39;{mode}&#39;)" in html
+        assert f"mode === &#39;{mode}&#39;" in html
+        assert f">{label}<" in html
+
+
+def test_no_old_global_search_form(factory: AppFactory, make_client: MakeClient) -> None:
+    app = factory.app()
+    admin = HxAdmin(app, session=factory.get_session, auth=allow_all)
+
+    @admin.register
+    class UserView(ModelView[User]):
+        model = User
+        searchable = ("email",)
+
+    with make_client(app) as client:
+        html = client.get("/admin/").text
+    assert 'id="global-search"' not in html
+    assert "search_targets" not in html

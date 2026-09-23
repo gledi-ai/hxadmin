@@ -55,7 +55,7 @@ def test_nav_renders_view_icon(
 
     with make_client(app) as client:
         html = client.get("/admin/").text
-    assert str(icon("users", "size-4 text-fg-muted")) in html
+    assert str(icon("users", "size-4 shrink-0 text-fg-muted")) in html
 
 
 def test_unknown_view_icon_is_rejected_at_registration(factory: AppFactory) -> None:

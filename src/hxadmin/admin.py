@@ -25,7 +25,7 @@ from hxadmin.components import html_attrs, pick
 from hxadmin.deps import AuthDependency, SessionDependency
 from hxadmin.fields import default_widget
 from hxadmin.icons import check_icon, icon
-from hxadmin.nav import build_nav, build_search_targets
+from hxadmin.nav import build_nav
 from hxadmin.pages import AdminPage, PageEndpoint, PageHandler
 from hxadmin.toasts import FLASH_COOKIE, Toast, encode_flash, hx_trigger, read_flash
 from hxadmin.views import ModelView
@@ -72,6 +72,7 @@ class HxAdmin:
         prefix: str = "/admin",
         login_url: str | None = None,
         logout_url: str | None = None,
+        logo_url: str | None = None,
         templates_dir: str | Path | None = None,
     ) -> None:
         self.app = app
@@ -79,6 +80,7 @@ class HxAdmin:
         self.prefix = prefix.rstrip("/")
         self.login_url = login_url
         self.logout_url = logout_url
+        self.logo_url = logo_url
         self.views: dict[str, ModelView[Any]] = {}
         self.pages: list[AdminPage] = []
         self._page_methods: dict[str, set[str]] = {}
@@ -320,7 +322,6 @@ class HxAdmin:
             "request": request,
             "user": getattr(request.state, "hxadmin_user", None),
             "nav": build_nav(self, request),
-            "search_targets": build_search_targets(self, request),
             "toasts": [flash.as_dict()] if flash is not None else [],
         }
         if context:

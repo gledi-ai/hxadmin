@@ -10,6 +10,9 @@
       var mode = localStorage.getItem("hxadmin-theme") || "light";
       var dark = mode === "dark" || (mode === "system" && matchMedia("(prefers-color-scheme: dark)").matches);
       if (dark) document.documentElement.classList.add("dark");
+      if (localStorage.getItem("hxadmin-sidebar") === "collapsed") {
+        document.documentElement.classList.add("hxadmin-collapsed");
+      }
     })();
   </script>
   <link rel="stylesheet" href="{{ admin.url(request, '/static/hxadmin.css') }}">
@@ -27,8 +30,8 @@
             document.documentElement.classList.toggle("dark", dark);
             localStorage.setItem("hxadmin-theme", this.mode);
           },
-          cycle: function () {
-            this.mode = { light: "dark", dark: "system", system: "light" }[this.mode];
+          set: function (mode) {
+            this.mode = mode;
             this.apply();
           },
         };
@@ -68,6 +71,55 @@
           move: function (delta) {
             var at = this.items().indexOf(document.activeElement);
             this.focusItem(at < 0 ? (delta > 0 ? 0 : -1) : at + delta);
+          },
+        };
+      });
+      Alpine.data("palette", function () {
+        return {
+          open: false,
+          active: 0,
+          init: function () {
+            var self = this;
+            this.$refs.results.addEventListener("htmx:afterSwap", function () { self.reset(); });
+          },
+          launch: function () {
+            var self = this;
+            this.open = true;
+            this.$nextTick(function () {
+              self.$refs.input.value = "";
+              self.$refs.input.focus();
+            });
+          },
+          close: function () {
+            this.open = false;
+          },
+          options: function () {
+            return Array.prototype.slice.call(this.$refs.results.querySelectorAll("[role=option]"));
+          },
+          highlight: function () {
+            var self = this;
+            this.options().forEach(function (el, index) {
+              el.setAttribute("aria-selected", index === self.active ? "true" : "false");
+            });
+          },
+          move: function (delta) {
+            var opts = this.options();
+            if (!opts.length) return;
+            this.active = ((this.active + delta) % opts.length + opts.length) % opts.length;
+            this.highlight();
+            opts[this.active].scrollIntoView({ block: "nearest" });
+          },
+          reset: function () {
+            this.active = 0;
+            this.highlight();
+          },
+          activeId: function () {
+            var opts = this.options();
+            return opts[this.active] ? opts[this.active].id : "";
+          },
+          choose: function () {
+            var opts = this.options();
+            if (opts[this.active]) opts[this.active].click();
           },
         };
       });
@@ -151,57 +203,103 @@
 </head>
 <body class="h-full bg-bg text-fg" x-data="{ sidebarOpen: false, confirm: null, dismiss() { if (this.confirm && this.confirm.cancel) this.confirm.cancel(); this.confirm = null; } }" @confirm.window="confirm = $event.detail">
   <div class="flex h-full">
-    <aside class="fixed inset-y-0 left-0 z-30 w-60 -translate-x-full border-r border-border bg-bg transition-transform lg:static lg:translate-x-0"
+    <div x-show="sidebarOpen" x-cloak x-transition.opacity class="fixed inset-0 z-20 bg-overlay lg:hidden" @click="sidebarOpen = false" aria-hidden="true"></div>
+    <aside x-data="{ collapsed: localStorage.getItem('hxadmin-sidebar') === 'collapsed' }"
+           class="fixed inset-y-0 left-0 z-30 flex w-60 -translate-x-full flex-col border-r border-border bg-bg transition-transform lg:static lg:translate-x-0 lg:collapsed:w-14"
            :class="sidebarOpen && 'translate-x-0'">
-      <a href="{{ admin.url(request, '/') }}" class="flex h-14 items-center px-4 text-lg font-semibold">{{ admin.title }}</a>
-      <nav class="px-2 py-2" aria-label="Main">
+      <a href="{{ admin.url(request, '/') }}" class="flex h-14 shrink-0 items-center gap-2 px-4">
+        {% if admin.logo_url %}
+        <img src="{{ admin.logo_url }}" alt="" class="size-6 shrink-0 rounded-md object-cover">
+        {% else %}
+        <span class="flex size-6 shrink-0 items-center justify-center rounded-md bg-accent text-xs font-semibold text-accent-fg">{{ admin.title[:1]|upper }}</span>
+        {% endif %}
+        <span class="truncate text-sm font-semibold lg:collapsed:hidden">{{ admin.title }}</span>
+      </a>
+      <nav class="flex-1 overflow-y-auto px-2 py-2" aria-label="Main">
         {% for group in nav %}
-        <div x-data="{ open: true }" class="mb-2">
+        <div class="mb-2"{% if group.label %} x-data="{ open: localStorage.getItem('hxadmin-group-' + ({{ group.label|tojson|forceescape }})) !== 'closed' }"{% endif %}>
           {% if group.label %}
-          <button type="button" @click="open = !open" class="flex w-full items-center justify-between px-2 py-1 text-xs font-semibold uppercase tracking-wide text-fg-muted">
-            {{ group.label }}
+          <button type="button"
+                  @click="open = !open; localStorage.setItem('hxadmin-group-' + ({{ group.label|tojson|forceescape }}), open ? 'open' : 'closed')"
+                  aria-expanded="false" :aria-expanded="open"
+                  class="flex w-full items-center justify-between rounded-md px-2 py-1 text-xs font-medium text-fg-muted hover:text-fg lg:collapsed:hidden">
+            <span>{{ group.label }}</span>
+            <span class="transition-transform" :class="open ? '' : '-rotate-90'">{{ m.icon('chevron-down', 'size-3.5') }}</span>
           </button>
           {% endif %}
-          <ul x-show="open">
+          <ul{% if group.label %} x-show="open"{% endif %} class="space-y-0.5">
             {% for item in group.items %}
             <li>
+              {% call m.tooltip(item.label, when="collapsed", placement="right") %}
               <a href="{{ item.url }}"
-                 class="flex items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-surface-2 {{ 'bg-surface-2 font-medium' if item.active }}">
-                {{ m.icon(item.icon or 'table', 'size-4 text-fg-muted') }}
-                <span>{{ item.label }}</span>
+                 class="flex items-center gap-2 rounded-md px-2 py-1.5 text-sm lg:collapsed:justify-center {{ 'bg-accent-soft font-medium text-accent' if item.active else 'text-fg hover:bg-surface-2' }}">
+                {{ m.icon(item.icon or 'table', 'size-4 shrink-0' ~ (' text-accent' if item.active else ' text-fg-muted')) }}
+                <span class="min-w-0 flex-1 truncate lg:collapsed:hidden">{{ item.label }}</span>
               </a>
+              {% endcall %}
             </li>
             {% endfor %}
           </ul>
         </div>
         {% endfor %}
       </nav>
+      <div class="hidden shrink-0 border-t border-border p-2 lg:block">
+        {% call m.tooltip("Toggle sidebar", when="collapsed", placement="right") %}
+        <button type="button"
+                @click="collapsed = !collapsed; localStorage.setItem('hxadmin-sidebar', collapsed ? 'collapsed' : 'expanded'); document.documentElement.classList.toggle('hxadmin-collapsed', collapsed)"
+                aria-label="Toggle sidebar"
+                class="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm text-fg-muted hover:bg-surface-2 lg:collapsed:justify-center">
+          {{ m.icon('panel-left', 'size-4') }}
+          <span class="lg:collapsed:hidden">Collapse</span>
+        </button>
+        {% endcall %}
+      </div>
     </aside>
     <div class="flex min-w-0 flex-1 flex-col">
       <header class="flex h-14 items-center gap-3 border-b border-border bg-surface px-4">
         {{ m.icon_button('menu', 'Toggle navigation', class='lg:hidden', attrs={'@click': 'sidebarOpen = !sidebarOpen'}) }}
         <div class="min-w-0 flex-1 truncate text-sm text-fg-muted">{% block breadcrumb %}{% endblock %}</div>
-        {% if search_targets %}
-        {% set current = search_targets|selectattr('active')|first %}
-        {% set target = current or search_targets[0] %}
-        <form id="global-search" method="get" action="{{ target.url }}" role="search"
-              x-data="{ url: {{ target.url|tojson|forceescape }} }" :action="url"
-              class="hidden items-center gap-1 md:flex">
-          <select x-model="url" aria-label="Search in" class="rounded-md border border-input bg-surface px-2 py-1 text-sm">
-            {% for item in search_targets %}<option value="{{ item.url }}" {{ 'selected' if item.url == target.url }}>{{ item.label }}</option>{% endfor %}
-          </select>
-          <input type="search" name="q" placeholder="Search…" aria-label="Search" class="w-48 rounded-md border border-input bg-surface px-2 py-1 text-sm">
-        </form>
-        {% endif %}
-        <div x-data="theme()" x-init="apply()">
-          <button type="button" @click="cycle()" class="{{ m.button_classes('ghost', square=True) }}" :title="'Theme: ' + mode" aria-label="Switch theme">
-            <span x-show="mode === 'light'">{{ m.icon('sun') }}</span>
-            <span x-show="mode === 'dark'" x-cloak>{{ m.icon('moon') }}</span>
-            <span x-show="mode === 'system'" x-cloak>{{ m.icon('monitor') }}</span>
+        <div x-data="palette()" @keydown.window="if (($event.ctrlKey || $event.metaKey) && $event.key.toLowerCase() === 'k') { $event.preventDefault(); launch(); }">
+          <button type="button" @click="launch()"
+                  class="hidden items-center gap-2 rounded-md border border-input bg-surface px-3 py-1.5 text-sm text-fg-muted shadow-sm hover:bg-surface-2 sm:flex sm:w-64">
+            {{ m.icon('search', 'size-4 shrink-0') }}
+            <span class="flex-1 truncate text-left">Search or jump to…</span>
+            {{ m.kbd('⌘K') }}
           </button>
+          {% call m.dialog("palette", "Command palette", open="open", close="close()", size="lg", title_class="sr-only") %}
+          <div class="flex items-center gap-2 border-b border-border pb-3">
+            {{ m.icon('search', 'size-4 shrink-0 text-fg-muted') }}
+            <input type="search" name="q" x-ref="input" role="combobox" aria-expanded="true" aria-controls="palette-results"
+                   aria-autocomplete="list" :aria-activedescendant="activeId()" placeholder="Search or jump to…"
+                   autocomplete="off" autofocus
+                   class="w-full border-0 bg-transparent p-0 text-sm text-fg placeholder:text-fg-subtle focus:outline-none focus:ring-0"
+                   hx-get="{{ admin.url(request, '/_palette') }}" hx-target="#palette-results" hx-swap="innerHTML"
+                   hx-trigger="input changed delay:150ms, focus"
+                   @keydown.down.prevent="move(1)" @keydown.up.prevent="move(-1)" @keydown.enter.prevent="choose()">
+          </div>
+          <div id="palette-results" x-ref="results" role="listbox" aria-label="Results" class="-mx-2 mt-2 max-h-80 overflow-y-auto"></div>
+          {% endcall %}
         </div>
-        {% if user %}<span class="text-sm">{{ user.name if user.name is defined else user }}</span>{% endif %}
-        {% if admin.logout_url %}{{ m.icon_button('log-out', 'Log out', href=admin.logout_url) }}{% endif %}
+        {% if user %}
+        {% set display_name = user.name if user.name is defined else user %}
+        {% set _name_parts = display_name.split() %}
+        {% set initials = ((_name_parts[0][0] if _name_parts else '') ~ (_name_parts[1][0] if _name_parts|length > 1 else ''))|upper %}
+        {% set _user_trigger %}<span class="flex size-7 shrink-0 items-center justify-center rounded-full bg-accent-soft text-xs font-semibold text-accent">{{ initials }}</span><span class="hidden max-w-32 truncate text-sm sm:inline">{{ display_name }}</span>{% endset %}
+        <div x-data="theme()" x-init="apply()">
+          {% call m.menu("user-menu", _user_trigger, label="Account menu", trigger_class=m.button_classes('ghost', 'md') ~ ' gap-2 px-2', placement="bottom-end") %}
+          {{ m.menu_label(display_name) }}
+          {{ m.menu_separator() }}
+          {{ m.menu_label("Theme") }}
+          {{ m.menu_item("Light", icon="sun", role="menuitemradio", attrs={"@click": "set('light')", ":aria-checked": "mode === 'light'"}) }}
+          {{ m.menu_item("Dark", icon="moon", role="menuitemradio", attrs={"@click": "set('dark')", ":aria-checked": "mode === 'dark'"}) }}
+          {{ m.menu_item("System", icon="monitor", role="menuitemradio", attrs={"@click": "set('system')", ":aria-checked": "mode === 'system'"}) }}
+          {% if admin.logout_url %}
+          {{ m.menu_separator() }}
+          {{ m.menu_item("Log out", href=admin.logout_url, icon="log-out") }}
+          {% endif %}
+          {% endcall %}
+        </div>
+        {% endif %}
       </header>
       <main id="main" class="flex-1 overflow-y-auto p-6">
         {% block content %}{% endblock %}
