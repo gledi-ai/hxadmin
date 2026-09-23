@@ -7,6 +7,8 @@ Create and edit forms are derived from the mapper:
 - relationships become a search-as-you-type combobox, backed by the related view's `searchable` columns: a single relation looks like a select showing the current value with a clear `×`, a multiple one shows its values as removable chips;
 - primary keys, including relationships whose foreign keys form the primary key, are read-only on edit.
 
+The form is a left-aligned column up to 720px wide. Short fields (selects, numbers, checkboxes, dates and times, single relations) sit two to a row from the `sm` breakpoint; text, JSON and multiple relations take the full width.
+
 ```python
 from hxadmin import Field
 
