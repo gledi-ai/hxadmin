@@ -116,9 +116,11 @@
           },
           highlight: function () {
             var self = this;
-            this.options().forEach(function (el, index) {
+            var opts = this.options();
+            opts.forEach(function (el, index) {
               el.setAttribute("aria-selected", index === self.active ? "true" : "false");
             });
+            this.$refs.input.setAttribute("aria-activedescendant", opts[this.active] ? opts[this.active].id : "");
           },
           move: function (delta) {
             var opts = this.options();
@@ -130,10 +132,6 @@
           reset: function () {
             this.active = 0;
             this.highlight();
-          },
-          activeId: function () {
-            var opts = this.options();
-            return opts[this.active] ? opts[this.active].id : "";
           },
           choose: function () {
             var opts = this.options();
@@ -431,7 +429,7 @@
           <div class="flex items-center gap-2 border-b border-border pb-3">
             {{ m.icon('search', 'size-4 shrink-0 text-fg-muted') }}
             <input type="search" name="q" x-ref="input" role="combobox" aria-expanded="true" aria-controls="palette-results"
-                   aria-autocomplete="list" :aria-activedescendant="activeId()" placeholder="Search or jump to…"
+                   aria-autocomplete="list" aria-activedescendant="" placeholder="Search or jump to…"
                    autocomplete="off" autofocus
                    class="w-full border-0 bg-transparent p-0 text-sm text-fg placeholder:text-fg-subtle focus:outline-none focus:ring-0 [&::-webkit-search-cancel-button]:hidden"
                    hx-get="{{ admin.url(request, '/_palette') }}" hx-target="#palette-results" hx-swap="innerHTML"
