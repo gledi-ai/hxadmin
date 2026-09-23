@@ -323,8 +323,9 @@
           <span class="truncate text-sm font-semibold lg:collapsed:hidden">{{ admin.title }}</span>
         </a>
         {% call m.tooltip("Toggle sidebar ⌘B", placement="right") %}
-        {{ m.icon_button('panel-left', 'Toggle sidebar', class='shrink-0', attrs={'@click': 'toggle()'}) }}
+        {{ m.icon_button('panel-left', 'Toggle sidebar', class='shrink-0 max-lg:hidden', attrs={'@click': 'toggle()'}) }}
         {% endcall %}
+        {{ m.icon_button('x', 'Close navigation', class='shrink-0 lg:hidden', attrs={'@click': 'sidebarOpen = false'}) }}
       </div>
       <nav class="flex-1 overflow-y-auto px-3 py-2" aria-label="Main">
         {% for group in nav %}

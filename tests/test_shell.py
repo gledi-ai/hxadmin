@@ -142,3 +142,21 @@ def test_scripts_listen_for_htmx_4_event_names(
         assert legacy not in html
     assert 'this.$refs.input.addEventListener("htmx:after:swap"' in html
     assert 'document.addEventListener("htmx:after:swap"' in html
+
+
+def test_mobile_drawer_has_a_close_button_instead_of_the_rail_toggle(
+    factory: AppFactory, make_client: MakeClient
+) -> None:
+    app = factory.app()
+    admin = HxAdmin(app, session=factory.get_session, auth=allow_all)
+
+    @admin.register
+    class UserView(ModelView[User]):
+        model = User
+
+    with make_client(app) as client:
+        html = client.get("/admin/").text
+    toggle = html[: html.index('aria-label="Toggle sidebar"')]
+    assert "shrink-0 max-lg:hidden" in toggle[toggle.rindex("<button") :]
+    close = html[: html.index('aria-label="Close navigation"')]
+    assert "shrink-0 lg:hidden" in close[close.rindex("<button") :]
