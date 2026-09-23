@@ -204,18 +204,31 @@
 <body class="h-full bg-bg text-fg" x-data="{ sidebarOpen: false, confirm: null, dismiss() { if (this.confirm && this.confirm.cancel) this.confirm.cancel(); this.confirm = null; } }" @confirm.window="confirm = $event.detail">
   <div class="flex h-full">
     <div x-show="sidebarOpen" x-cloak x-transition.opacity class="fixed inset-0 z-20 bg-overlay lg:hidden" @click="sidebarOpen = false" aria-hidden="true"></div>
-    <aside x-data="{ collapsed: localStorage.getItem('hxadmin-sidebar') === 'collapsed' }"
+    <aside x-data="{
+             collapsed: localStorage.getItem('hxadmin-sidebar') === 'collapsed',
+             toggle() {
+               this.collapsed = !this.collapsed;
+               localStorage.setItem('hxadmin-sidebar', this.collapsed ? 'collapsed' : 'expanded');
+               document.documentElement.classList.toggle('hxadmin-collapsed', this.collapsed);
+             },
+           }"
+           @keydown.window="if (($event.ctrlKey || $event.metaKey) && $event.key.toLowerCase() === 'b') { $event.preventDefault(); toggle(); }"
            class="fixed inset-y-0 left-0 z-30 flex w-60 -translate-x-full flex-col border-r border-border bg-bg transition-transform lg:static lg:translate-x-0 lg:collapsed:w-14"
            :class="sidebarOpen && 'translate-x-0'">
-      <a href="{{ admin.url(request, '/') }}" class="flex h-14 shrink-0 items-center gap-2 px-4">
-        {% if admin.logo_url %}
-        <img src="{{ admin.logo_url }}" alt="" class="size-6 shrink-0 rounded-md object-cover">
-        {% else %}
-        <span class="flex size-6 shrink-0 items-center justify-center rounded-md bg-accent text-xs font-semibold text-accent-fg">{{ admin.title[:1]|upper }}</span>
-        {% endif %}
-        <span class="truncate text-sm font-semibold lg:collapsed:hidden">{{ admin.title }}</span>
-      </a>
-      <nav class="flex-1 overflow-y-auto px-2 py-2" aria-label="Main">
+      <div class="flex h-14 shrink-0 items-center justify-between gap-2 px-3 lg:collapsed:h-auto lg:collapsed:flex-col lg:collapsed:justify-center lg:collapsed:gap-1.5 lg:collapsed:py-2">
+        <a href="{{ admin.url(request, '/') }}" class="flex min-w-0 flex-1 items-center gap-2 lg:collapsed:flex-none">
+          {% if admin.logo_url %}
+          <img src="{{ admin.logo_url }}" alt="" class="size-6 shrink-0 rounded-md object-cover">
+          {% else %}
+          <span class="flex size-6 shrink-0 items-center justify-center rounded-md bg-accent text-xs font-semibold text-accent-fg">{{ admin.title[:1]|upper }}</span>
+          {% endif %}
+          <span class="truncate text-sm font-semibold lg:collapsed:hidden">{{ admin.title }}</span>
+        </a>
+        {% call m.tooltip("Toggle sidebar ⌘B", placement="right") %}
+        {{ m.icon_button('panel-left', 'Toggle sidebar', class='shrink-0', attrs={'@click': 'toggle()'}) }}
+        {% endcall %}
+      </div>
+      <nav class="flex-1 overflow-y-auto px-3 py-2" aria-label="Main">
         {% for group in nav %}
         <div class="mb-2"{% if group.label %} x-data="{ open: localStorage.getItem('hxadmin-group-' + ({{ group.label|tojson|forceescape }})) !== 'closed' }"{% endif %}>
           {% if group.label %}
@@ -243,17 +256,6 @@
         </div>
         {% endfor %}
       </nav>
-      <div class="hidden shrink-0 border-t border-border p-2 lg:block">
-        {% call m.tooltip("Toggle sidebar", when="collapsed", placement="right") %}
-        <button type="button"
-                @click="collapsed = !collapsed; localStorage.setItem('hxadmin-sidebar', collapsed ? 'collapsed' : 'expanded'); document.documentElement.classList.toggle('hxadmin-collapsed', collapsed)"
-                aria-label="Toggle sidebar"
-                class="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm text-fg-muted hover:bg-surface-2 lg:collapsed:justify-center">
-          {{ m.icon('panel-left', 'size-4') }}
-          <span class="lg:collapsed:hidden">Collapse</span>
-        </button>
-        {% endcall %}
-      </div>
     </aside>
     <div class="flex min-w-0 flex-1 flex-col">
       <header class="flex h-14 items-center gap-3 border-b border-border bg-surface px-4">
