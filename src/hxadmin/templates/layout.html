@@ -184,8 +184,11 @@
           init: function () {
             var self = this;
             var initialDate = parse(this.value);
+            var popover = this.$el.closest("[role=dialog]");
             this.picker = new AirDatepicker(this.$refs.visible, {
               locale: EN_LOCALE,
+              container: popover || "",
+              showEvent: popover ? "click" : "focus",
               selectedDates: initialDate ? [initialDate] : [],
               timepicker: kind === "datetime",
               onlyTimepicker: kind === "time",
@@ -195,6 +198,11 @@
               onSelect: function (opts) {
                 self.value = toIso(Array.isArray(opts.date) ? opts.date[0] : opts.date);
               },
+            });
+            this.$watch("value", function () {
+              self.$nextTick(function () {
+                self.$refs.hidden.dispatchEvent(new Event("change", { bubbles: true }));
+              });
             });
             this.$el.addEventListener("htmx:beforeCleanupElement", function () {
               self.picker.destroy();

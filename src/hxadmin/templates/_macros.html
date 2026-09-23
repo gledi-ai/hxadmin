@@ -183,13 +183,18 @@
   </div>
 </div>
 {%- elif filter.kind == "range" %}
+{%- set input_class = "w-full rounded-md border border-input bg-surface px-2 py-1 text-sm text-fg" -%}
+{%- set date_kind = {"date": "date", "datetime-local": "datetime", "time": "time"}.get(filter.input_type) -%}
 <div class="space-y-2">
-  <label class="block text-xs text-fg-muted">From
-    <input type="{{ filter.input_type }}" name="{{ filter.key }}.min" value="{{ value.min or '' }}" aria-label="{{ filter.label }} from"{% if filter.input_type == "number" %} step="any"{% endif %} class="hx-filter-pick mt-1 w-full rounded-md border border-input bg-surface px-2 py-1 text-sm">
+  {%- for bound, text in (("min", "From"), ("max", "To")) %}
+  <label class="block text-xs text-fg-muted"><span class="mb-1 block">{{ text }}</span>
+    {%- if date_kind %}
+    {{ date_input(filter.key ~ "." ~ bound, value[bound], kind=date_kind, id="filter-" ~ filter.name ~ "-" ~ bound, class=input_class, value_class="hx-filter-pick") }}
+    {%- else %}
+    <input type="{{ filter.input_type }}" name="{{ filter.key }}.{{ bound }}" value="{{ value[bound] or '' }}" aria-label="{{ filter.label }} {{ text|lower }}"{% if filter.input_type == "number" %} step="any"{% endif %} class="hx-filter-pick {{ input_class }}">
+    {%- endif %}
   </label>
-  <label class="block text-xs text-fg-muted">To
-    <input type="{{ filter.input_type }}" name="{{ filter.key }}.max" value="{{ value.max or '' }}" aria-label="{{ filter.label }} to"{% if filter.input_type == "number" %} step="any"{% endif %} class="hx-filter-pick mt-1 w-full rounded-md border border-input bg-surface px-2 py-1 text-sm">
-  </label>
+  {%- endfor %}
   {%- if filter.nullable %}
   <label class="flex items-center gap-2 border-t border-border pt-2 text-sm text-fg-muted"><input type="checkbox" name="{{ filter.key }}.empty" value="1"{% if value.empty %} checked{% endif %} class="hx-filter-pick"> Empty</label>
   {%- endif %}
