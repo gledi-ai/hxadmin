@@ -49,8 +49,14 @@ def build(factory: AppFactory) -> FastAPI:
     return app
 
 
+def table_section(html: str) -> str:
+    # The desktop table and the mobile card list render every row twice (one is
+    # hidden per viewport via CSS); scope assertions to the table alone.
+    return html[html.index("<table") :] if "<table" in html else html
+
+
 def emails(html: str) -> list[str]:
-    return re.findall(r"USER\d\d@X\.IO", html)
+    return re.findall(r"USER\d\d@X\.IO", table_section(html))
 
 
 def test_full_page(factory: AppFactory, make_client: Callable[[FastAPI], TestClient]) -> None:
@@ -119,7 +125,7 @@ def test_toolbar_state_survives_swap(
 def test_empty_state(factory: AppFactory, make_client: Callable[[FastAPI], TestClient]) -> None:
     with make_client(build(factory)) as client:
         html = client.get("/admin/user/?q=nomatch").text
-    assert "No users found" in html
+    assert "No users match these filters" in html
     assert "<tbody" not in html or emails(html) == []
 
 
@@ -136,8 +142,9 @@ def test_bool_cells_use_icons(
 ) -> None:
     with make_client(build(factory)) as client:
         html = client.get("/admin/user/", headers={"HX-Request": "true"}).text
-    assert html.count('aria-label="Yes"') == 5
-    assert html.count('aria-label="No"') == 5
+    table = table_section(html)
+    assert table.count('aria-label="Yes"') == 5
+    assert table.count('aria-label="No"') == 5
 
 
 def test_get_query_override_filters_rows(

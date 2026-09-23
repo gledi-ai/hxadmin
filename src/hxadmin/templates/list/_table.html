@@ -4,6 +4,11 @@
 {% set selectable = push_url and (view.permitted_actions(request, bulk=True) or view.export_formats) %}
 {% set row_actions = view.permitted_actions(request, bulk=False) if push_url else () %}
 {% set actions = view.can_edit or view.can_delete or row_actions %}
+{% if filters is defined and htmx %}
+{% for filter in filters %}{{ m.filter_summary_span(filter, params.filter_value(filter.name), filter_options.get(filter.name, []), oob=True) }}{% endfor %}
+{{ m.filter_reset(params.filters, oob=True) }}
+{{ m.export_menu_items(view, base_url, params, oob=True) }}
+{% endif %}
 {% if push_url %}
 <div id="list-state">
   <input type="hidden" name="sort" value="{{ params.sort or '' }}">
@@ -11,30 +16,56 @@
   <input type="hidden" name="size" value="{{ params.size }}">
 </div>
 {% endif %}
-{% if chips %}
-<div class="mb-3 flex flex-wrap items-center gap-2" aria-label="Active filters">
-  {% for chip in chips %}
-  <span class="inline-flex items-center gap-1 rounded-full border border-border bg-surface-2 py-0.5 pl-2.5 pr-1 text-xs">{{ chip.label }}<button type="button" class="rounded-full p-0.5 text-fg-muted hover:bg-surface-2 hover:text-fg" aria-label="Remove filter {{ chip.label }}"
-      @click="hxadminClearFilter({{ chip.input|tojson|forceescape }}, {{ chip.value|tojson|forceescape }})">{{ m.icon('x', 'size-3') }}</button></span>
+{% if result.total == 0 %}
+{% set filtered = params.q or params.filters %}
+{% if filtered %}
+{{ m.empty_state('inbox', 'No ' ~ view.name_plural|lower ~ ' match these filters', action=m.button('Reset filters', 'secondary', href=base_url, hx_get=base_url, hx_target='closest .hx-list', hx_push_url='true') if push_url else none, class='bg-surface') }}
+{% else %}
+{{ m.empty_state('inbox', 'No ' ~ view.name_plural|lower ~ ' yet', action=m.button('New ' ~ view.name|lower, 'primary', icon='plus', href=admin.url(request, '/' ~ view.identity ~ '/new')) if push_url and view.can_create else none, class='bg-surface') }}
+{% endif %}
+{% else %}
+<div class="space-y-2 sm:hidden">
+  {% for obj in result.rows %}
+  <div class="rounded-lg border border-border bg-surface p-3">
+    <div class="flex items-start gap-3">
+      {% if selectable %}
+      <input type="checkbox" id="pk-mobile-{{ view.pk_of(obj) }}" name="pks" value="{{ view.pk_of(obj) }}" form="bulk" :disabled="wide" aria-label="Select {{ view.display(obj) }}" class="mt-1">
+      {% endif %}
+      <div class="min-w-0 flex-1">
+        <div class="flex items-center justify-between gap-2">
+          {% set primary = view.list_fields[0] %}
+          {% if view.can_view %}
+          <a href="{{ admin.url(request, '/' ~ view.identity ~ '/' ~ view.pk_of(obj)) }}" class="truncate font-medium text-accent hover:underline">{{ m.cell(view, primary, view.cell(obj, primary.name)) }}</a>
+          {% else %}
+          <span class="truncate font-medium">{{ m.cell(view, primary, view.cell(obj, primary.name)) }}</span>
+          {% endif %}
+          {% if actions %}{{ m.row_menu(view, obj, row_actions) }}{% endif %}
+        </div>
+        {% if view.list_fields|length > 1 %}
+        <dl class="mt-1.5 space-y-1 text-sm">
+          {% for field in view.list_fields[1:4] %}
+          <div class="flex items-center gap-1.5"><dt class="text-fg-subtle">{{ field.label }}:</dt><dd class="text-fg-muted">{{ m.cell(view, field, view.cell(obj, field.name)) }}</dd></div>
+          {% endfor %}
+        </dl>
+        {% endif %}
+      </div>
+    </div>
+  </div>
   {% endfor %}
 </div>
-{% endif %}
-{% if result.total == 0 %}
-{{ m.empty_state('inbox', 'No ' ~ view.name_plural|lower ~ ' found', 'Nothing matches “' ~ params.q ~ '”.' if params.q else none, class='bg-surface') }}
-{% else %}
-{% call m.card(padded=False, class='overflow-x-auto') %}
+{% call m.card(padded=False, class='hidden overflow-x-auto sm:block') %}
   <table class="w-full text-sm">
     <thead class="bg-surface-2 text-left text-xs uppercase tracking-wide text-fg-muted">
       <tr>
-        {% if selectable %}<th class="w-0 px-3 py-2"><input type="checkbox" aria-label="Select all" @change="$el.closest('table').querySelectorAll('input[name=pks]').forEach(function (c) { c.checked = $el.checked; })"></th>{% endif %}
+        {% if selectable %}<th class="w-8 px-3 py-2"><input type="checkbox" aria-label="Select all" :indeterminate="count > 0 && count < total" @change="var checked = $el.checked; $el.closest('table').querySelectorAll('input[name=pks]:not(:disabled)').forEach(function (c) { c.checked = checked; c.dispatchEvent(new Event('change', {bubbles: true})); })"></th>{% endif %}
         {% for field in view.list_fields %}
-        <th class="px-3 py-2 font-semibold">
+        <th class="px-3 py-2 font-semibold{{ ' text-right' if field.kind in ('int', 'float', 'decimal') else '' }}">
           {% if field.name in view.sort_names %}
             {% set active = params.sort == field.name %}
             {% set next_dir = 'desc' if active and params.dir == 'asc' else 'asc' %}
             <a href="{{ base_url }}?{{ params.qs(sort=field.name, dir=next_dir, page=1) }}"
                hx-get="{{ base_url }}?{{ params.qs(sort=field.name, dir=next_dir, page=1) }}" {{ hx|safe }}
-               class="inline-flex items-center gap-1 hover:text-fg">
+               class="inline-flex items-center gap-1 hover:text-fg{{ ' justify-end' if field.kind in ('int', 'float', 'decimal') else '' }}">
               {{ field.label }}
               {% if active %}{{ m.icon('arrow-up' if params.dir == 'asc' else 'arrow-down', 'size-3') }}{% endif %}
             </a>
@@ -48,19 +79,13 @@
     </thead>
     <tbody class="divide-y divide-border">
       {% for obj in result.rows %}
-      <tr class="group hover:bg-surface-2">
-        {% if selectable %}<td class="px-3 py-2"><input type="checkbox" name="pks" value="{{ view.pk_of(obj) }}" form="bulk" aria-label="Select {{ view.display(obj) }}"></td>{% endif %}
+      <tr class="hover:bg-surface-2">
+        {% if selectable %}<td class="px-3 py-2"><input type="checkbox" id="pk-desktop-{{ view.pk_of(obj) }}" name="pks" value="{{ view.pk_of(obj) }}" form="bulk" :disabled="!wide" aria-label="Select {{ view.display(obj) }}"></td>{% endif %}
         {% for field in view.list_fields %}
-        <td class="px-3 py-2">{% if loop.first and view.can_view %}<a href="{{ admin.url(request, '/' ~ view.identity ~ '/' ~ view.pk_of(obj)) }}" class="font-medium text-accent hover:underline">{{ m.cell(view, field, view.cell(obj, field.name)) }}</a>{% else %}{{ m.cell(view, field, view.cell(obj, field.name)) }}{% endif %}</td>
+        <td class="px-3 py-2{{ ' text-right tabular-nums' if field.kind in ('int', 'float', 'decimal') else '' }}">{% if loop.first and view.can_view %}<a href="{{ admin.url(request, '/' ~ view.identity ~ '/' ~ view.pk_of(obj)) }}" class="font-medium text-accent hover:underline">{{ m.cell(view, field, view.cell(obj, field.name)) }}</a>{% else %}{{ m.cell(view, field, view.cell(obj, field.name)) }}{% endif %}</td>
         {% endfor %}
         {% if actions %}
-        <td class="px-3 py-2">
-          <div class="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 focus-within:opacity-100 pointer-coarse:opacity-100">
-            {% for action in row_actions %}{{ m.action_button(view, action, obj, 'list', 'rounded-md px-1.5 py-0.5 text-xs font-medium text-fg-muted hover:bg-surface-2 hover:text-fg') }}{% endfor %}
-            {% if view.can_edit %}{{ m.edit_link(view, obj, 'rounded-md p-1 text-fg-muted hover:bg-surface-2 hover:text-fg') }}{% endif %}
-            {% if view.can_delete %}{{ m.delete_button(view, obj, 'rounded-md p-1 text-fg-muted hover:bg-surface-2 hover:text-danger') }}{% endif %}
-          </div>
-        </td>
+        <td class="px-3 py-2 text-right">{{ m.row_menu(view, obj, row_actions) }}</td>
         {% endif %}
       </tr>
       {% endfor %}
@@ -68,4 +93,5 @@
   </table>
 {% endcall %}
 {% include "list/_pagination.html" %}
+{% if selectable %}{{ m.bulk_bar(view) }}{% endif %}
 {% endif %}

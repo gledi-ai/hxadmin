@@ -20,7 +20,7 @@ def test_delete_redirects_to_list(factory: AppFactory, make_client: MakeClient) 
         assert response.headers["location"] == "/admin/vote/"
         assert client.get("/admin/vote/2;1").status_code == 404
         listing = client.get("/admin/vote/").text
-    assert "No votes found" in listing
+    assert "No votes yet" in listing
 
 
 def test_delete_post_with_tags(factory: AppFactory, make_client: MakeClient) -> None:

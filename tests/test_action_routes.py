@@ -303,7 +303,7 @@ def test_view_without_detail_rerenders_list(factory: AppFactory, make_client: Ma
         )
         native = client.post("/admin/user/2/action/activate", follow_redirects=False)
     assert 'id="list-state"' in response.text
-    assert "<dl" not in response.text
+    assert 'id="detail"' not in response.text
     assert native.headers["location"] == "/admin/user/"
 
 
