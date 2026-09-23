@@ -259,3 +259,14 @@ def test_error_page_explains_the_status(
     assert ">Error 404</p>" in response.text
     assert '<h1 class="mt-1 text-2xl font-semibold">Not Found</h1>' in response.text
     assert "doesn&#39;t exist or has been moved." in response.text
+
+
+def test_pagination_fits_one_row_on_mobile(
+    factory: AppFactory, make_client: Callable[[FastAPI], TestClient]
+) -> None:
+    with make_client(build(factory)) as client:
+        html = client.get("/admin/user/").text
+    assert '<span class="hidden whitespace-nowrap sm:inline">Rows per page</span>' in html
+    first = html[: html.index('aria-label="First page"')]
+    assert "max-sm:hidden" in first[first.rindex("<") :]
+    assert '<span class="whitespace-nowrap tabular-nums">1 / 3</span>' in html
