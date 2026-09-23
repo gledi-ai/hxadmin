@@ -144,6 +144,19 @@
         };
       });
       Alpine.data("dateInput", function (kind, initial) {
+        // The vendored library's built-in default locale is Russian; force English.
+        var EN_LOCALE = {
+          days: ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"],
+          daysShort: ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"],
+          daysMin: ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"],
+          months: ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"],
+          monthsShort: ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"],
+          today: "Today",
+          clear: "Clear",
+          dateFormat: "MM/dd/yyyy",
+          timeFormat: "HH:mm",
+          firstDay: 0,
+        };
         function pad(n) { return String(n).padStart(2, "0"); }
         function parse(iso) {
           if (!iso) return null;
@@ -170,6 +183,7 @@
             var self = this;
             var initialDate = parse(this.value);
             this.picker = new AirDatepicker(this.$refs.visible, {
+              locale: EN_LOCALE,
               selectedDates: initialDate ? [initialDate] : [],
               timepicker: kind === "datetime",
               onlyTimepicker: kind === "time",
