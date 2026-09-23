@@ -6,11 +6,13 @@
       {% for field in fields %}{% include "form/_field.html" %}{% endfor %}
     </div>
   </div>
-  <div class="sticky bottom-0 mt-4 flex items-center gap-2 border-t border-border bg-bg py-3">
-    {{ m.button('Cancel', 'ghost', href=cancel_url) }}
-    <div class="ml-auto flex items-center gap-2">
-      {% if view.can_create %}{{ m.button('Save and add another', 'secondary', type='submit', name='_then', value='another') }}{% endif %}
-      {{ m.button('Save', 'primary', type='submit') }}
+  <div class="sticky bottom-0 mt-4 border-t border-border bg-bg py-3">
+    <div class="mx-auto flex max-w-[720px] items-center gap-2">
+      {{ m.button('Cancel', 'ghost', href=cancel_url) }}
+      <div class="ml-auto flex items-center gap-2">
+        {% if view.can_create %}{{ m.button('Save and add another', 'secondary', type='submit', name='_then', value='another') }}{% endif %}
+        {{ m.button('Save', 'primary', type='submit') }}
+      </div>
     </div>
   </div>
 </form>

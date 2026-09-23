@@ -479,3 +479,16 @@ def test_on_delete_exception_rolls_back(factory: AppFactory, make_client: MakeCl
             client.post("/admin/post/1/delete")
         detail = client.get("/admin/post/1").text
     assert "Hello" in detail
+
+
+def test_inputs_are_36px_and_the_footer_aligns_with_the_form(
+    factory: AppFactory, make_client: Callable[[FastAPI], TestClient]
+) -> None:
+    with make_client(build(factory)) as client:
+        html = client.get("/admin/post/new").text
+    assert 'id="f-title" type="text" name="title" value=""' in html
+    assert 'class="h-9 mt-1 w-full rounded-md border bg-surface px-3 text-sm border-input"' in html
+    footer = html[html.index('class="sticky bottom-0') :]
+    assert footer.index('class="mx-auto flex max-w-[720px] items-center gap-2"') < footer.index(
+        "Cancel"
+    )
