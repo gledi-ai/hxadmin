@@ -59,7 +59,7 @@
       <tr>
         {% if selectable %}<th class="w-8 px-3 py-2"><input type="checkbox" aria-label="Select all" :indeterminate="count > 0 && count < total" @change="var checked = $el.checked; $el.closest('table').querySelectorAll('input[name=pks]:not(:disabled)').forEach(function (c) { c.checked = checked; c.dispatchEvent(new Event('change', {bubbles: true})); })"></th>{% endif %}
         {% for field in view.list_fields %}
-        <th class="px-3 py-2 font-semibold{{ ' text-right' if field.kind in ('int', 'float', 'decimal') else '' }}">
+        <th class="px-3 py-2 font-medium{{ '' if loop.first else ' w-px whitespace-nowrap' }}{{ ' text-right' if field.kind in ('int', 'float', 'decimal') else '' }}">
           {% if field.name in view.sort_names %}
             {% set active = params.sort == field.name %}
             {% set next_dir = 'desc' if active and params.dir == 'asc' else 'asc' %}
@@ -82,7 +82,7 @@
       <tr class="hover:bg-surface-2">
         {% if selectable %}<td class="px-3 py-2"><input type="checkbox" id="pk-desktop-{{ view.pk_of(obj) }}" name="pks" value="{{ view.pk_of(obj) }}" form="bulk" :disabled="!wide" aria-label="Select {{ view.display(obj) }}"></td>{% endif %}
         {% for field in view.list_fields %}
-        <td class="px-3 py-2{{ ' text-right tabular-nums' if field.kind in ('int', 'float', 'decimal') else '' }}">{% if loop.first and view.can_view %}<a href="{{ admin.url(request, '/' ~ view.identity ~ '/' ~ view.pk_of(obj)) }}" class="font-medium text-fg hover:underline">{{ m.cell(view, field, view.cell(obj, field.name), link=False) }}</a>{% else %}{{ m.cell(view, field, view.cell(obj, field.name), link=False) }}{% endif %}</td>
+        <td class="px-3 py-2{{ '' if loop.first else ' whitespace-nowrap' }}{{ ' text-right tabular-nums' if field.kind in ('int', 'float', 'decimal') else '' }}">{% if loop.first and view.can_view %}<a href="{{ admin.url(request, '/' ~ view.identity ~ '/' ~ view.pk_of(obj)) }}" class="font-medium text-fg hover:underline">{{ m.cell(view, field, view.cell(obj, field.name), link=False) }}</a>{% else %}{{ m.cell(view, field, view.cell(obj, field.name), link=False) }}{% endif %}</td>
         {% endfor %}
         {% if actions %}
         <td class="px-3 py-2 text-right">{{ m.row_menu(view, obj, row_actions) }}</td>
