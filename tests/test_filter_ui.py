@@ -187,3 +187,19 @@ def test_relation_filter_scope_is_built_once_per_render(
         client.get("/admin/post/?f.status=draft", headers=HX)
         partial = CountingUserView.queries
     assert (full, partial) == (1, 0)
+
+
+def test_date_range_filters_use_the_date_picker(
+    factory: AppFactory, make_client: MakeClient
+) -> None:
+    with make_client(build(factory)) as client:
+        html = client.get("/admin/post/?f.published_at.min=2026-01-01T09:00").text
+    assert 'type="datetime-local"' not in html
+    assert """x-data='dateInput("datetime", "2026-01-01T09:00")'""" in html
+    assert (
+        'name="f.published_at.min" value="2026-01-01T09:00" :value="value" x-ref="hidden"'
+        ' class="hx-filter-pick"'
+    ) in html
+    assert 'name="f.published_at.max" value="" :value="value" x-ref="hidden"' in html
+    assert 'id="filter-published_at-min"' in html
+    assert 'name="f.score.min" value="" aria-label="Score from" step="any"' in html

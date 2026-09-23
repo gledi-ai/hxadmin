@@ -2,23 +2,26 @@
   Date, datetime and time picker.
 
   date_input(name, value, kind="date", id=None, required=False, error=False,
-             readonly=False, form=None, class="")
+             readonly=False, form=None, class="", value_class="")
     A visible, styled text input backed by Air Datepicker, plus a hidden input named
     `name` carrying the ISO value actually submitted: "YYYY-MM-DD" for kind="date",
     "YYYY-MM-DDTHH:MM" for kind="datetime", "HH:MM" for kind="time". `value`, if given,
     must already be in that same ISO form (or empty/None). `form` sets the hidden
     input's form= attribute, for inputs living outside their <form> (e.g. a filter
-    popover). Clearing the visible input clears the hidden value too.
+    popover). Clearing the visible input clears the hidden value too. Every change fires a
+    bubbling `change` event on the hidden input, which carries `value_class` (e.g. the list
+    toolbar's "hx-filter-pick"). Inside a popover the calendar opens within the panel (so
+    picking a day is not a click outside) on click or ArrowDown rather than on focus.
 
   Example:
     {{ m.date_input("published_at", "2026-09-23T14:30", kind="datetime") }}
 -#}
 {% from "components/icon.html" import icon as _icon %}
-{% macro date_input(name, value=None, kind="date", id=None, required=False, error=False, readonly=False, form=None, class="") -%}
+{% macro date_input(name, value=None, kind="date", id=None, required=False, error=False, readonly=False, form=None, class="", value_class="") -%}
 {%- set id = id or ("f-" ~ name) -%}
 <div class="relative" x-data='dateInput({{ kind|tojson }}, {{ (value or "")|tojson }})'>
-  <input type="hidden" name="{{ name }}" :value="value" {% if form %}form="{{ form }}"{% endif %}>
-  <input id="{{ id }}" type="text" autocomplete="off" x-ref="visible" placeholder="{{ {'date': 'mm/dd/yyyy', 'datetime': 'mm/dd/yyyy hh:mm', 'time': 'hh:mm'}[kind] }}"
+  <input type="hidden" name="{{ name }}" value="{{ value or '' }}" :value="value" x-ref="hidden"{% if value_class %} class="{{ value_class }}"{% endif %}{% if form %} form="{{ form }}"{% endif %}>
+  <input id="{{ id }}" type="text" autocomplete="off" x-ref="visible" @keydown.down.prevent="picker.show()" placeholder="{{ {'date': 'mm/dd/yyyy', 'datetime': 'mm/dd/yyyy hh:mm', 'time': 'hh:mm'}[kind] }}"
          {% if required %}required{% endif %} {% if readonly %}readonly{% endif %} {% if error %}aria-invalid="true"{% endif %}
          class="{{ class }} pr-8">
   <button type="button" x-show="value" x-cloak @click="clear()" tabindex="-1"
