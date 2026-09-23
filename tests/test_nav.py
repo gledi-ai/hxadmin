@@ -60,3 +60,21 @@ def test_active_detection_respects_mount_depth(factory: AppFactory) -> None:
 
     nav = build_nav(admin, _request("/api/admin/user/", root_path="/api/admin"))
     assert nav == [NavGroup(label=None, items=(NavItem("Users", "/api/admin/user/", None, True),))]
+
+
+def test_inaccessible_views_are_left_out_of_the_nav(factory: AppFactory) -> None:
+    admin = HxAdmin(factory.app(), session=factory.get_session, auth=allow_all)
+
+    @admin.register
+    class UserView(ModelView[User]):
+        model = User
+
+    @admin.register
+    class GroupView(ModelView[Group]):
+        model = Group
+
+        def is_accessible(self, request: Request) -> bool:
+            return False
+
+    labels = [item.label for group in build_nav(admin, _request("/")) for item in group.items]
+    assert labels == ["Users"]
