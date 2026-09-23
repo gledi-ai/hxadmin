@@ -1,4 +1,4 @@
-from collections.abc import Awaitable, Callable, Sequence
+from collections.abc import Awaitable, Callable, Mapping, Sequence
 from dataclasses import replace
 from typing import Any, ClassVar, Literal
 
@@ -15,6 +15,9 @@ from hxadmin.forms import build_schema
 from hxadmin.pk import pk_clauses_for, pk_string_for
 
 type SortDir = Literal["asc", "desc"]
+type BadgeTone = Literal["neutral", "accent", "success", "warning", "danger"]
+
+_BADGE_TONES: frozenset[str] = frozenset({"neutral", "accent", "success", "warning", "danger"})
 
 
 class ModelView[T]:
@@ -44,6 +47,7 @@ class ModelView[T]:
     export_formats: ClassVar[tuple[ExportFormat, ...]] = ()
     export_columns: ClassVar[tuple[str, ...]] = ()
     export_max_rows: ClassVar[int | None] = 10_000
+    badges: ClassVar[Mapping[str, Mapping[str, BadgeTone]]] = {}
 
     def __init_subclass__(cls, **kwargs: Any) -> None:
         super().__init_subclass__(**kwargs)
@@ -100,6 +104,13 @@ class ModelView[T]:
         self.export_fields = (
             self._resolve(self.export_columns) if self.export_columns else self.list_fields
         )
+        for name, tones in self.badges.items():
+            field = self.fields.get(name)
+            if not isinstance(field, Field) or field.kind not in ("enum", "bool"):
+                raise ValueError(f"{owner}: cannot declare badges for {name!r}")
+            for tone in tones.values():
+                if tone not in _BADGE_TONES:
+                    raise ValueError(f"{owner}: unknown badge tone {tone!r} for {name!r}")
 
     def _resolve(self, names: Sequence[str]) -> tuple[Field | RelationField, ...]:
         try:
@@ -186,6 +197,9 @@ class ModelView[T]:
         if name in self.formatted:
             return getattr(self, f"format_{name}")(obj)
         return getattr(obj, name)
+
+    def badge_tone(self, name: str, raw: str) -> BadgeTone:
+        return self.badges.get(name, {}).get(raw, "neutral")
 
     async def on_save(
         self, request: Request, session: AsyncSession, obj: T, *, created: bool
