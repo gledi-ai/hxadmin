@@ -23,6 +23,8 @@
   <script defer src="{{ admin.url(request, '/static/vendor/alpine-focus.min.js') }}"></script>
   <script defer src="{{ admin.url(request, '/static/vendor/alpine.min.js') }}"></script>
   <script>
+    // htmx's settle step copies old attributes onto same-id new elements, clobbering Alpine state.
+    htmx.config.defaultSettleDelay = 0;
     document.addEventListener("alpine:init", function () {
       Alpine.data("theme", function () {
         return {
