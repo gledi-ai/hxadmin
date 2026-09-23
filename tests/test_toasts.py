@@ -135,6 +135,32 @@ def test_layout_has_toast_container(factory: AppFactory, make_client: MakeClient
     assert 'Alpine.data("toasts"' in html
 
 
+def test_toast_markup_has_an_icon_per_level(factory: AppFactory, make_client: MakeClient) -> None:
+    app = factory.app()
+    HxAdmin(app, session=factory.get_session, auth=allow_all)
+    with make_client(app) as client:
+        html = client.get("/admin/").text
+    assert 'data-toast-icon="success"' in html
+    assert 'data-toast-icon="info"' in html
+    assert 'data-toast-icon="warning"' in html
+    assert 'data-toast-icon="error"' in html
+
+
+def test_error_toasts_are_not_auto_dismissed(factory: AppFactory, make_client: MakeClient) -> None:
+    app = factory.app()
+    admin = HxAdmin(app, session=factory.get_session, auth=allow_all)
+
+    async def flash(request: Request) -> Response:
+        return admin.redirect(request, "/admin/", toast=Toast("Broke", "error"))
+
+    admin.subapp.add_api_route("/_flash", flash)
+    with make_client(app) as client:
+        client.get("/admin/_flash", follow_redirects=False)
+        html = client.get("/admin/").text
+    assert "&#34;level&#34;: &#34;error&#34;" in html
+    assert 'if (entry.level === "error") return;' in html
+
+
 @pytest.mark.parametrize("char", ["a", "é", "😀"])
 def test_long_flash_is_truncated_to_fit_a_cookie(char: str) -> None:
     value = encode_flash(Toast(char * 5000, "info"))
