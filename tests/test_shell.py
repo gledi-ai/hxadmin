@@ -124,3 +124,21 @@ def test_htmx_settle_is_disabled_before_alpine_boots(
         html = client.get("/admin/").text
     setting = html.index("htmx.config.defaultSettleDelay = 0;")
     assert html.index("vendor/htmx.min.js") < setting < html.index('addEventListener("alpine:init"')
+
+
+def test_scripts_listen_for_htmx_4_event_names(
+    factory: AppFactory, make_client: MakeClient
+) -> None:
+    app = factory.app()
+    admin = HxAdmin(app, session=factory.get_session, auth=allow_all)
+
+    @admin.register
+    class UserView(ModelView[User]):
+        model = User
+
+    with make_client(app) as client:
+        html = client.get("/admin/").text
+    for legacy in ("htmx:afterSwap", "htmx:beforeCleanupElement", "htmx:afterSettle"):
+        assert legacy not in html
+    assert 'this.$refs.input.addEventListener("htmx:after:swap"' in html
+    assert 'document.addEventListener("htmx:after:swap"' in html

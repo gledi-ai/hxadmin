@@ -84,7 +84,7 @@
           active: 0,
           init: function () {
             var self = this;
-            this.$refs.results.addEventListener("htmx:afterSwap", function () { self.reset(); });
+            this.$refs.input.addEventListener("htmx:after:swap", function () { self.reset(); });
           },
           launch: function () {
             var self = this;
@@ -204,9 +204,9 @@
                 self.$refs.hidden.dispatchEvent(new Event("change", { bubbles: true }));
               });
             });
-            this.$el.addEventListener("htmx:beforeCleanupElement", function () {
-              self.picker.destroy();
-            }, { once: true });
+          },
+          destroy: function () {
+            this.picker.destroy();
           },
           clear: function () {
             this.value = "";
@@ -257,7 +257,7 @@
             window.matchMedia("(min-width: 640px)").addEventListener("change", function (evt) {
               self.wide = evt.matches;
             });
-            document.addEventListener("htmx:afterSwap", function () { self.refresh(); });
+            document.addEventListener("htmx:after:swap", function () { self.refresh(); });
             // Card and table checkboxes are two DOM nodes for one row; mirror one onto the
             // other so exactly one (the enabled, visible one) is ever submitted.
             document.addEventListener("change", function (evt) {
