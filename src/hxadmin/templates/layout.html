@@ -379,9 +379,9 @@
              },
            }"
            @keydown.window="if (($event.ctrlKey || $event.metaKey) && $event.key.toLowerCase() === 'b') { $event.preventDefault(); toggle(); }"
-           class="fixed inset-y-0 left-0 z-30 flex w-60 -translate-x-full flex-col border-r border-border bg-bg transition-transform lg:static lg:translate-x-0 lg:collapsed:w-14"
+           class="fixed inset-y-0 left-0 z-30 flex w-60 -translate-x-full flex-col border-r border-border bg-bg transition-transform lg:relative lg:translate-x-0 lg:collapsed:w-14"
            :class="sidebarOpen && 'translate-x-0'">
-      <div class="flex h-14 shrink-0 items-center justify-between gap-2 px-3 lg:collapsed:h-auto lg:collapsed:flex-col lg:collapsed:justify-center lg:collapsed:gap-1.5 lg:collapsed:py-2">
+      <div class="flex h-14 shrink-0 items-center justify-between gap-2 px-3 lg:collapsed:justify-center">
         <a href="{{ admin.url(request, '/') }}" class="flex min-w-0 flex-1 items-center gap-2 lg:collapsed:flex-none">
           {% if admin.logo_url %}
           <img src="{{ admin.logo_url }}" alt="" class="size-6 shrink-0 rounded-md object-cover">
@@ -392,11 +392,11 @@
         </a>
         {% set _toggle_tip %}Toggle sidebar <span class="mac:hidden">Ctrl+B</span><span class="hidden mac:inline">⌘B</span>{% endset %}
         {% call m.tooltip(_toggle_tip, placement="right") %}
-        {{ m.icon_button('panel-left', 'Toggle sidebar', class='shrink-0 max-lg:hidden', attrs={'@click': 'toggle()'}) }}
+        {{ m.icon_button('panel-left', 'Toggle sidebar', class='shrink-0 max-lg:hidden lg:collapsed:absolute lg:collapsed:top-16 lg:collapsed:left-1/2 lg:collapsed:-translate-x-1/2', attrs={'@click': 'toggle()'}) }}
         {% endcall %}
         {{ m.icon_button('x', 'Close navigation', class='shrink-0 lg:hidden', attrs={'@click': 'sidebarOpen = false'}) }}
       </div>
-      <nav class="flex-1 overflow-y-auto px-3 py-2" aria-label="Main">
+      <nav class="flex-1 overflow-y-auto px-3 py-2 lg:collapsed:pt-14" aria-label="Main">
         {% for group in nav %}
         <div class="mb-2"{% if group.label %} data-nav-group="{{ group.label }}" x-data="{ open: localStorage.getItem('hxadmin-group-' + ({{ group.label|tojson|forceescape }})) !== 'closed' }"{% endif %}>
           {% if group.label %}
