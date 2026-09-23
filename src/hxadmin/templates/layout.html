@@ -13,6 +13,19 @@
       if (localStorage.getItem("hxadmin-sidebar") === "collapsed") {
         document.documentElement.classList.add("hxadmin-collapsed");
       }
+      var closed = "";
+      for (var i = 0; i < localStorage.length; i++) {
+        var key = localStorage.key(i);
+        if (key.indexOf("hxadmin-group-") === 0 && localStorage.getItem(key) === "closed") {
+          closed += '[data-nav-group="' + CSS.escape(key.slice(14)) + '"] > ul { display: none; }';
+        }
+      }
+      if (closed) {
+        var style = document.createElement("style");
+        style.textContent = closed;
+        document.head.appendChild(style);
+        document.addEventListener("alpine:initialized", function () { style.remove(); });
+      }
     })();
   </script>
   <link rel="stylesheet" href="{{ admin.url(request, '/static/vendor/air-datepicker.css') }}">
@@ -375,7 +388,7 @@
       </div>
       <nav class="flex-1 overflow-y-auto px-3 py-2" aria-label="Main">
         {% for group in nav %}
-        <div class="mb-2"{% if group.label %} x-data="{ open: localStorage.getItem('hxadmin-group-' + ({{ group.label|tojson|forceescape }})) !== 'closed' }"{% endif %}>
+        <div class="mb-2"{% if group.label %} data-nav-group="{{ group.label }}" x-data="{ open: localStorage.getItem('hxadmin-group-' + ({{ group.label|tojson|forceescape }})) !== 'closed' }"{% endif %}>
           {% if group.label %}
           <button type="button"
                   @click="open = !open; localStorage.setItem('hxadmin-group-' + ({{ group.label|tojson|forceescape }}), open ? 'open' : 'closed')"
@@ -385,7 +398,7 @@
             <span class="transition-transform" :class="open ? '' : '-rotate-90'">{{ m.icon('chevron-down', 'size-3.5') }}</span>
           </button>
           {% endif %}
-          <ul{% if group.label %} x-show="open"{% endif %} class="space-y-0.5">
+          <ul{% if group.label %} x-show="open"{% endif %} class="space-y-0.5 lg:collapsed:block!">
             {% for item in group.items %}
             <li>
               {% call m.tooltip(item.label, when="collapsed", placement="right") %}
