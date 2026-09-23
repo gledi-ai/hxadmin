@@ -185,3 +185,14 @@ def test_palette_has_a_search_button_on_small_screens(
     button = button[button.rindex("<") :]
     assert "sm:hidden" in button
     assert '@click="launch()"' in html[html.index('aria-label="Search or jump to"') :][:200]
+
+
+def test_palette_sets_aria_activedescendant_when_highlighting(
+    factory: AppFactory, make_client: MakeClient
+) -> None:
+    with make_client(build(factory)) as client:
+        html = client.get("/admin/").text
+    assert ':aria-activedescendant="' not in html
+    highlight = html[html.index("highlight: function () {") :]
+    highlight = highlight[: highlight.index("move: function")]
+    assert 'this.$refs.input.setAttribute("aria-activedescendant"' in highlight
