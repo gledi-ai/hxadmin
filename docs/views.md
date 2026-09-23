@@ -41,7 +41,7 @@ class TaskView(ModelView[Task]):
     }
 ```
 
-Keys are column names; inner keys are the enum's `.value` strings, or `"true"` / `"false"` for a bool column. Tones are `"neutral" | "accent" | "success" | "warning" | "danger"`. An unknown column name or an unknown tone raises `ValueError` at registration.
+Keys are column names; inner keys are the enum's `.value` strings, or `"true"` / `"false"` for a bool column. Tones are `"neutral" | "accent" | "success" | "warning" | "danger"`. An unknown column name, a value the column cannot hold (such as `"Done"` for `"done"`) or an unknown tone raises `ValueError` at registration.
 
 ## Detail page
 
