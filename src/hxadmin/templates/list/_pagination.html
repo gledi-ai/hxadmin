@@ -18,7 +18,7 @@
     {% set last_url = base_url ~ '?' ~ params.qs(page=result.pages) if result.has_next else none %}
     {{ m.icon_button('chevrons-left', 'First page', 'secondary', 'sm', class='max-sm:hidden', href=first_url or '', disabled=not result.has_prev, hx_get=first_url, hx_target='closest .hx-list' if first_url, hx_push_url='true' if first_url and push_url) }}
     {{ m.icon_button('chevron-left', 'Previous page', 'secondary', 'sm', href=prev_url or '', disabled=not result.has_prev, hx_get=prev_url, hx_target='closest .hx-list' if prev_url, hx_push_url='true' if prev_url and push_url) }}
-    <span class="whitespace-nowrap tabular-nums">{{ params.page }} / {{ result.pages }}</span>
+    <span class="whitespace-nowrap tabular-nums" data-pager-label><span class="max-sm:hidden">Page </span>{{ params.page }}<span class="max-sm:hidden"> of </span><span class="sm:hidden"> / </span>{{ result.pages }}</span>
     {{ m.icon_button('chevron-right', 'Next page', 'secondary', 'sm', href=next_url or '', disabled=not result.has_next, hx_get=next_url, hx_target='closest .hx-list' if next_url, hx_push_url='true' if next_url and push_url) }}
     {{ m.icon_button('chevrons-right', 'Last page', 'secondary', 'sm', class='max-sm:hidden', href=last_url or '', disabled=not result.has_next, hx_get=last_url, hx_target='closest .hx-list' if last_url, hx_push_url='true' if last_url and push_url) }}
   </div>
