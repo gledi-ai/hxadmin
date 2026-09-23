@@ -92,12 +92,25 @@ def test_toolbar_submits_on_filter_changes(factory: AppFactory, make_client: Mak
     with make_client(build(factory)) as client:
         html = client.get("/admin/post/").text
     assert (
-        'hx-trigger="input changed delay:300ms from:[name=q], input delay:300ms '
+        'hx-trigger="input changed delay:300ms from:#list-q, input delay:300ms '
         'target:.hx-filter-text, change target:.hx-filter-pick, submit"'
     ) in html
     assert 'hx-include="#list-state"' in html
     assert "window.hxadminClearFilter = function (prefix)" in html
     assert "onclick" not in html
+
+
+def test_only_the_toolbar_search_box_triggers_the_list(
+    factory: AppFactory, make_client: MakeClient
+) -> None:
+    with make_client(build(factory)) as client:
+        html = client.get("/admin/post/").text
+    assert html.count('id="list-q"') == 1
+    toolbar = html[
+        html.index('id="list-filters"') : html.index("</form>", html.index('id="list-filters"'))
+    ]
+    assert 'id="list-q"' in toolbar
+    assert "from:[name=q]" not in html
 
 
 def test_reset_button_clears_every_active_filter(
