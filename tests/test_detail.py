@@ -316,7 +316,10 @@ def test_header_stacks_and_fields_group_on_small_screens(
         'class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4"'
         in html
     )
-    assert '<div class="space-y-0.5 sm:contents">' in html
+    groups = re.findall(r'<dl class="([^"]*)" data-detail-group="(\w+)"', html)
+    assert [name for _, name in groups] == ["columns", "relations"]
+    for classes, _ in groups:
+        assert {"grid-cols-1", "md:grid-cols-2"} <= set(classes.split())
 
 
 def test_related_tabs_are_linked_to_their_panels(
