@@ -7,6 +7,7 @@
 {% if filters is defined and htmx %}
 {% for filter in filters %}{{ m.filter_summary_span(filter, params.filter_value(filter.name), filter_options.get(filter.name, []), oob=True) }}{% endfor %}
 {{ m.filter_reset(params.filters, oob=True) }}
+{{ m.list_count(result.total, oob=True) }}
 {{ m.export_menu_items(view, base_url, params, oob=True) }}
 {% endif %}
 {% if push_url %}

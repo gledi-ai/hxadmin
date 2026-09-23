@@ -223,3 +223,17 @@ def test_only_the_primary_column_takes_the_remaining_width(
     assert headers[0] == ""
     assert all(" w-px whitespace-nowrap" in extra for extra in headers[1:])
     assert "font-semibold" not in table[: table.index("</thead>")]
+
+
+def test_header_shows_the_row_count_and_the_crumb_skips_the_title(
+    factory: AppFactory, make_client: Callable[[FastAPI], TestClient]
+) -> None:
+    with make_client(build(factory)) as client:
+        full = client.get("/admin/user/").text
+        partial = client.get("/admin/user/?q=user2", headers={"HX-Request": "true"}).text
+    assert '<span id="list-count" class="font-normal tabular-nums text-fg-muted">30</span>' in full
+    assert 'class="hover:underline">Dashboard</a></div>' in full
+    assert (
+        '<span id="list-count" hx-swap-oob="true" class="font-normal tabular-nums text-fg-muted">'
+        "10</span>"
+    ) in partial
