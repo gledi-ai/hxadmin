@@ -282,4 +282,10 @@ def test_pagination_fits_one_row_on_mobile(
     assert '<span class="hidden whitespace-nowrap sm:inline">Rows per page</span>' in html
     first = html[: html.index('aria-label="First page"')]
     assert "max-sm:hidden" in first[first.rindex("<") :]
-    assert '<span class="whitespace-nowrap tabular-nums">1 / 3</span>' in html
+    label = html[html.index("data-pager-label>") + len("data-pager-label>") :]
+    label = label[: label.index('aria-label="Next page"')]
+    label = label[: max(label.rfind("<a "), label.rfind("<button"))]
+    wide = re.sub(r'<span class="sm:hidden">.*?</span>|<[^>]+>', "", label)
+    narrow = re.sub(r'<span class="max-sm:hidden">.*?</span>|<[^>]+>', "", label)
+    assert wide.strip() == "Page 1 of 3"
+    assert narrow.strip() == "1 / 3"

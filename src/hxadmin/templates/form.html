@@ -3,8 +3,8 @@
 {% block title %}{{ 'New ' ~ view.name|lower if obj is none else 'Edit ' ~ view.display(obj) }} · {{ admin.title }}{% endblock %}
 {% block breadcrumb %}<a href="{{ admin.url(request, '/') }}" class="hover:underline">Dashboard</a> / <a href="{{ admin.url(request, '/' ~ view.identity ~ '/') }}" class="hover:underline">{{ view.name_plural }}</a>{% if obj is not none %} / {% if view.can_view %}<a href="{{ admin.url(request, '/' ~ view.identity ~ '/' ~ view.pk_of(obj)) }}" class="hover:underline">{{ view.display(obj) }}</a>{% else %}{{ view.display(obj) }}{% endif %}{% endif %}{% endblock %}
 {% block content %}
-<div class="mx-auto mb-4 max-w-[720px]">
-  <h1 class="text-2xl font-semibold">{{ 'New ' ~ view.name|lower if obj is none else 'Edit ' ~ view.name|lower }}</h1>
+<div class="mb-4 max-w-[720px]">
+  <h1 class="text-xl font-semibold">{{ 'New ' ~ view.name|lower if obj is none else 'Edit ' ~ view.name|lower }}</h1>
   {% if obj is not none %}
   <p class="text-sm text-fg-muted">{{ view.display(obj) }} · #{{ view.pk_of(obj) }}</p>
   {% endif %}

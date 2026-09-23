@@ -2,6 +2,6 @@
 {% block title %}{{ admin_page.title ~ ' · ' if admin_page.title }}{{ admin.title }}{% endblock %}
 {% block breadcrumb %}<a href="{{ admin.url(request, '/') }}" class="hover:underline">Dashboard</a>{% endblock %}
 {% block content %}
-{% if admin_page.title %}<h1 class="mb-6 text-2xl font-semibold">{{ admin_page.title }}</h1>{% endif %}
+{% if admin_page.title %}<h1 class="mb-6 text-xl font-semibold">{{ admin_page.title }}</h1>{% endif %}
 {% block body %}{% endblock %}
 {% endblock %}
