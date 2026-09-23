@@ -3,11 +3,14 @@
   Alpine and the vendored @alpinejs/focus plugin.
 
   dialog(id, title, description=None, open="open", close="open = false", size="md",
-         dismissible=True, title_expr=None, class="", attrs=None, **kwargs)
+         dismissible=True, title_expr=None, title_class="", class="", attrs=None, **kwargs)
     A centred modal over the overlay; the {% call %} block is the body, usually ending in a
     dialog_footer. open is the Alpine expression that shows it and close the statement that
     hides it, both evaluated in the enclosing x-data. title_expr, if given, is an Alpine
     expression that replaces the title text (x-text) for dialogs whose title changes.
+    title_class is appended to the title (for example "sr-only" for a dialog, such as the
+    command palette, whose input makes the title redundant while an accessible name is
+    still required).
     size: sm (24rem) | md (28rem) | lg (32rem). dismissible adds a close button in the corner.
     The panel has role="dialog", aria-modal="true" and aria-labelledby (and aria-describedby
     with a description). While open, focus is trapped inside (x-trap), the page behind is
@@ -34,14 +37,14 @@
 {% from "components/button.html" import icon_button as _icon_button %}
 {% set _sizes = {"sm": "max-w-sm", "md": "max-w-md", "lg": "max-w-lg"} %}
 
-{% macro dialog(id, title, description=None, open="open", close="open = false", size="md", dismissible=True, title_expr=None, class="", attrs=None) -%}
+{% macro dialog(id, title, description=None, open="open", close="open = false", size="md", dismissible=True, title_expr=None, title_class="", class="", attrs=None) -%}
 <div x-show="{{ open }}" x-cloak x-transition.opacity.duration.150ms class="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto p-4 sm:items-center">
   <div class="fixed inset-0 bg-overlay" aria-hidden="true" @click="{{ close }}"></div>
   <div id="{{ id }}" role="dialog" aria-modal="true" aria-labelledby="{{ id }}-title"{% if description %} aria-describedby="{{ id }}-description"{% endif %}
        x-trap.inert.noscroll="{{ open }}" @keydown.escape.prevent.stop="{{ close }}"
        class="{{ ('relative grid w-full gap-4 rounded-lg border border-border bg-surface p-6 text-fg shadow-lg ' ~ hx_pick(_sizes, size, 'dialog size') ~ ' ' ~ class)|trim }}"{{ hx_attrs(attrs, kwargs) }}>
     <div class="flex flex-col gap-2{{ ' pr-6' if dismissible }}">
-      <h2 id="{{ id }}-title" class="text-base font-semibold leading-tight"{% if title_expr %} x-text="{{ title_expr }}"{% endif %}>{{ title }}</h2>
+      <h2 id="{{ id }}-title" class="{{ ('text-base font-semibold leading-tight ' ~ title_class)|trim }}"{% if title_expr %} x-text="{{ title_expr }}"{% endif %}>{{ title }}</h2>
       {%- if description %}
       <p id="{{ id }}-description" class="text-sm text-fg-muted">{{ description }}</p>
       {%- endif %}

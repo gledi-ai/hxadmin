@@ -1,7 +1,7 @@
 import logging
 from collections.abc import Sequence
 from typing import TYPE_CHECKING, Annotated, Any, cast
-from urllib.parse import urlsplit
+from urllib.parse import urlencode, urlsplit
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
@@ -28,7 +28,7 @@ from hxadmin.forms import (
     relabel,
     validate,
 )
-from hxadmin.nav import build_dashboard
+from hxadmin.nav import build_dashboard, build_nav
 from hxadmin.pk import fetch_by_pks, pk_string_for
 from hxadmin.query import (
     apply_search,
@@ -59,6 +59,14 @@ def _view(admin: "HxAdmin", request: Request, identity: str) -> ModelView[Any]:
     if not view.is_accessible(request):
         raise HTTPException(status_code=403)
     return view
+
+
+def _palette_views(admin: "HxAdmin") -> list[ModelView[Any]]:
+    """Views in nav order (grouped by category, like `build_nav`), ignoring pages."""
+    groups: dict[str | None, list[ModelView[Any]]] = {None: []}
+    for view in admin.views.values():
+        groups.setdefault(view.category, []).append(view)
+    return [view for views in groups.values() for view in views]
 
 
 def _toast_only(status_code: int, toast: Toast) -> Response:
@@ -204,6 +212,46 @@ def build_router(admin: "HxAdmin") -> APIRouter:
     ) -> HTMLResponse:
         groups = await build_dashboard(admin, request, session)
         return admin.render(request, "dashboard.html", {"dashboard": groups})
+
+    @router.get("/_palette", name="palette", response_class=HTMLResponse)
+    async def palette(
+        request: Request,
+        session: Annotated[AsyncSession, Depends(admin.current_session)],
+    ) -> HTMLResponse:
+        q = request.query_params.get("q", "").strip()
+        go_to = [
+            item
+            for group in build_nav(admin, request)
+            for item in group.items
+            if not q or q.lower() in item.label.lower()
+        ]
+        records: list[tuple[ModelView[Any], list[tuple[str, str]]]] = []
+        if q:
+            views = [
+                view
+                for view in _palette_views(admin)
+                if view.searchable and view.is_visible(request) and view.is_accessible(request)
+            ][:8]
+            for view in views:
+                stmt = apply_search(view.get_query(request), view, q).limit(5)
+                rows = (await session.scalars(stmt)).all()
+                if not rows:
+                    continue
+                labels = await session.run_sync(
+                    lambda _, view=view, rows=rows: [view.display(row) for row in rows]
+                )
+                list_url = admin.url(request, f"/{view.identity}/")
+                hits = [
+                    (
+                        label,
+                        admin.url(request, f"/{view.identity}/{view.pk_of(row)}")
+                        if view.can_view
+                        else f"{list_url}?{urlencode({'q': q})}",
+                    )
+                    for row, label in zip(rows, labels, strict=True)
+                ]
+                records.append((view, hits))
+        return admin.render(request, "_palette.html", {"q": q, "go_to": go_to, "records": records})
 
     @router.get("/{identity}/", name="list", response_class=HTMLResponse)
     async def list_view(
