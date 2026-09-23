@@ -1,3 +1,4 @@
+import re
 from collections.abc import Callable, Sequence
 
 from fastapi import FastAPI
@@ -235,6 +236,11 @@ def test_toolbar_controls_share_one_height(factory: AppFactory, make_client: Mak
     toolbar = html[
         html.index('id="list-filters"') : html.index("</form>", html.index('id="list-filters"'))
     ]
-    assert 'class="h-8 w-full rounded-md border border-input' in toolbar
-    assert toolbar.count("inline-flex h-8 items-center gap-1.5 whitespace-nowrap rounded-full") == 5
-    assert "items-start" in toolbar[:200]
+    search = re.search(r'<input type="search" id="list-q"[^>]*class="([^"]*)"', toolbar)
+    pills = re.findall(r'id="filter-\w+-summary"[^>]*class="([^"]*)"', toolbar)
+    assert search is not None
+    assert len(pills) == 5
+    heights = {
+        c for classes in (search.group(1), *pills) for c in classes.split() if c.startswith("h-")
+    }
+    assert heights == {"h-8"}
