@@ -50,8 +50,10 @@
     {% endif %}
     <div class="combobox-options absolute z-10 mt-1 w-full" x-show="open" x-cloak></div>
   </div>
-  {% else %}
+  {% elif widget in ('date', 'datetime-local', 'time') %}
   {% if widget == 'datetime-local' and value is not none and value is not string %}{% set value = value.isoformat(timespec='minutes') %}{% elif widget in ('date', 'time') and value is not none and value is not string %}{% set value = value.isoformat() %}{% endif %}
+  {{ m.date_input(field.name, value, kind='datetime' if widget == 'datetime-local' else widget, id='f-' ~ field.name, required=field.required, error=error, readonly=field.readonly, class=control) }}
+  {% else %}
   <input id="f-{{ field.name }}" type="{{ widget }}" name="{{ field.name }}" value="{{ value if value is not none else '' }}" {% if error %}aria-invalid="true"{% endif %} {{ 'readonly' if field.readonly }} {% if field.kind in ('float', 'decimal') %}step="any"{% endif %} class="{{ control }}">
   {% endif %}
   {% if field.help_text %}<p class="mt-1 text-xs text-fg-muted">{{ field.help_text }}</p>{% endif %}
