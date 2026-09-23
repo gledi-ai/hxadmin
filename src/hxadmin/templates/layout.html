@@ -189,6 +189,7 @@
             this.picker = new AirDatepicker(this.$refs.visible, {
               locale: EN_LOCALE,
               container: popover || "",
+              offset: 4,
               showEvent: popover ? "click" : "focus",
               selectedDates: initialDate ? [initialDate] : [],
               timepicker: kind === "datetime",

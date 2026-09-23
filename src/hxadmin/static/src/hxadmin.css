@@ -157,6 +157,10 @@
   box-shadow: var(--shadow-md);
 }
 
+.air-datepicker--pointer {
+  display: none;
+}
+
 .air-datepicker-cell.-focus- {
   outline: 2px solid var(--color-ring);
   outline-offset: -2px;
