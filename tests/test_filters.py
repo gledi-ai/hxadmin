@@ -13,10 +13,8 @@ from starlette.requests import Request
 from hxadmin import HxAdmin
 from hxadmin.fields import Field, RelationField, derive_fields
 from hxadmin.filters import (
-    Chip,
     FilterValue,
     apply_filters,
-    filter_chips,
     parse_filters,
     relation_labels,
     resolve_filters,
@@ -229,23 +227,6 @@ async def test_user_filters_narrow_rows(
 ) -> None:
     await seed(session)
     assert await matching(session, UserView(), query) == expected
-
-
-def test_chips_label_every_active_value() -> None:
-    view = PostView()
-    values = parse(
-        view,
-        "f.status=published&f.score.min=1&f.score.max=2&f.published_at.empty=1&f.title=hi"
-        "&f.author=2",
-    )
-    assert filter_chips(view.filters, values, {"author": [("2", "bob@x.io")]}) == [
-        Chip("Status: published", "f.status", "published"),
-        Chip("Score ≥ 1", "f.score.min", None),
-        Chip("Score ≤ 2", "f.score.max", None),
-        Chip("Published at: empty", "f.published_at.empty", "1"),
-        Chip("Title contains “hi”", "f.title", None),
-        Chip("Author: bob@x.io", "f.author", "2"),
-    ]
 
 
 class ReadingView(ModelView[Reading]):

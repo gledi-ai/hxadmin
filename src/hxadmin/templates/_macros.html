@@ -79,21 +79,6 @@
 {%- endif -%}
 {%- endmacro %}
 
-{% macro edit_link(view, obj, class="") -%}
-<a href="{{ admin.url(request, '/' ~ view.identity ~ '/' ~ view.pk_of(obj) ~ '/edit') }}" class="{{ class }}" aria-label="Edit" title="Edit">{{ icon('pencil', 'size-4') }}</a>
-{%- endmacro %}
-
-{% macro delete_button(view, obj, class="") -%}
-{%- set payload = {
-    "title": "Delete " ~ view.name|lower ~ "?",
-    "message": "Delete " ~ view.display(obj) ~ "? This cannot be undone.",
-    "danger": true,
-    "action": admin.url(request, '/' ~ view.identity ~ '/' ~ view.pk_of(obj) ~ '/delete'),
-} -%}
-<button type="button" class="{{ class }}" aria-label="Delete" title="Delete"
-        @click="$dispatch('confirm', {{ payload|tojson|forceescape }})">{{ icon('trash-2', 'size-4') }}</button>
-{%- endmacro %}
-
 {% macro delete_menu_item(view, obj) -%}
 {%- set payload = {
     "title": "Delete " ~ view.name|lower ~ "?",
@@ -267,22 +252,14 @@
 {%- endcall -%}
 {%- endmacro %}
 
-{% macro action_menu_item(view, action, obj=none, origin="detail", inset=False) -%}
-{%- set url = admin.url(request, '/' ~ view.identity ~ ('/' ~ view.pk_of(obj) if obj is not none else '') ~ '/action/' ~ action.name) -%}
+{% macro action_menu_item(view, action, obj, origin="detail", inset=False) -%}
+{%- set url = admin.url(request, '/' ~ view.identity ~ '/' ~ view.pk_of(obj) ~ '/action/' ~ action.name) -%}
 {%- if action.method == "POST" -%}
 {{ menu_item(action.label, inset=inset, attrs={
     "hx-post": url,
     "hx-target": "#detail" if origin == "detail" else "#list",
     "hx-vals": {"_from": origin}|tojson|forceescape,
     "hx-confirm": action.confirm,
-    "form": "bulk" if obj is none else none,
-}) }}
-{%- elif obj is none -%}
-{{ menu_item(action.label, type="submit", inset=inset, attrs={
-    "form": "bulk",
-    "formmethod": "get",
-    "formaction": url,
-    "@click": "$event.preventDefault(); close(true); $dispatch('confirm', {message: " ~ (action.confirm|tojson|forceescape) ~ ", submit: () => $el.form.requestSubmit($el)})" if action.confirm else none,
 }) }}
 {%- else -%}
 {{ menu_item(action.label, inset=inset, href=url ~ ("?_from=list" if origin == "list" else ""), attrs={

@@ -98,15 +98,6 @@ class FilterValue:
         return pairs
 
 
-@dataclass(frozen=True, slots=True)
-class Chip:
-    """An active filter value shown above the list; removing it clears input `input`."""
-
-    label: str
-    input: str
-    value: str | None
-
-
 def escape_like(text: str) -> str:
     return text.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
 
@@ -348,30 +339,3 @@ async def relation_labels(
         pairs = {pk_string_for(field.target, row): admin.display(row) for row in rows}
         labels[filter_.name] = list(pairs.items())
     return labels
-
-
-def filter_chips(
-    filters: Sequence[Filter],
-    values: Sequence[FilterValue],
-    labels: Mapping[str, Sequence[tuple[str, str]]],
-) -> list[Chip]:
-    """One removable chip per active filter value."""
-    by_name = {f.name: f for f in filters}
-    chips: list[Chip] = []
-    for value in values:
-        filter_ = by_name.get(value.name)
-        if filter_ is None:
-            continue
-        names = dict(filter_.choices) | dict(labels.get(filter_.name, ()))
-        for raw in value.values:
-            if filter_.kind == "text":
-                chips.append(Chip(f"{filter_.label} contains “{raw}”", filter_.key, None))
-            else:
-                chips.append(Chip(f"{filter_.label}: {names.get(raw, raw)}", filter_.key, raw))
-        if value.min is not None:
-            chips.append(Chip(f"{filter_.label} ≥ {value.min}", f"{filter_.key}.min", None))
-        if value.max is not None:
-            chips.append(Chip(f"{filter_.label} ≤ {value.max}", f"{filter_.key}.max", None))
-        if value.empty:
-            chips.append(Chip(f"{filter_.label}: empty", f"{filter_.key}.empty", "1"))
-    return chips
