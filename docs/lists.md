@@ -13,11 +13,11 @@ Invalid values fall back to the defaults. Requests with `HX-Request: true` get o
 
 ## Table
 
-The header shows the plural name with the row count ("Tasks · 6", updated as you search and filter) and the New button. The table sits in a bordered card. Columns size to their content; the primary column (the first of `list_columns`) takes the remaining width and is the only link, to the detail page. Relations render as plain muted text, enums and declared bools as badges (see [Badges](views.md#badges)), other bools as a check or cross icon, and missing values as `—`. Numbers are right-aligned with tabular figures. Checked rows are highlighted.
+The header shows the plural name with the row count ("Tasks · 6", updated as you search and filter) and the New button. The table sits in a bordered card that scrolls within the viewport, with a sticky header. Columns size to their content; the primary column (the first of `list_columns`) takes the remaining width and is the only link, to the detail page. Relations render as plain muted text, enums and declared bools as badges (see [Badges](views.md#badges)), other bools as a check or cross icon, and missing values as `—`. Numbers are right-aligned with tabular figures. Checked rows are highlighted.
 
 With no rows, the table is replaced by an empty state: "No tasks yet" with a "New task" button, or "No tasks match these filters" with a "Reset filters" button when a search or filter is active.
 
-Below the `sm` breakpoint, rows render as stacked cards instead: a checkbox, the primary column as the title, the next three list columns as `label: value` pairs, and the row menu. Search takes the full toolbar width and the filter buttons wrap below it.
+Below the `sm` breakpoint, rows render as stacked cards instead: a checkbox, the primary column as the title, the next three list columns as `label: value` pairs, and the row menu. The search box shares the first toolbar row with Export, the filter buttons scroll horizontally on the row below, and a Select all checkbox sits above the cards.
 
 ## Filters
 
@@ -60,4 +60,4 @@ Every row has a `⋯` button in its last column, always visible, opening a menu 
 
 ## Bulk actions
 
-Checking one or more rows shows a floating bar centred at the bottom of the viewport: the selection count, the bulk actions as buttons, an Export menu for the selected rows when export is enabled, and a `✕` to clear the selection. It floats over the page without shifting the layout, and the header's select-all checkbox shows an indeterminate state when some but not all visible rows are checked. The selection survives table refreshes, such as after a bulk action.
+Checking one or more rows shows a floating bar centred at the bottom of the viewport: the selection count, the bulk actions as buttons, an Export menu for the selected rows when export is enabled, and a `✕` to clear the selection. It floats over the page without shifting the layout, and the select-all checkbox shows an indeterminate state when some but not all visible rows are checked. The selection covers the rows on screen: sorting, paging, filtering or a bulk action re-renders the table and clears it.
