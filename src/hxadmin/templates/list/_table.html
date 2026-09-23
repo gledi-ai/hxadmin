@@ -35,16 +35,16 @@
         <div class="flex items-center justify-between gap-2">
           {% set primary = view.list_fields[0] %}
           {% if view.can_view %}
-          <a href="{{ admin.url(request, '/' ~ view.identity ~ '/' ~ view.pk_of(obj)) }}" class="truncate font-medium text-accent hover:underline">{{ m.cell(view, primary, view.cell(obj, primary.name)) }}</a>
+          <a href="{{ admin.url(request, '/' ~ view.identity ~ '/' ~ view.pk_of(obj)) }}" class="truncate font-medium text-fg hover:underline">{{ m.cell(view, primary, view.cell(obj, primary.name), link=False) }}</a>
           {% else %}
-          <span class="truncate font-medium">{{ m.cell(view, primary, view.cell(obj, primary.name)) }}</span>
+          <span class="truncate font-medium">{{ m.cell(view, primary, view.cell(obj, primary.name), link=False) }}</span>
           {% endif %}
           {% if actions %}{{ m.row_menu(view, obj, row_actions) }}{% endif %}
         </div>
         {% if view.list_fields|length > 1 %}
         <dl class="mt-1.5 space-y-1 text-sm">
           {% for field in view.list_fields[1:4] %}
-          <div class="flex items-center gap-1.5"><dt class="text-fg-subtle">{{ field.label }}:</dt><dd class="text-fg-muted">{{ m.cell(view, field, view.cell(obj, field.name)) }}</dd></div>
+          <div class="flex items-center gap-1.5"><dt class="text-fg-subtle">{{ field.label }}:</dt><dd class="text-fg-muted">{{ m.cell(view, field, view.cell(obj, field.name), link=False) }}</dd></div>
           {% endfor %}
         </dl>
         {% endif %}
@@ -82,7 +82,7 @@
       <tr class="hover:bg-surface-2">
         {% if selectable %}<td class="px-3 py-2"><input type="checkbox" id="pk-desktop-{{ view.pk_of(obj) }}" name="pks" value="{{ view.pk_of(obj) }}" form="bulk" :disabled="!wide" aria-label="Select {{ view.display(obj) }}"></td>{% endif %}
         {% for field in view.list_fields %}
-        <td class="px-3 py-2{{ ' text-right tabular-nums' if field.kind in ('int', 'float', 'decimal') else '' }}">{% if loop.first and view.can_view %}<a href="{{ admin.url(request, '/' ~ view.identity ~ '/' ~ view.pk_of(obj)) }}" class="font-medium text-accent hover:underline">{{ m.cell(view, field, view.cell(obj, field.name)) }}</a>{% else %}{{ m.cell(view, field, view.cell(obj, field.name)) }}{% endif %}</td>
+        <td class="px-3 py-2{{ ' text-right tabular-nums' if field.kind in ('int', 'float', 'decimal') else '' }}">{% if loop.first and view.can_view %}<a href="{{ admin.url(request, '/' ~ view.identity ~ '/' ~ view.pk_of(obj)) }}" class="font-medium text-fg hover:underline">{{ m.cell(view, field, view.cell(obj, field.name), link=False) }}</a>{% else %}{{ m.cell(view, field, view.cell(obj, field.name), link=False) }}{% endif %}</td>
         {% endfor %}
         {% if actions %}
         <td class="px-3 py-2 text-right">{{ m.row_menu(view, obj, row_actions) }}</td>
