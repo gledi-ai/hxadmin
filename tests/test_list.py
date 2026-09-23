@@ -130,6 +130,19 @@ def test_empty_state(factory: AppFactory, make_client: Callable[[FastAPI], TestC
     assert "<tbody" not in html or emails(html) == []
 
 
+def test_empty_state_reset_clears_the_toolbar_form(
+    factory: AppFactory, make_client: Callable[[FastAPI], TestClient]
+) -> None:
+    with make_client(build(factory)) as client:
+        html = client.get("/admin/user/?q=nomatch").text
+    button = html[: html.index(">Reset filters<")]
+    button = button[button.rindex("<a ") :]
+    assert 'href="/admin/user/"' in button
+    assert "hxadminResetFilters(true)" in button
+    assert "hx-get" not in button
+    assert 'name === "q"' in html
+
+
 def test_relation_cells(factory: AppFactory, make_client: Callable[[FastAPI], TestClient]) -> None:
     with make_client(build(factory)) as client:
         html = client.get("/admin/post/").text
