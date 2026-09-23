@@ -92,6 +92,7 @@
             this.$nextTick(function () {
               self.$refs.input.value = "";
               self.$refs.input.focus();
+              self.$refs.input.dispatchEvent(new CustomEvent("palette-open"));
             });
           },
           close: function () {
@@ -364,15 +365,15 @@
             <span class="flex-1 truncate text-left">Search or jump to…</span>
             {{ m.kbd('⌘K') }}
           </button>
-          {% call m.dialog("palette", "Command palette", open="open", close="close()", size="lg", title_class="sr-only") %}
+          {% call m.dialog("palette", "Command palette", open="open", close="close()", size="lg", dismissible=False, title_class="sr-only", class="gap-0! sm:mt-[12vh] sm:self-start") %}
           <div class="flex items-center gap-2 border-b border-border pb-3">
             {{ m.icon('search', 'size-4 shrink-0 text-fg-muted') }}
             <input type="search" name="q" x-ref="input" role="combobox" aria-expanded="true" aria-controls="palette-results"
                    aria-autocomplete="list" :aria-activedescendant="activeId()" placeholder="Search or jump to…"
                    autocomplete="off" autofocus
-                   class="w-full border-0 bg-transparent p-0 text-sm text-fg placeholder:text-fg-subtle focus:outline-none focus:ring-0"
+                   class="w-full border-0 bg-transparent p-0 text-sm text-fg placeholder:text-fg-subtle focus:outline-none focus:ring-0 [&::-webkit-search-cancel-button]:hidden"
                    hx-get="{{ admin.url(request, '/_palette') }}" hx-target="#palette-results" hx-swap="innerHTML"
-                   hx-trigger="input changed delay:150ms, focus"
+                   hx-trigger="input changed delay:150ms, palette-open"
                    @keydown.down.prevent="move(1)" @keydown.up.prevent="move(-1)" @keydown.enter.prevent="choose()">
           </div>
           <div id="palette-results" x-ref="results" role="listbox" aria-label="Results" class="-mx-2 mt-2 max-h-80 overflow-y-auto"></div>
