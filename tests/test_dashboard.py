@@ -88,28 +88,12 @@ def test_empty_dashboard(factory: AppFactory, make_client: MakeClient) -> None:
         assert "No models registered." in client.get("/admin/").text
 
 
-def test_global_search_targets_searchable_views(
-    factory: AppFactory, make_client: MakeClient
-) -> None:
+def test_no_global_search_form(factory: AppFactory, make_client: MakeClient) -> None:
     with make_client(build(factory)) as client:
         home = client.get("/admin/").text
         posts = client.get("/admin/post/").text
-    assert '<form id="global-search" method="get" action="/admin/user/"' in home
-    assert '<option value="/admin/user/"' in home
-    assert '<option value="/admin/post/"' in home
-    assert '<option value="/admin/active-user/"' not in home
-    assert '<option value="/admin/tag/"' not in home
-    assert '<option value="/admin/group/"' not in home
-    assert '<form id="global-search" method="get" action="/admin/post/"' in posts
-
-
-def test_no_global_search_without_searchable_views(
-    factory: AppFactory, make_client: MakeClient
-) -> None:
-    app = factory.app()
-    HxAdmin(app, session=factory.get_session, auth=allow_all)
-    with make_client(app) as client:
-        assert 'id="global-search"' not in client.get("/admin/").text
+    assert 'id="global-search"' not in home
+    assert 'id="global-search"' not in posts
 
 
 def test_dashboard_counts_all_views_in_one_query(

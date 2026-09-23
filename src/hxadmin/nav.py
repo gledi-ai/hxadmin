@@ -88,14 +88,3 @@ async def build_dashboard(
             DashboardCard(view.name_plural, url, view.icon, counts.get(view.identity))
         )
     return [DashboardGroup(label, tuple(cards)) for label, cards in groups.items() if cards]
-
-
-def build_search_targets(admin: "HxAdmin", request: Request) -> list[NavItem]:
-    """Searchable views offered by the top-bar search; `active` marks the current list."""
-    targets: list[NavItem] = []
-    for view in admin.views.values():
-        if not (view.searchable and view.is_visible(request) and view.is_accessible(request)):
-            continue
-        url = admin.url(request, f"/{view.identity}/")
-        targets.append(NavItem(view.name_plural, url, view.icon, request.url.path.startswith(url)))
-    return targets
