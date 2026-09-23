@@ -162,35 +162,44 @@
       Alpine.data("bulk", function () {
         return {
           count: 0,
+          total: 0,
+          wide: window.matchMedia("(min-width: 640px)").matches,
           init: function () {
             var self = this;
-            document.addEventListener("htmx:after:swap", function () { self.refresh(); });
+            this.refresh();
+            window.matchMedia("(min-width: 640px)").addEventListener("change", function (evt) {
+              self.wide = evt.matches;
+            });
+            document.addEventListener("htmx:afterSwap", function () { self.refresh(); });
+            // Card and table checkboxes are two DOM nodes for one row; mirror one onto the
+            // other so exactly one (the enabled, visible one) is ever submitted.
+            document.addEventListener("change", function (evt) {
+              var el = evt.target;
+              if (!el.matches || !el.matches("input[form=bulk][name=pks]")) return;
+              var twinId = el.id.indexOf("pk-desktop-") === 0
+                ? el.id.replace("pk-desktop-", "pk-mobile-")
+                : el.id.replace("pk-mobile-", "pk-desktop-");
+              var twin = document.getElementById(twinId);
+              if (twin) twin.checked = el.checked;
+              self.refresh();
+            });
           },
           refresh: function () {
-            this.count = document.querySelectorAll('input[form=bulk][name=pks]:checked').length;
+            this.count = document.querySelectorAll("input[form=bulk][name=pks]:checked:not(:disabled)").length;
+            this.total = document.querySelectorAll("input[form=bulk][name=pks]:not(:disabled)").length;
           },
         };
       });
     });
-    window.hxadminClearFilter = function (name, value) {
+    window.hxadminClearFilter = function (prefix) {
       var form = document.getElementById("list-filters");
       if (!form) return;
-      var selector = name === null ? "[name^='f.']" : "[name='" + CSS.escape(name) + "']";
-      form.querySelectorAll(selector).forEach(function (el) {
-        if (el.type !== "checkbox") el.value = "";
-        else if (value === null || el.value === value) el.checked = false;
+      form.querySelectorAll("[name^='" + CSS.escape(prefix) + "']").forEach(function (el) {
+        if (el.type === "checkbox") el.checked = false;
+        else el.value = "";
       });
       form.dispatchEvent(new Event("filters-cleared"));
       form.requestSubmit();
-    };
-    window.hxadminActiveFilters = function (form) {
-      var names = {};
-      form.querySelectorAll("[name^='f.']").forEach(function (el) {
-        if (el.type === "checkbox" ? el.checked : el.value.trim() !== "") {
-          names[el.name.replace(/\.(min|max|empty)$/, "")] = true;
-        }
-      });
-      return Object.keys(names).length;
     };
     document.addEventListener("htmx:confirm", function (evt) {
       evt.preventDefault();

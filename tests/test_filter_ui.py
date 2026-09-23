@@ -60,29 +60,32 @@ def test_panel_reflects_the_current_filters(factory: AppFactory, make_client: Ma
     with make_client(build(factory)) as client:
         html = client.get("/admin/post/?f.status=published&f.score.min=1&f.author=2").text
     assert 'id="list-filters"' in html
-    assert 'x-data="{ open: true, active: 3 }"' in html
-    assert '@change="active = hxadminActiveFilters($el)"' in html
-    assert '@filters-cleared="active = hxadminActiveFilters($el)"' in html
-    assert '<span x-show="active" x-text="active" class="rounded-full' in html
-    assert 'name="f.status" value="published" checked' in html
-    assert 'name="f.status" value="draft" class' in html
+    assert 'id="filter-status-summary"' in html
+    assert 'id="filter-score-summary"' in html
+    assert 'id="filter-author-summary"' in html
+    assert "≥1" in html
+    assert "bob@x.io" in html
+    assert 'name="f.status" value="published" checked class="hx-filter-pick"' in html
+    assert 'name="f.status" value="draft" class="hx-filter-pick"' in html
     assert 'name="f.score.min" value="1"' in html
     assert 'name="f.author" value="1" class="hx-filter-pick"> ada@x.io' in html
-    assert 'name="f.author" value="2" checked' in html
+    assert 'name="f.author" value="2" checked class="hx-filter-pick"> bob@x.io' in html
     assert 'name="f.published_at.empty"' in html
     assert 'name="f.status.empty"' not in html
+    assert '<button type="button" class="{{' not in html
     assert "Showing 1\N{EN DASH}1 of 1" in html
 
 
-def test_panel_starts_closed_without_filters(factory: AppFactory, make_client: MakeClient) -> None:
+def test_filter_buttons_start_inactive_without_filters(
+    factory: AppFactory, make_client: MakeClient
+) -> None:
     with make_client(build(factory)) as client:
         html = client.get("/admin/post/").text
         users = client.get("/admin/user/").text
-    assert 'x-data="{ open: false, active: 0 }"' in html
-    assert '<span x-show="active" x-text="active" x-cloak' in html
-    assert 'id="filter-panel" x-show="open" x-cloak' in html
-    assert 'id="filter-panel"' not in users
-    assert 'aria-controls="filter-panel"' not in users
+    assert 'id="filter-status-summary"' in html
+    assert "border-dashed" in html
+    assert '<span id="list-reset"></span>' in html
+    assert 'id="filter-' not in users
 
 
 def test_toolbar_submits_on_filter_changes(factory: AppFactory, make_client: MakeClient) -> None:
@@ -93,17 +96,30 @@ def test_toolbar_submits_on_filter_changes(factory: AppFactory, make_client: Mak
         'target:.hx-filter-text, change target:.hx-filter-pick, submit"'
     ) in html
     assert 'hx-include="#list-state"' in html
-    assert "window.hxadminClearFilter = function (name, value)" in html
-    assert '@click="hxadminClearFilter(null, null)"' in html
+    assert "window.hxadminClearFilter = function (prefix)" in html
+    assert "onclick" not in html
 
 
-def test_partial_renders_chips_not_the_panel(factory: AppFactory, make_client: MakeClient) -> None:
+def test_reset_button_clears_every_active_filter(
+    factory: AppFactory, make_client: MakeClient
+) -> None:
+    with make_client(build(factory)) as client:
+        html = client.get("/admin/post/?f.status=published&f.author=2").text
+    assert "@click=\"hxadminClearFilter('f.')\"" in html
+    assert '@click="hxadminClearFilter(&#34;f.status&#34;)"' in html
+    assert '@click="hxadminClearFilter(&#34;f.author&#34;)"' in html
+
+
+def test_partial_swaps_filter_summaries_out_of_band(
+    factory: AppFactory, make_client: MakeClient
+) -> None:
     with make_client(build(factory)) as client:
         html = client.get("/admin/post/?f.author=2&f.title=a", headers=HX).text
     assert 'id="list-filters"' not in html
-    assert 'aria-label="Remove filter Author: bob@x.io"' in html
-    assert "hxadminClearFilter(&#34;f.author&#34;, &#34;2&#34;)" in html
-    assert "hxadminClearFilter(&#34;f.title&#34;, null)" in html
+    assert 'id="filter-author-summary" hx-swap-oob="true"' in html
+    assert 'id="filter-title-summary" hx-swap-oob="true"' in html
+    assert 'id="list-reset" hx-swap-oob="true"' in html
+    assert "bob@x.io" in html
     assert "Showing 1\N{EN DASH}2 of 2" in html
 
 
@@ -120,7 +136,7 @@ def test_relation_filter_hidden_when_target_is_inaccessible(
     with make_client(build(factory, HiddenUserView)) as client:
         html = client.get("/admin/post/?f.author=2").text
     assert 'name="f.author"' not in html
-    assert "Remove filter Author" not in html
+    assert 'id="filter-author-summary"' not in html
     assert "Showing 1\N{EN DASH}3 of 3" in html
 
 
@@ -133,7 +149,8 @@ def test_action_rerender_keeps_filters(factory: AppFactory, make_client: MakeCli
         )
     assert response.status_code == 200
     assert "Showing 1\N{EN DASH}2 of 2" in response.text
-    assert 'aria-label="Remove filter Status: published"' in response.text
+    assert 'id="filter-status-summary" hx-swap-oob="true"' in response.text
+    assert "published" in response.text
 
 
 def test_related_tab_ignores_filters_of_a_hidden_target(
