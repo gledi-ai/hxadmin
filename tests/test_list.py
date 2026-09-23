@@ -237,3 +237,14 @@ def test_header_shows_the_row_count_and_the_crumb_skips_the_title(
         '<span id="list-count" hx-swap-oob="true" class="font-normal tabular-nums text-fg-muted">'
         "10</span>"
     ) in partial
+
+
+def test_selected_rows_are_highlighted(
+    factory: AppFactory, make_client: Callable[[FastAPI], TestClient]
+) -> None:
+    from tests.test_action_ui import build as build_with_actions
+
+    with make_client(build_with_actions(factory)) as client:
+        html = client.get("/admin/user/").text
+    assert '<tr class="hover:bg-surface-2 has-checked:bg-accent-soft/40">' in html
+    assert "has-checked:border-accent/50 has-checked:bg-accent-soft/40" in html

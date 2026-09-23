@@ -27,7 +27,7 @@
 {% else %}
 <div class="space-y-2 sm:hidden">
   {% for obj in result.rows %}
-  <div class="rounded-lg border border-border bg-surface p-3">
+  <div class="rounded-lg border border-border bg-surface p-3 has-checked:border-accent/50 has-checked:bg-accent-soft/40">
     <div class="flex items-start gap-3">
       {% if selectable %}
       <input type="checkbox" id="pk-mobile-{{ view.pk_of(obj) }}" name="pks" value="{{ view.pk_of(obj) }}" form="bulk" :disabled="wide" aria-label="Select {{ view.display(obj) }}" class="mt-1">
@@ -80,7 +80,7 @@
     </thead>
     <tbody class="divide-y divide-border">
       {% for obj in result.rows %}
-      <tr class="hover:bg-surface-2">
+      <tr class="hover:bg-surface-2 has-checked:bg-accent-soft/40">
         {% if selectable %}<td class="px-3 py-2"><input type="checkbox" id="pk-desktop-{{ view.pk_of(obj) }}" name="pks" value="{{ view.pk_of(obj) }}" form="bulk" :disabled="!wide" aria-label="Select {{ view.display(obj) }}"></td>{% endif %}
         {% for field in view.list_fields %}
         <td class="px-3 py-2{{ '' if loop.first else ' whitespace-nowrap' }}{{ ' text-right tabular-nums' if field.kind in ('int', 'float', 'decimal') else '' }}">{% if loop.first and view.can_view %}<a href="{{ admin.url(request, '/' ~ view.identity ~ '/' ~ view.pk_of(obj)) }}" class="font-medium text-fg hover:underline">{{ m.cell(view, field, view.cell(obj, field.name), link=False) }}</a>{% else %}{{ m.cell(view, field, view.cell(obj, field.name), link=False) }}{% endif %}</td>
