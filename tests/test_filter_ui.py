@@ -253,3 +253,12 @@ def test_toolbar_requests_drop_empty_params(factory: AppFactory, make_client: Ma
     hook = hook[: hook.index("});\n    });")]
     assert 'ctx.sourceElement.id !== "list-filters"' in hook
     assert "body.delete(key)" in hook
+
+
+def test_filter_calendars_open_beside_their_panel(
+    factory: AppFactory, make_client: MakeClient
+) -> None:
+    with make_client(build(factory)) as client:
+        html = client.get("/admin/post/").text
+    assert "popover ? { position: dates.besidePanel(popover) } : {}" in html
+    assert "function besidePanel(panel)" in html

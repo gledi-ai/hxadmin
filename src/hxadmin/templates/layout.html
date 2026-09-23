@@ -185,7 +185,7 @@
             var self = this;
             var initialDate = parse(this.value);
             var popover = this.$el.closest("[role=dialog]");
-            this.picker = new AirDatepicker(this.$refs.visible, {
+            this.picker = new AirDatepicker(this.$refs.visible, Object.assign(popover ? { position: dates.besidePanel(popover) } : {}, {
               locale: EN_LOCALE,
               container: popover || "",
               offset: 4,
@@ -199,7 +199,7 @@
               onSelect: function (opts) {
                 self.value = toIso(Array.isArray(opts.date) ? opts.date[0] : opts.date);
               },
-            });
+            }));
             this.$watch("value", function () {
               if (self.silent) { self.silent = false; return; }
               self.$nextTick(function () {
@@ -331,7 +331,27 @@
         if (kind === "datetime") s += "T" + pad(date.getHours()) + ":" + pad(date.getMinutes());
         return s;
       }
-      return { parseIso: parseIso, parseTyped: parseTyped, toIso: toIso };
+      // Inside a filter popover, open the calendar beside the panel so it hides no field.
+      function besidePanel(panel) {
+        return function (o) {
+          var box = panel.getBoundingClientRect();
+          var target = o.$target.getBoundingClientRect();
+          var width = o.$datepicker.offsetWidth;
+          var gap = 8;
+          var top = target.top - box.top - panel.clientTop;
+          var left;
+          if (box.right + gap + width <= window.innerWidth) left = box.width + gap - panel.clientLeft;
+          else if (box.left - gap - width >= 0) left = -width - gap - panel.clientLeft;
+          else {
+            left = Math.max(gap, Math.min(box.left, window.innerWidth - gap - width)) - box.left - panel.clientLeft;
+            top = box.height + gap - panel.clientTop;
+          }
+          o.$datepicker.style.left = left + "px";
+          o.$datepicker.style.top = top + "px";
+          o.$pointer.style.display = "none";
+        };
+      }
+      return { parseIso: parseIso, parseTyped: parseTyped, toIso: toIso, besidePanel: besidePanel };
     })();
     function hxadminClearInputs(matches) {
       var form = document.getElementById("list-filters");
