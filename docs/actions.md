@@ -26,7 +26,9 @@ class UserView(ModelView[User]):
         return ActionResult.message("Reset link sent", level="info")
 ```
 
-Row actions (the default) receive one object and appear on the detail page and in each list row. Bulk actions receive the checked rows, always loaded through `get_query`, and appear above the list once rows are selected. `confirm` opens the shared confirmation dialog.
+Row actions (the default) receive one object. They appear in each list row's `⋯` menu and on the detail page: as buttons when a view has at most two and none has `confirm`, otherwise in the detail `⋯` menu. Bulk actions receive the checked rows, always loaded through `get_query`, and appear in the floating bar at the bottom of the viewport once rows are selected (see [Bulk actions](lists.md#bulk-actions)). `confirm` opens the shared confirmation dialog.
+
+The result shows as a toast in the bottom-right corner with an icon per level. Toasts pause while hovered, and error toasts stay until dismissed.
 
 Return one of:
 
