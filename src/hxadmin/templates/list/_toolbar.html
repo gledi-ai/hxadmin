@@ -3,14 +3,14 @@
 <form id="list-filters" class="mb-4 flex flex-wrap items-start gap-2" role="search" method="get" action="{{ base_url }}"
       hx-get="{{ base_url }}" hx-target="next .hx-list" hx-push-url="true" hx-include="#list-state"
       hx-trigger="input changed delay:300ms from:#list-q, input delay:300ms target:.hx-filter-text, change target:.hx-filter-pick, submit">
-  <label class="relative block w-full sm:w-64">
+  <label class="relative block min-w-0 flex-1 sm:w-64 sm:flex-none">
     <span class="pointer-events-none absolute inset-y-0 left-2 flex items-center text-fg-muted">{{ m.icon('search', 'size-4') }}</span>
     <input type="search" id="list-q" name="q" value="{{ params.q }}" placeholder="Search {{ view.name_plural|lower }}"
            class="h-8 w-full rounded-md border border-input bg-surface pl-8 pr-2 text-sm"
            {% if not view.searchable %}disabled{% endif %}>
   </label>
   {% if filters %}
-  <div class="-mx-1 flex min-w-0 flex-1 items-center gap-2 overflow-x-auto px-1 [scrollbar-width:none] sm:mx-0 sm:flex-wrap sm:overflow-visible sm:px-0">
+  <div class="-mx-1 flex min-w-0 flex-1 items-center gap-2 overflow-x-auto max-sm:order-last max-sm:basis-full px-1 [scrollbar-width:none] sm:mx-0 sm:flex-wrap sm:overflow-visible sm:px-0">
     {% for filter in filters %}{{ m.filter_button(filter, params.filter_value(filter.name), filter_options.get(filter.name, [])) }}{% endfor %}
     {{ m.filter_reset(params.filters) }}
   </div>

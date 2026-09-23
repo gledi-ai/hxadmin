@@ -8,7 +8,7 @@
   {% if view.can_create %}{{ m.button('New ' ~ view.name|lower, 'primary', icon='plus', href=admin.url(request, '/' ~ view.identity ~ '/new')) }}{% endif %}
 </div>
 {% include "list/_toolbar.html" %}
-<div id="list" class="hx-list" x-data="bulk()">
+<div id="list" class="hx-list" x-data="bulk()" :class="count > 0 && 'pb-24'">
   {% include "list/_table.html" %}
 </div>
 {% endblock %}

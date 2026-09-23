@@ -225,3 +225,25 @@ def test_table_header_sticks_inside_its_scrolling_card(
     card = card[card.rindex("<div") :]
     assert "overflow-auto" in classes_of(card)
     assert any(c.startswith("max-h-") for c in classes_of(card))
+
+
+def test_mobile_list_has_select_all_and_room_for_the_bulk_bar(
+    factory: AppFactory, make_client: MakeClient
+) -> None:
+    with make_client(build(factory)) as client:
+        html = client.get("/admin/post/").text
+    assert 'data-select-all="mobile"' in html
+    assert "input[id^=pk-mobile-]:not(:disabled)" in html
+    assert ":class=\"count > 0 && 'pb-24'\"" in html.replace("&#39;", "'")
+
+
+def test_mobile_toolbar_puts_export_beside_search_and_filters_below(
+    factory: AppFactory, make_client: MakeClient
+) -> None:
+    with make_client(build(factory)) as client:
+        html = client.get("/admin/post/").text
+    start = html.index('id="list-filters"')
+    toolbar = html[start : html.index("</form>", start)]
+    pills = re.search(r'<div class="([^"]*overflow-x-auto[^"]*)"', toolbar)
+    assert pills is not None
+    assert {"max-sm:order-last", "max-sm:basis-full"} <= set(pills.group(1).split())
