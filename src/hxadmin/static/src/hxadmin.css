@@ -78,6 +78,28 @@
     color-scheme: light;
   }
 
+  :where(
+      a[href],
+      button,
+      summary,
+      select,
+      [role="button"],
+      [role="menuitem"],
+      [role="menuitemradio"],
+      [role="option"],
+      [role="tab"],
+      label:has(> input[type="checkbox"], > input[type="radio"]),
+      input[type="submit"],
+      input[type="button"]
+    ) {
+    cursor: pointer;
+  }
+
+  :where(button, select, input[type="submit"], input[type="button"]):disabled,
+  :where([role="button"], [role="menuitem"], [role="option"])[aria-disabled="true"] {
+    cursor: not-allowed;
+  }
+
   :focus-visible {
     outline: 2px solid var(--color-ring);
     outline-offset: 2px;
