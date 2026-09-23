@@ -383,14 +383,15 @@
           {% endcall %}
         </div>
         {% if user %}
-        {% set display_name = user.name if user.name is defined else user %}
-        {% set _name_parts = display_name.split() %}
-        {% set initials = ((_name_parts[0][0] if _name_parts else '') ~ (_name_parts[1][0] if _name_parts|length > 1 else ''))|upper %}
-        {% set _user_trigger %}<span class="flex size-7 shrink-0 items-center justify-center rounded-full bg-accent-soft text-xs font-semibold text-accent">{{ initials }}</span><span class="hidden max-w-32 truncate text-sm sm:inline">{{ display_name }}</span>{% endset %}
+        {% set display_name = hx_user_label(user) %}
+        {% set initials = hx_user_initials(display_name) %}
+        {% set _user_trigger %}<span data-avatar class="flex size-7 shrink-0 items-center justify-center rounded-full bg-accent-soft text-xs font-semibold text-accent">{% if initials %}{{ initials }}{% else %}{{ m.icon('user', 'size-4') }}{% endif %}</span>{% if display_name %}<span class="hidden max-w-32 truncate text-sm sm:inline">{{ display_name }}</span>{% endif %}{% endset %}
         <div x-data="theme()" x-init="apply()">
           {% call m.menu("user-menu", _user_trigger, label="Account menu", trigger_class=m.button_classes('ghost', 'md') ~ ' gap-2 px-2', placement="bottom-end") %}
+          {% if display_name %}
           {{ m.menu_label(display_name) }}
           {{ m.menu_separator() }}
+          {% endif %}
           {{ m.menu_label("Theme") }}
           {{ m.menu_item("Light", icon="sun", role="menuitemradio", attrs={"@click": "set('light')", ":aria-checked": "mode === 'light'"}) }}
           {{ m.menu_item("Dark", icon="moon", role="menuitemradio", attrs={"@click": "set('dark')", ":aria-checked": "mode === 'dark'"}) }}
