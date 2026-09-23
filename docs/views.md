@@ -30,7 +30,7 @@ class TaskView(ModelView[Task]):
 
 ## Badges
 
-Every enum column renders as a badge; `badges` declares which tone each value gets. Undeclared enum values fall back to a neutral badge. Bool columns render as plain text unless declared here.
+Every enum column renders as a badge, in lists, on the detail page and in the detail header; `badges` declares which tone each value gets. Undeclared enum values fall back to a neutral badge. Bool columns render as a check or cross icon unless declared here, in which case they become "Yes" / "No" badges.
 
 ```python
 class TaskView(ModelView[Task]):
@@ -42,6 +42,10 @@ class TaskView(ModelView[Task]):
 ```
 
 Keys are column names; inner keys are the enum's `.value` strings, or `"true"` / `"false"` for a bool column. Tones are `"neutral" | "accent" | "success" | "warning" | "danger"`. An unknown column name or an unknown tone raises `ValueError` at registration.
+
+## Detail page
+
+The detail page at `/{prefix}/{identity}/{pk}` shows a back link to the list, the row's `display` as the title with up to two enum badges, and the actions on the right: the row actions as buttons when there are at most two and none needs confirmation (otherwise they move into the `⋯` menu), Edit, and a `⋯` menu holding Delete. The body is a two-column description list in a card, using the same cell formatting as the list; relations link to the related row. When `detail_columns` is empty, foreign-key columns whose relation is also shown are hidden. To-many relations appear as tabs below, each loading its list when first shown.
 
 ## Hooks
 
