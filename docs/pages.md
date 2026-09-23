@@ -29,3 +29,5 @@ Handlers are ordinary `async` FastAPI endpoints (`Depends`, path and query param
 Templates also get `admin`, `request`, `user`, `nav` and `admin_page` (also as `page` unless your context sets its own).
 
 `admin.page` adds a sidebar entry under `category`; `admin.route` does not, and it may take path parameters. A page path may not start with a registered view identity or `static`.
+
+A page body is regular admin-shell content, so it can use the component macros — `stat`, `card`, `badge`, `button`, `empty_state` and the rest — the same way a built-in template does; see [Templates and theming](templates.md#components).

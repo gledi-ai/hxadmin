@@ -2,9 +2,8 @@
 {% import "_macros.html" as m with context %}
 {% block breadcrumb %}Error {{ status_code }}{% endblock %}
 {% block content %}
-{% call m.card(class='mx-auto max-w-lg') %}
-  <h1 class="text-xl font-semibold">{{ status_code }}</h1>
-  <p class="mt-2 text-fg-muted">{{ detail }}</p>
-  {{ m.button('Back to dashboard', href=admin.url(request, '/'), class='mt-4') }}
-{% endcall %}
+<div class="flex min-h-[50vh] items-center justify-center">
+  {{ m.empty_state('triangle-alert', status_code, detail,
+                   action=m.button('Back to dashboard', href=admin.url(request, '/'), variant='primary')) }}
+</div>
 {% endblock %}

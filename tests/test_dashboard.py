@@ -78,7 +78,7 @@ def test_dashboard_cards_show_row_counts(factory: AppFactory, make_client: MakeC
     assert card_count(main, "/admin/post/") == "1"
     assert card_count(main, "/admin/tag/") is None
     assert card_count(main, "/admin/group/") is None
-    assert 'tracking-wide text-fg-muted">Auth</h2>' in main
+    assert '<h2 class="mb-3 text-sm font-medium text-fg-muted">Auth</h2>' in main
 
 
 def test_empty_dashboard(factory: AppFactory, make_client: MakeClient) -> None:
