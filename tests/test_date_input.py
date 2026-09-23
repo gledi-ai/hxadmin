@@ -97,3 +97,11 @@ def test_clearing_the_date_submits_empty(factory: AppFactory, make_client: MakeC
             "/admin/reading/new", data={**CREATE_DATA, "day": ""}, follow_redirects=False
         )
     assert response.status_code == 422
+
+
+def test_theme_overrides_load_after_the_picker_stylesheet(
+    factory: AppFactory, make_client: MakeClient
+) -> None:
+    with make_client(build(factory)) as client:
+        html = client.get("/admin/reading/new").text
+    assert html.index("/static/vendor/air-datepicker.css") < html.index("/static/hxadmin.css")
