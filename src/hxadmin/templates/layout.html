@@ -10,6 +10,9 @@
       var mode = localStorage.getItem("hxadmin-theme") || "light";
       var dark = mode === "dark" || (mode === "system" && matchMedia("(prefers-color-scheme: dark)").matches);
       if (dark) document.documentElement.classList.add("dark");
+      if (/Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent)) {
+        document.documentElement.classList.add("hxadmin-mac");
+      }
       if (localStorage.getItem("hxadmin-sidebar") === "collapsed") {
         document.documentElement.classList.add("hxadmin-collapsed");
       }
@@ -379,7 +382,8 @@
           {% endif %}
           <span class="truncate text-sm font-semibold lg:collapsed:hidden">{{ admin.title }}</span>
         </a>
-        {% call m.tooltip("Toggle sidebar ⌘B", placement="right") %}
+        {% set _toggle_tip %}Toggle sidebar <span class="mac:hidden">Ctrl+B</span><span class="hidden mac:inline">⌘B</span>{% endset %}
+        {% call m.tooltip(_toggle_tip, placement="right") %}
         {{ m.icon_button('panel-left', 'Toggle sidebar', class='shrink-0 max-lg:hidden', attrs={'@click': 'toggle()'}) }}
         {% endcall %}
         {{ m.icon_button('x', 'Close navigation', class='shrink-0 lg:hidden', attrs={'@click': 'sidebarOpen = false'}) }}
@@ -423,7 +427,8 @@
                   class="hidden items-center gap-2 rounded-md border border-input bg-surface px-3 py-1.5 text-sm text-fg-muted shadow-sm hover:bg-surface-2 sm:flex sm:w-64">
             {{ m.icon('search', 'size-4 shrink-0') }}
             <span class="flex-1 truncate text-left">Search or jump to…</span>
-            {{ m.kbd('⌘K') }}
+            {% set _palette_key %}<span class="mac:hidden">Ctrl K</span><span class="hidden mac:inline">⌘K</span>{% endset %}
+            {{ m.kbd(_palette_key) }}
           </button>
           {% call m.dialog("palette", "Command palette", open="open", close="close()", size="lg", dismissible=False, title_class="sr-only", class="gap-0! sm:mt-[12vh] sm:self-start") %}
           <div class="flex items-center gap-2 border-b border-border pb-3">
@@ -467,7 +472,7 @@
   <div id="toasts" class="fixed bottom-4 right-4 z-50 flex w-80 flex-col gap-2" aria-live="polite"
        x-data="toasts({{ toasts|tojson|forceescape }})" @hxadmin-toast.window="push($event.detail)">
     <template x-for="toast in items" :key="toast.id">
-      <div role="status" class="flex items-start gap-2 rounded-lg border border-l-4 border-border bg-popover p-3 text-sm shadow-lg"
+      <div role="status" :role="toast.level === 'error' ? 'alert' : 'status'" class="flex items-start gap-2 rounded-lg border border-l-4 border-border bg-popover p-3 text-sm shadow-lg"
            :class="{ 'border-l-success': toast.level === 'success', 'border-l-accent': toast.level === 'info', 'border-l-warning': toast.level === 'warning', 'border-l-danger': toast.level === 'error' }"
            @mouseenter="pause(toast.id)" @mouseleave="resume(toast.id)">
         <span data-toast-icon="success" x-show="toast.level === 'success'" class="text-success">{{ m.icon('check-circle', 'size-4') }}</span>

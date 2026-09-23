@@ -3,6 +3,7 @@
 
 @custom-variant dark (&:where(.dark, .dark *));
 @custom-variant collapsed (&:where(.hxadmin-collapsed, .hxadmin-collapsed *));
+@custom-variant mac (&:where(.hxadmin-mac, .hxadmin-mac *));
 
 @theme static {
   --color-bg: oklch(98.5% 0.002 265);
