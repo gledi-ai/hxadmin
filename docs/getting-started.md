@@ -46,6 +46,18 @@ Run it with `uvicorn myapp:app` and open `/admin/`. The admin is mounted at `pre
 
 `session` and `auth` are ordinary FastAPI dependencies; see [Auth and sessions](auth.md).
 
+## Branding
+
+Pass `logo_url` for an image in the sidebar brand block:
+
+```python
+admin = HxAdmin(
+    app, session=get_session, auth=current_admin_user, title="My admin", logo_url="/static/logo.svg"
+)
+```
+
+Without it, the brand block shows the title's first letter in an accent tile.
+
 ## The demo
 
 The repository ships a small todo app that exercises every feature:
