@@ -225,3 +225,19 @@ def test_error_toasts_are_alerts(factory: AppFactory, make_client: MakeClient) -
     with make_client(app) as client:
         html = client.get("/admin/").text
     assert ":role=\"toast.level === 'error' ? 'alert' : 'status'\"" in html.replace("&#39;", "'")
+
+
+def test_rail_keeps_the_brand_row_at_the_top_bar_height(
+    factory: AppFactory, make_client: MakeClient
+) -> None:
+    app = factory.app()
+    HxAdmin(app, session=factory.get_session, auth=allow_all)
+    with make_client(app) as client:
+        html = client.get("/admin/").text
+    aside = html[html.index("<aside") :]
+    brand = aside[aside.index("<div") : aside.index(">", aside.index("<div"))]
+    assert "h-14" in brand
+    assert "lg:collapsed:h-auto" not in brand
+    assert "lg:collapsed:flex-col" not in brand
+    toggle = html[: html.index('aria-label="Toggle sidebar"')]
+    assert "lg:collapsed:absolute" in toggle[toggle.rindex("<button") :]
