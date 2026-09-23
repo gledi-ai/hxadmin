@@ -76,8 +76,24 @@
 {%- endmacro %}
 
 {% macro delete_button(view, obj, class="") -%}
+{%- set payload = {
+    "title": "Delete " ~ view.name|lower ~ "?",
+    "message": "Delete " ~ view.display(obj) ~ "? This cannot be undone.",
+    "danger": true,
+    "action": admin.url(request, '/' ~ view.identity ~ '/' ~ view.pk_of(obj) ~ '/delete'),
+} -%}
 <button type="button" class="{{ class }}" aria-label="Delete" title="Delete"
-        @click="$dispatch('confirm', {message: {{ ('Delete ' ~ view.display(obj) ~ '?')|tojson|forceescape }}, action: {{ admin.url(request, '/' ~ view.identity ~ '/' ~ view.pk_of(obj) ~ '/delete')|tojson|forceescape }}})">{{ icon('trash-2', 'size-4') }}</button>
+        @click="$dispatch('confirm', {{ payload|tojson|forceescape }})">{{ icon('trash-2', 'size-4') }}</button>
+{%- endmacro %}
+
+{% macro delete_menu_item(view, obj) -%}
+{%- set payload = {
+    "title": "Delete " ~ view.name|lower ~ "?",
+    "message": "Delete " ~ view.display(obj) ~ "? This cannot be undone.",
+    "danger": true,
+    "action": admin.url(request, '/' ~ view.identity ~ '/' ~ view.pk_of(obj) ~ '/delete'),
+} -%}
+{{ menu_item("Delete", icon="trash-2", tone="danger", attrs={"@click": "$dispatch('confirm', " ~ (payload|tojson|forceescape) ~ ")"}) }}
 {%- endmacro %}
 
 {% macro action_button(view, action, obj=none, origin="detail", class="") -%}
@@ -91,6 +107,30 @@
 {%- else -%}
 <a href="{{ url }}{{ '?_from=list' if origin == 'list' else '' }}" class="{{ class }}"{% if action.confirm %}
    @click="$event.preventDefault(); $dispatch('confirm', {message: {{ action.confirm|tojson|forceescape }}, submit: () => window.location.assign($el.href)})"{% endif %}>{{ action.label }}</a>
+{%- endif -%}
+{%- endmacro %}
+
+{% macro action_menu_item(view, action, obj, origin="detail") -%}
+{%- set url = admin.url(request, '/' ~ view.identity ~ ('/' ~ view.pk_of(obj) if obj is not none else '') ~ '/action/' ~ action.name) -%}
+{%- if action.method == "POST" -%}
+{{ menu_item(action.label, attrs={
+    "hx-post": url,
+    "hx-target": "#detail" if origin == "detail" else "#list",
+    "hx-vals": {"_from": origin}|tojson|forceescape,
+    "hx-confirm": action.confirm,
+    "form": "bulk" if obj is none else none,
+}) }}
+{%- elif obj is none -%}
+{{ menu_item(action.label, type="submit", attrs={
+    "form": "bulk",
+    "formmethod": "get",
+    "formaction": url,
+    "@click": "$event.preventDefault(); $dispatch('confirm', {message: " ~ (action.confirm|tojson|forceescape) ~ ", submit: () => $el.form.requestSubmit($el)})" if action.confirm else none,
+}) }}
+{%- else -%}
+{{ menu_item(action.label, href=url ~ ("?_from=list" if origin == "list" else ""), attrs={
+    "@click": "$event.preventDefault(); $dispatch('confirm', {message: " ~ (action.confirm|tojson|forceescape) ~ ", submit: () => window.location.assign($el.href)})" if action.confirm else none,
+}) }}
 {%- endif -%}
 {%- endmacro %}
 

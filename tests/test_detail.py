@@ -226,6 +226,48 @@ def test_related_403_when_parent_can_view_false(
         assert client.get("/admin/group/_related/1/users").status_code == 403
 
 
+def test_fk_column_hidden_by_default_when_relation_is_also_shown(
+    factory: AppFactory, make_client: Callable[[FastAPI], TestClient]
+) -> None:
+    with make_client(build(factory)) as client:
+        html = client.get("/admin/user/1").text
+    assert "Group id" not in html
+    assert 'href="/admin/group/1">' in html
+
+
+def test_explicit_detail_columns_still_show_the_fk_column(
+    factory: AppFactory, make_client: Callable[[FastAPI], TestClient]
+) -> None:
+    app = factory.app(seed=seed)
+    admin = HxAdmin(app, session=factory.get_session, auth=allow_all)
+
+    @admin.register
+    class GroupView(ModelView[Group]):
+        model = Group
+
+    @admin.register
+    class UserView(ModelView[User]):
+        model = User
+        detail_columns = ("email", "group_id", "group")
+
+    with make_client(app) as client:
+        html = client.get("/admin/user/1").text
+    assert "Group id" in html
+    assert 'href="/admin/group/1">' in html
+
+
+def test_detail_header_shows_a_badge_for_enum_fields(
+    factory: AppFactory, make_client: Callable[[FastAPI], TestClient]
+) -> None:
+    with make_client(build(factory)) as client:
+        html = client.get("/admin/post/1").text
+    assert (
+        '<span class="inline-flex w-fit shrink-0 items-center gap-1 whitespace-nowrap '
+        "rounded-md border px-1.5 py-0.5 text-xs font-medium border-border bg-surface-2 "
+        'text-fg">draft</span>' in html
+    )
+
+
 def test_related_404_when_relation_excluded_from_detail_columns(
     factory: AppFactory, make_client: Callable[[FastAPI], TestClient]
 ) -> None:
