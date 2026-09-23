@@ -506,3 +506,25 @@ def test_selects_share_the_combobox_chevron(
     select = html[html.index('<select name="status"') :]
     assert 'class="appearance-none pr-8 h-9 mt-1' in select[:200]
     assert '<path d="m6 9 6 6 6-6" />' in select[: select.index("</div>")]
+
+
+def test_short_fields_share_a_row_and_long_ones_take_the_full_width(
+    factory: AppFactory, make_client: Callable[[FastAPI], TestClient]
+) -> None:
+    with make_client(build(factory)) as client:
+        html = client.get("/admin/post/new").text
+    by_field = {
+        name: width
+        for width, name in re.findall(
+            r'data-field-width="(\w+)">\s*<div>\s*<label for="f-(\w+)"', html
+        )
+    }
+    assert by_field == {
+        "title": "full",
+        "body": "full",
+        "status": "half",
+        "score": "half",
+        "published_at": "half",
+        "author": "half",
+        "tags": "full",
+    }
