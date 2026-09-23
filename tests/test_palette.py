@@ -66,7 +66,7 @@ def test_empty_query_lists_nav(factory: AppFactory, make_client: MakeClient) -> 
     assert ">Posts<" in html
     assert ">Groups<" in html
     assert ">Tags<" not in html
-    assert ">Restricted<" in html
+    assert ">Restricted<" not in html
     assert 'role="option"' in html
     assert 'role="group" aria-label="Go to"' in html
 

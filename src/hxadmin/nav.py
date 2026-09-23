@@ -30,9 +30,10 @@ class NavGroup:
 
 
 def build_nav(admin: "HxAdmin", request: Request) -> list[NavGroup]:
+    """The sidebar (and palette "Go to") entries: visible, accessible views, then nav pages."""
     groups: dict[str | None, list[NavItem]] = {None: []}
     for view in admin.views.values():
-        if not view.is_visible(request):
+        if not (view.is_visible(request) and view.is_accessible(request)):
             continue
         url = admin.url(request, f"/{view.identity}/")
         item = NavItem(view.name_plural, url, view.icon, request.url.path.startswith(url))

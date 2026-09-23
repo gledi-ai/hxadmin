@@ -56,8 +56,8 @@ The detail page at `/{prefix}/{identity}/{pk}` shows a back link to the list, th
 | `display(obj)` | Label of a row (default: `str(obj)` if the model defines `__str__`) |
 | `on_save(request, session, obj, *, created)` | Runs before commit on create and edit |
 | `on_delete(request, session, obj)` | Runs before delete |
-| `is_visible(request)` | Show the view in the sidebar and dashboard |
-| `is_accessible(request)` | Allow access at all (403 otherwise) |
+| `is_visible(request)` | Show the view in the sidebar, dashboard and command palette |
+| `is_accessible(request)` | Allow access at all (403 otherwise); an inaccessible view is also left out of the sidebar, dashboard and palette |
 | `is_action_allowed(request, name)` | Allow one action; see [Actions](actions.md) |
 
 ```python
