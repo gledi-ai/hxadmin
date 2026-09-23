@@ -1,4 +1,6 @@
+import re
 from collections.abc import Callable
+from typing import ClassVar
 
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
@@ -256,16 +258,34 @@ def test_explicit_detail_columns_still_show_the_fk_column(
     assert 'href="/admin/group/1">' in html
 
 
-def test_detail_header_shows_a_badge_for_enum_fields(
+def header_badges(html: str) -> list[tuple[str, str]]:
+    start = html.index("<h1")
+    header = html[start : html.index("</div>", start)]
+    badges = re.findall(r'<span class="[^"]*" data-tone="(\w+)">([^<]*)</span>', header)
+    assert header.count("data-tone=") == len(badges)
+    return badges
+
+
+def test_detail_header_shows_one_badge_per_enum_field_with_its_tone(
     factory: AppFactory, make_client: Callable[[FastAPI], TestClient]
 ) -> None:
-    with make_client(build(factory)) as client:
+    app = factory.app(seed=seed)
+    admin = HxAdmin(app, session=factory.get_session, auth=allow_all)
+
+    @admin.register
+    class UserView(ModelView[User]):
+        model = User
+
+    @admin.register
+    class PostView(ModelView[Post]):
+        model = Post
+        badges: ClassVar = {"status": {"draft": "warning"}}
+
+    with make_client(app) as client:
         html = client.get("/admin/post/1").text
-    assert (
-        '<span class="inline-flex w-fit shrink-0 items-center gap-1 whitespace-nowrap '
-        "rounded-md border px-1.5 py-0.5 text-xs font-medium border-border bg-surface-2 "
-        'text-fg">draft</span>' in html
-    )
+        plain = client.get("/admin/user/1").text
+    assert header_badges(html) == [("warning", "draft")]
+    assert header_badges(plain) == []
 
 
 def test_related_404_when_relation_excluded_from_detail_columns(

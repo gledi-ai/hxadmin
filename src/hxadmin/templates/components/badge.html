@@ -5,7 +5,7 @@
     A small inline label. tone: neutral | accent | success | warning | danger (the
     BadgeTone values); tinted tones use the -soft background with the base colour as text.
     icon: a Lucide name shown before the text. Called with {% call %}, the block replaces
-    text as the content.
+    text as the content. The span carries data-tone="<tone>".
 
   Examples:
     {{ m.badge("draft") }}
@@ -21,7 +21,7 @@
 } %}
 
 {% macro badge(text, tone="neutral", icon=None, class="", attrs=None) -%}
-<span class="{{ ('inline-flex w-fit shrink-0 items-center gap-1 whitespace-nowrap rounded-md border px-1.5 py-0.5 text-xs font-medium ' ~ hx_pick(_tones, tone, 'badge tone') ~ ' ' ~ class)|trim }}"{{ hx_attrs(attrs, kwargs) }}>
+<span class="{{ ('inline-flex w-fit shrink-0 items-center gap-1 whitespace-nowrap rounded-md border px-1.5 py-0.5 text-xs font-medium ' ~ hx_pick(_tones, tone, 'badge tone') ~ ' ' ~ class)|trim }}" data-tone="{{ tone }}"{{ hx_attrs(attrs, kwargs) }}>
 {%- if icon %}{{ _icon(icon, "size-3 shrink-0") }}{% endif %}{{ caller() if caller else text -}}
 </span>
 {%- endmacro %}
