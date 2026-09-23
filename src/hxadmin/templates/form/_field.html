@@ -10,12 +10,15 @@
   {% elif widget in ('textarea', 'json') %}
   <textarea id="f-{{ field.name }}" name="{{ field.name }}" rows="{{ 6 if widget == 'json' else 4 }}" {% if error %}aria-invalid="true"{% endif %} {{ 'readonly' if field.readonly }} class="py-2 {{ control_base }}{{ ' font-mono' if widget == 'json' }}">{{ value|json_pretty if widget == 'json' and value is not none and value is not string else value if value is not none else '' }}</textarea>
   {% elif widget == 'select' %}
-  <select name="{{ field.name }}" id="f-{{ field.name }}" {% if error %}aria-invalid="true"{% endif %} {{ 'disabled' if field.readonly }} class="{{ control }}">
-    {% if not field.required %}<option value="">—</option>{% endif %}
-    {% for choice in field.choices %}
-    <option value="{{ choice[0] }}" {{ 'selected' if choice[0] == value }}>{{ choice[1] }}</option>
-    {% endfor %}
-  </select>
+  <div class="relative">
+    <select name="{{ field.name }}" id="f-{{ field.name }}" {% if error %}aria-invalid="true"{% endif %} {{ 'disabled' if field.readonly }} class="appearance-none pr-8 {{ control }}">
+      {% if not field.required %}<option value="">—</option>{% endif %}
+      {% for choice in field.choices %}
+      <option value="{{ choice[0] }}" {{ 'selected' if choice[0] == value }}>{{ choice[1] }}</option>
+      {% endfor %}
+    </select>
+    <span class="pointer-events-none absolute inset-y-0 right-2 mt-1 flex items-center text-fg-muted">{{ m.icon('chevron-down', 'size-3.5') }}</span>
+  </div>
   {% elif widget == 'relation' %}
   {% set chips = [] %}{% for pk, label in value or [] %}{% set _ = chips.append({"pk": pk, "label": label}) %}{% endfor %}
   {% set lookup_url = admin.url(request, '/' ~ view.identity ~ '/_lookup/' ~ field.name) %}

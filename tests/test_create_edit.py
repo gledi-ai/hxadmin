@@ -492,3 +492,13 @@ def test_inputs_are_36px_and_the_footer_aligns_with_the_form(
     assert footer.index('class="mx-auto flex max-w-[720px] items-center gap-2"') < footer.index(
         "Cancel"
     )
+
+
+def test_selects_share_the_combobox_chevron(
+    factory: AppFactory, make_client: Callable[[FastAPI], TestClient]
+) -> None:
+    with make_client(build(factory)) as client:
+        html = client.get("/admin/post/new").text
+    select = html[html.index('<select name="status"') :]
+    assert 'class="appearance-none pr-8 h-9 mt-1' in select[:200]
+    assert '<path d="m6 9 6 6 6-6" />' in select[: select.index("</div>")]
