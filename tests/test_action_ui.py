@@ -127,3 +127,15 @@ def test_icon_less_action_items_line_up_with_iconed_siblings(
     )
     assert item is not None
     assert " pl-8 " in item.group(0)
+
+
+def test_select_all_is_a_valid_alpine_expression_and_tracks_partial_selection(
+    factory: AppFactory, make_client: MakeClient
+) -> None:
+    with make_client(build(factory)) as client:
+        html = client.get("/admin/user/").text
+    start = html.index('aria-label="Select all"')
+    tag = html[start : html.index("</th>", start)]
+    assert '@change="var ' not in tag
+    assert ":indeterminate=" not in tag
+    assert 'x-effect="$el.indeterminate = count > 0 && count < total;' in tag
