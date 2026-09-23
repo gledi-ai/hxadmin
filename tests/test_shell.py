@@ -173,3 +173,34 @@ def test_theme_and_logout_render_without_a_user(
     assert html.count('role="menuitemradio"') == 3
     assert ">Log out<" in html
     assert "<span data-avatar" in html
+
+
+def test_rail_mode_shows_the_items_of_closed_groups(
+    factory: AppFactory, make_client: MakeClient
+) -> None:
+    app = factory.app()
+    admin = HxAdmin(app, session=factory.get_session, auth=allow_all)
+
+    @admin.register
+    class GroupView(ModelView[Group]):
+        model = Group
+        category = "Auth"
+
+    with make_client(app) as client:
+        html = client.get("/admin/").text
+    group = html[html.index('data-nav-group="Auth"') :]
+    ul = group[group.index("<ul") : group.index(">", group.index("<ul"))]
+    assert 'x-show="open"' in ul
+    assert "lg:collapsed:block!" in ul
+
+
+def test_closed_nav_groups_are_hidden_before_alpine_starts(
+    factory: AppFactory, make_client: MakeClient
+) -> None:
+    app = factory.app()
+    HxAdmin(app, session=factory.get_session, auth=allow_all)
+    with make_client(app) as client:
+        html = client.get("/admin/").text
+    head = html[: html.index("vendor/htmx.min.js")]
+    assert "[data-nav-group=\"' + CSS.escape(key.slice(14))" in head
+    assert 'addEventListener("alpine:initialized"' in head
