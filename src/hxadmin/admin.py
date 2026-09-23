@@ -28,6 +28,7 @@ from hxadmin.icons import check_icon, icon
 from hxadmin.nav import build_nav
 from hxadmin.pages import AdminPage, PageEndpoint, PageHandler
 from hxadmin.toasts import FLASH_COOKIE, Toast, encode_flash, hx_trigger, read_flash
+from hxadmin.users import user_initials, user_label
 from hxadmin.views import ModelView
 
 
@@ -110,6 +111,8 @@ class HxAdmin:
         env_globals["lucide_icon"] = icon
         env_globals["hx_attrs"] = html_attrs
         env_globals["hx_pick"] = pick
+        env_globals["hx_user_label"] = user_label
+        env_globals["hx_user_initials"] = user_initials
         return env
 
     def _build_dependencies(self) -> None:

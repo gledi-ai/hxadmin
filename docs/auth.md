@@ -17,7 +17,7 @@ admin = HxAdmin(
 
 ## Auth
 
-`auth` runs on every admin request. Its return value is available as `request.state.hxadmin_user` and as `user` in templates. The top bar shows `user.name` when it exists, otherwise `str(user)`.
+`auth` runs on every admin request. Its return value is available as `request.state.hxadmin_user` and as `user` in templates. The top bar's user menu shows `user.name` (an attribute or a mapping key) when it is set, otherwise `str(user)`, with initials derived from it. Any return value works: `None` or a bool (an `auth` that only answers "allowed") shows a generic avatar with no name.
 
 To deny access, raise `HTTPException(401)` or `HTTPException(403)`. With `login_url` set, these send the browser to the login page (303, or `HX-Redirect` for htmx requests). Without it, they render an error page.
 
