@@ -27,9 +27,10 @@
     closes the menu.
 
   menu_item(label, href=None, icon=None, tone="neutral", shortcut=None, type="button",
-            disabled=False, role="menuitem", class="", attrs=None, **kwargs)
+            disabled=False, role="menuitem", inset=False, class="", attrs=None, **kwargs)
     A menu entry: an <a> with href, else a <button>. tone: neutral | danger. shortcut is a
-    hint shown on the right. role may be menuitemradio or menuitemcheckbox (then bind
+    hint shown on the right. inset indents an item without an icon to line up with its
+    siblings that have one. role may be menuitemradio or menuitemcheckbox (then bind
     :aria-checked through attrs). Disabled items are skipped by the keyboard.
 
   menu_separator()
@@ -93,8 +94,8 @@
 {%- call _floating("menu", id, trigger, label, trigger_class, placement, "min-w-44 p-1 " ~ class, attrs, kwargs) %}{{ body }}{% endcall -%}
 {%- endmacro %}
 
-{% macro menu_item(label, href=None, icon=None, tone="neutral", shortcut=None, type="button", disabled=False, role="menuitem", class="", attrs=None) -%}
-{%- set classes = ("flex w-full select-none items-center gap-2 rounded-sm px-2 py-1.5 text-left text-sm outline-none focus-visible:outline-none aria-disabled:pointer-events-none aria-disabled:opacity-50 " ~ hx_pick(_item_tones, tone, "menu item tone") ~ " " ~ class)|trim -%}
+{% macro menu_item(label, href=None, icon=None, tone="neutral", shortcut=None, type="button", disabled=False, role="menuitem", inset=False, class="", attrs=None) -%}
+{%- set classes = ("flex w-full select-none items-center gap-2 rounded-sm py-1.5 pr-2 text-left text-sm outline-none focus-visible:outline-none aria-disabled:pointer-events-none aria-disabled:opacity-50 " ~ ("pl-8 " if inset and not icon else "pl-2 ") ~ hx_pick(_item_tones, tone, "menu item tone") ~ " " ~ class)|trim -%}
 {%- set icon_class = "size-4 shrink-0" ~ (" text-fg-muted" if tone == "neutral" else "") -%}
 {%- set extra = hx_attrs(attrs, kwargs) -%}
 {%- if href is not none and not disabled -%}

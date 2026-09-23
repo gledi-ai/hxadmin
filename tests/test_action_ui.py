@@ -1,3 +1,4 @@
+import re
 from collections.abc import Callable
 
 from fastapi import FastAPI
@@ -114,3 +115,15 @@ def test_row_controls_stay_visible_without_hover(
         listing = client.get("/admin/user/").text
     assert 'aria-label="Row actions"' in listing
     assert 'id="row-menu-1-trigger"' in listing
+
+
+def test_icon_less_action_items_line_up_with_iconed_siblings(
+    factory: AppFactory, make_client: MakeClient
+) -> None:
+    with make_client(build(factory)) as client:
+        html = client.get("/admin/user/").text
+    item = re.search(
+        r'<button type="button" role="menuitem"[^>]*hx-post="/admin/user/1/action/activate"', html
+    )
+    assert item is not None
+    assert " pl-8 " in item.group(0)
