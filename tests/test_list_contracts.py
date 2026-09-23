@@ -211,3 +211,17 @@ def test_each_selected_pk_has_exactly_one_enabled_checkbox(
         pairs.setdefault(pk, {})[where] = disabled.group(1)
     assert len(pairs) == 3
     assert all(p == {"mobile": "wide", "desktop": "!wide"} for p in pairs.values())
+
+
+def test_table_header_sticks_inside_its_scrolling_card(
+    factory: AppFactory, make_client: MakeClient
+) -> None:
+    with make_client(build(factory)) as client:
+        html = client.get("/admin/post/").text
+    thead = re.search(r"<thead\b[^>]*>", html)
+    assert thead is not None
+    assert {"sticky", "top-0"} <= classes_of(thead.group(0))
+    card = html[: html.index("<table")]
+    card = card[card.rindex("<div") :]
+    assert "overflow-auto" in classes_of(card)
+    assert any(c.startswith("max-h-") for c in classes_of(card))
