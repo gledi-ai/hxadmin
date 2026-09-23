@@ -23,6 +23,11 @@ def test_sidebar_rail_toggle_markup(factory: AppFactory, make_client: MakeClient
     assert "hxadmin-sidebar" in html
     assert "localStorage.getItem('hxadmin-sidebar')" in html
     assert "document.documentElement.classList.toggle('hxadmin-collapsed'" in html
+    assert 'aria-label="Toggle sidebar"' in html
+    assert "Toggle sidebar ⌘B" in html
+    assert ".key.toLowerCase() === 'b'" in html
+    assert "Collapse<" not in html
+    assert 'class="hidden shrink-0 border-t border-border p-2 lg:block"' not in html
 
 
 def test_nav_groups_have_aria_expanded(factory: AppFactory, make_client: MakeClient) -> None:

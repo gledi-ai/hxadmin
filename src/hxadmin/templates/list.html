@@ -1,7 +1,7 @@
 {% extends "layout.html" %}
 {% import "_macros.html" as m with context %}
 {% block title %}{{ view.name_plural }} · {{ admin.title }}{% endblock %}
-{% block breadcrumb %}<a href="{{ admin.url(request, '/') }}" class="hover:underline">Dashboard</a>{% endblock %}
+{% block breadcrumb %}<a href="{{ admin.url(request, '/') }}" class="hover:underline">Dashboard</a> / {{ view.name_plural }}{% endblock %}
 {% block content %}
 <div class="mb-4 flex items-center justify-between gap-4">
   <h1 class="text-2xl font-semibold">{{ view.name_plural }}</h1>
