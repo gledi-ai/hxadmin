@@ -244,3 +244,12 @@ def test_toolbar_controls_share_one_height(factory: AppFactory, make_client: Mak
         c for classes in (search.group(1), *pills) for c in classes.split() if c.startswith("h-")
     }
     assert heights == {"h-8"}
+
+
+def test_toolbar_requests_drop_empty_params(factory: AppFactory, make_client: MakeClient) -> None:
+    with make_client(build(factory)) as client:
+        html = client.get("/admin/post/").text
+    hook = html[html.index('addEventListener("htmx:config:request"') :]
+    hook = hook[: hook.index("});\n    });")]
+    assert 'ctx.sourceElement.id !== "list-filters"' in hook
+    assert "body.delete(key)" in hook
