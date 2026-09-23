@@ -1,4 +1,5 @@
 from collections.abc import Callable
+from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
@@ -40,3 +41,11 @@ def test_static_is_not_auth_guarded(
     HxAdmin(app, session=factory.get_session, auth=deny, login_url="/login")
     with make_client(app) as client:
         assert client.get("/admin/static/hxadmin.css").status_code == 200
+
+
+def test_checkboxes_are_drawn_with_theme_tokens() -> None:
+    css = (Path(__file__).parent.parent / "src/hxadmin/static/hxadmin.css").read_text()
+    assert "appearance:none" in css.replace(" ", "")
+    assert "var(--hx-check-mark)" in css
+    assert "var(--hx-dash-mark)" in css
+    assert ":indeterminate" in css
