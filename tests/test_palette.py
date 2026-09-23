@@ -162,3 +162,15 @@ def test_palette_requires_auth(factory: AppFactory, make_client: MakeClient) -> 
         response = client.get("/admin/_palette", follow_redirects=False)
     assert response.status_code == 303
     assert response.headers["location"] == "/login"
+
+
+def test_palette_loads_results_on_open_and_opens_near_the_top(
+    factory: AppFactory, make_client: MakeClient
+) -> None:
+    with make_client(build(factory)) as client:
+        html = client.get("/admin/").text
+    assert 'hx-trigger="input changed delay:150ms, palette-open"' in html
+    assert 'dispatchEvent(new CustomEvent("palette-open"))' in html
+    panel = html[html.index('id="palette" role="dialog"') :]
+    panel = panel[: panel.index(">")]
+    assert "sm:mt-[12vh] sm:self-start" in panel
