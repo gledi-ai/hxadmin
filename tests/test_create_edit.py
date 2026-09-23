@@ -202,7 +202,7 @@ def test_edit_form_prefills(factory: AppFactory, make_client: MakeClient) -> Non
     html = response.text
     assert response.status_code == 200
     assert 'value="Hello"' in html
-    assert "disabled" in html
+    assert "#1" in html
     assert '{"label": "ada@x.io", "pk": "1"}' in html
     assert '{"label": "news", "pk": "1"}' in html
     assert 'hx-post="/admin/post/1/edit"' in html
@@ -225,6 +225,12 @@ def test_edit_form_renders_combobox(factory: AppFactory, make_client: MakeClient
     assert 'hx-target="next .combobox-options"' in html
     assert '"label": "ada@x.io"' in html
     assert ':disabled="selected.length > 0"' in html
+    assert (
+        '<input type="hidden" :name="name" :value="selected.length ? selected[0].pk : \'\'">'
+        in html
+    )
+    assert 'x-text="selected[0] && selected[0].label"' in html
+    assert '@click="remove(selected[0].pk)"' in html
 
 
 def test_edit_success(factory: AppFactory, make_client: MakeClient) -> None:
@@ -354,8 +360,9 @@ def test_edit_composite_pk(factory: AppFactory, make_client: MakeClient) -> None
     with make_client(build(factory)) as client:
         form = client.get("/admin/vote/2;1/edit")
         assert form.status_code == 200
-        assert 'id="f-user_id" type="text" value="2" disabled' in form.text
-        assert 'id="f-post_id" type="text" value="1" disabled' in form.text
+        assert "#2;1" in form.text
+        assert 'id="f-user_id"' not in form.text
+        assert 'id="f-post_id"' not in form.text
         response = client.post(
             "/admin/vote/2;1/edit",
             data={"value": "9", "user": "2", "post": "1"},

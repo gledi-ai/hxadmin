@@ -16,7 +16,9 @@
     })();
   </script>
   <link rel="stylesheet" href="{{ admin.url(request, '/static/hxadmin.css') }}">
+  <link rel="stylesheet" href="{{ admin.url(request, '/static/vendor/air-datepicker.css') }}">
   <script src="{{ admin.url(request, '/static/vendor/htmx.min.js') }}"></script>
+  <script src="{{ admin.url(request, '/static/vendor/air-datepicker.min.js') }}"></script>
   <script defer src="{{ admin.url(request, '/static/vendor/alpine-anchor.min.js') }}"></script>
   <script defer src="{{ admin.url(request, '/static/vendor/alpine-focus.min.js') }}"></script>
   <script defer src="{{ admin.url(request, '/static/vendor/alpine.min.js') }}"></script>
@@ -141,6 +143,67 @@
           },
         };
       });
+      Alpine.data("dateInput", function (kind, initial) {
+        // The vendored library's built-in default locale is Russian; force English.
+        var EN_LOCALE = {
+          days: ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"],
+          daysShort: ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"],
+          daysMin: ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"],
+          months: ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"],
+          monthsShort: ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"],
+          today: "Today",
+          clear: "Clear",
+          dateFormat: "MM/dd/yyyy",
+          timeFormat: "HH:mm",
+          firstDay: 0,
+        };
+        function pad(n) { return String(n).padStart(2, "0"); }
+        function parse(iso) {
+          if (!iso) return null;
+          if (kind === "time") {
+            var parts = iso.split(":");
+            var t = new Date();
+            t.setHours(+parts[0] || 0, +parts[1] || 0, 0, 0);
+            return t;
+          }
+          var d = new Date(iso);
+          return isNaN(d.getTime()) ? null : d;
+        }
+        function toIso(date) {
+          if (!date) return "";
+          if (kind === "time") return pad(date.getHours()) + ":" + pad(date.getMinutes());
+          var s = date.getFullYear() + "-" + pad(date.getMonth() + 1) + "-" + pad(date.getDate());
+          if (kind === "datetime") s += "T" + pad(date.getHours()) + ":" + pad(date.getMinutes());
+          return s;
+        }
+        return {
+          picker: null,
+          value: initial || "",
+          init: function () {
+            var self = this;
+            var initialDate = parse(this.value);
+            this.picker = new AirDatepicker(this.$refs.visible, {
+              locale: EN_LOCALE,
+              selectedDates: initialDate ? [initialDate] : [],
+              timepicker: kind === "datetime",
+              onlyTimepicker: kind === "time",
+              dateFormat: kind === "time" ? "HH:mm" : "MM/dd/yyyy",
+              timeFormat: "HH:mm",
+              autoClose: kind !== "datetime",
+              onSelect: function (opts) {
+                self.value = toIso(Array.isArray(opts.date) ? opts.date[0] : opts.date);
+              },
+            });
+            this.$el.addEventListener("htmx:beforeCleanupElement", function () {
+              self.picker.destroy();
+            }, { once: true });
+          },
+          clear: function () {
+            this.value = "";
+            this.picker.clear();
+          },
+        };
+      });
       Alpine.data("toasts", function (initial) {
         return {
           items: [],
@@ -150,9 +213,23 @@
           },
           push: function (toast) {
             var id = ++this.next;
+            var entry = { id: id, message: toast.message, level: toast.level || "success", timer: null };
+            this.items.push(entry);
+            if (this.items.length > 3) this.items.splice(0, this.items.length - 3);
+            this.schedule(entry);
+          },
+          schedule: function (entry) {
+            if (entry.level === "error") return;
             var self = this;
-            this.items.push({ id: id, message: toast.message, level: toast.level || "success" });
-            setTimeout(function () { self.dismiss(id); }, toast.level === "error" ? 8000 : 4000);
+            entry.timer = setTimeout(function () { self.dismiss(entry.id); }, 5000);
+          },
+          pause: function (id) {
+            var entry = this.items.find(function (t) { return t.id === id; });
+            if (entry && entry.timer) { clearTimeout(entry.timer); entry.timer = null; }
+          },
+          resume: function (id) {
+            var entry = this.items.find(function (t) { return t.id === id; });
+            if (entry) this.schedule(entry);
           },
           dismiss: function (id) {
             this.items = this.items.filter(function (t) { return t.id !== id; });
@@ -321,21 +398,24 @@
        x-data="toasts({{ toasts|tojson|forceescape }})" @hxadmin-toast.window="push($event.detail)">
     <template x-for="toast in items" :key="toast.id">
       <div role="status" class="flex items-start gap-2 rounded-lg border border-l-4 border-border bg-popover p-3 text-sm shadow-lg"
-           :class="{ 'border-l-success': toast.level === 'success', 'border-l-accent': toast.level === 'info', 'border-l-warning': toast.level === 'warning', 'border-l-danger': toast.level === 'error' }">
-        <span class="flex-1" x-text="toast.message"></span>
+           :class="{ 'border-l-success': toast.level === 'success', 'border-l-accent': toast.level === 'info', 'border-l-warning': toast.level === 'warning', 'border-l-danger': toast.level === 'error' }"
+           @mouseenter="pause(toast.id)" @mouseleave="resume(toast.id)">
+        <span data-toast-icon="success" x-show="toast.level === 'success'" class="text-success">{{ m.icon('check-circle', 'size-4') }}</span>
+        <span data-toast-icon="info" x-show="toast.level === 'info'" class="text-accent">{{ m.icon('info', 'size-4') }}</span>
+        <span data-toast-icon="warning" x-show="toast.level === 'warning'" class="text-warning">{{ m.icon('triangle-alert', 'size-4') }}</span>
+        <span data-toast-icon="error" x-show="toast.level === 'error'" class="text-danger">{{ m.icon('circle-x', 'size-4') }}</span>
+        <span class="flex-1 pt-0.5" x-text="toast.message"></span>
         <button type="button" @click="dismiss(toast.id)" class="text-fg-muted hover:text-fg" aria-label="Dismiss">{{ m.icon('x', 'size-4') }}</button>
       </div>
     </template>
   </div>
-  <div x-show="confirm" x-cloak class="fixed inset-0 z-40 flex items-center justify-center bg-overlay" @click.self="dismiss()" @keydown.escape.window="dismiss()" role="dialog" aria-modal="true">
-    <div class="w-full max-w-sm rounded-lg border border-border bg-surface p-6 shadow-lg">
-      <p class="text-sm" x-text="confirm && confirm.message"></p>
-      <form method="post" :action="confirm && confirm.action" class="mt-4 flex justify-end gap-2"
-            @submit="if (confirm && confirm.submit) { $event.preventDefault(); var run = confirm.submit; confirm = null; run(); }">
-        {{ m.button('Cancel', attrs={'@click': 'dismiss()'}) }}
-        {{ m.button('Confirm', 'danger', type='submit') }}
-      </form>
-    </div>
-  </div>
+  {% call m.dialog("confirm-dialog", "Confirm", open="confirm", close="dismiss()", size="sm", dismissible=False, title_expr="(confirm && confirm.title) || 'Confirm'") %}
+  <p class="text-sm text-fg-muted" x-text="confirm && confirm.message"></p>
+  <form method="post" :action="confirm && confirm.action" class="mt-4 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end"
+        @submit="if (confirm && confirm.submit) { $event.preventDefault(); var run = confirm.submit; confirm = null; run(); }">
+    {{ m.button('Cancel', attrs={'@click': 'dismiss()'}) }}
+    <button type="submit" :class="(confirm && confirm.danger) ? {{ m.button_classes('danger')|tojson|forceescape }} : {{ m.button_classes('primary')|tojson|forceescape }}">Confirm</button>
+  </form>
+  {% endcall %}
 </body>
 </html>
