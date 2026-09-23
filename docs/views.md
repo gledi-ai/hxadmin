@@ -45,7 +45,7 @@ Keys are column names; inner keys are the enum's `.value` strings, or `"true"` /
 
 ## Detail page
 
-The detail page at `/{prefix}/{identity}/{pk}` shows a back link to the list, the row's `display` as the title with up to two enum badges, and the actions on the right: the row actions as buttons when there are at most two and none needs confirmation (otherwise they move into the `⋯` menu), Edit, and a `⋯` menu holding Delete. The body is a two-column description list in a card, using the same cell formatting as the list; relations link to the related row. When `detail_columns` is empty, foreign-key columns whose relation is also shown are hidden. To-many relations appear as tabs below, each loading its list when first shown.
+The detail page at `/{prefix}/{identity}/{pk}` shows a back link to the list, the row's `display` as the title with up to two enum badges, and the actions on the right: the row actions as buttons when there are at most two and none needs confirmation (otherwise they move into the `⋯` menu), Edit, and a `⋯` menu holding Delete. The body is a card holding a description list, two columns wide from the `md` breakpoint with each label above its value: the columns first, then the to-one relations in their own group. Long text and JSON span both columns. Values use the same cell formatting as the list; relations link to the related row. When `detail_columns` is empty, foreign-key columns whose relation is also shown are hidden. To-many relations appear as tabs below, each loading its list when first shown.
 
 ## Hooks
 
