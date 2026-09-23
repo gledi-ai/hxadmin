@@ -40,7 +40,7 @@
           {% else %}
           <span class="truncate font-medium">{{ m.cell(view, primary, view.cell(obj, primary.name), link=False) }}</span>
           {% endif %}
-          {% if actions %}{{ m.row_menu(view, obj, row_actions) }}{% endif %}
+          {% if actions %}{{ m.row_menu(view, obj, row_actions, id_prefix='card-') }}{% endif %}
         </div>
         {% if view.list_fields|length > 1 %}
         <dl class="mt-1.5 space-y-1 text-sm">

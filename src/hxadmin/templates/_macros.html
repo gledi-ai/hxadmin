@@ -255,10 +255,10 @@
 {%- endif -%}
 {%- endmacro %}
 
-{% macro row_menu(view, obj, row_actions) -%}
+{% macro row_menu(view, obj, row_actions, id_prefix="") -%}
 {%- set trigger -%}{{ icon('ellipsis', 'size-4') }}{%- endset -%}
 {%- set has_head = view.can_view or view.can_edit or row_actions -%}
-{%- call menu('row-menu-' ~ view.pk_of(obj), trigger, label='Row actions', trigger_class=button_classes('ghost', 'sm', square=True), placement='bottom-end') -%}
+{%- call menu(id_prefix ~ 'row-menu-' ~ view.pk_of(obj), trigger, label='Row actions', trigger_class=button_classes('ghost', 'sm', square=True), placement='bottom-end') -%}
   {%- if view.can_view %}{{ menu_item('View', href=admin.url(request, '/' ~ view.identity ~ '/' ~ view.pk_of(obj)), icon='eye') }}{% endif %}
   {%- if view.can_edit %}{{ menu_item('Edit', href=admin.url(request, '/' ~ view.identity ~ '/' ~ view.pk_of(obj) ~ '/edit'), icon='pencil') }}{% endif %}
   {%- for action in row_actions %}{{ action_menu_item(view, action, obj, 'list', inset=view.can_view or view.can_edit or view.can_delete) }}{% endfor %}
