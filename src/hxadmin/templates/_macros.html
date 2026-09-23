@@ -235,7 +235,7 @@
 {%- endmacro %}
 
 {% macro filter_reset(active, oob=False) -%}
-<span id="list-reset"{% if oob %} hx-swap-oob="true"{% endif %}>{% if active %}<button type="button" class="{{ button_classes('ghost', 'sm') }}" @click="hxadminClearFilter('f.')">Reset</button>{% endif %}</span>
+<span id="list-reset"{% if oob %} hx-swap-oob="true"{% endif %}>{% if active %}<button type="button" class="{{ button_classes('ghost', 'sm') }}" @click="hxadminResetFilters(false)">Reset</button>{% endif %}</span>
 {%- endmacro %}
 
 {% macro export_menu_items(view, base_url, params, oob=False) -%}
