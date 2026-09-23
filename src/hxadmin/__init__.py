@@ -5,11 +5,12 @@ from hxadmin.admin import HxAdmin
 from hxadmin.fields import Field, RelationField
 from hxadmin.forms import FormError
 from hxadmin.pages import Page
-from hxadmin.views import ModelView
+from hxadmin.views import BadgeTone, ModelView
 
 __version__ = version("hxadmin")
 __all__ = [
     "ActionResult",
+    "BadgeTone",
     "Field",
     "FormError",
     "HxAdmin",

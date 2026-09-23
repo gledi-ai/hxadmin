@@ -1,7 +1,7 @@
-from collections.abc import AsyncGenerator, AsyncIterator, Sequence
+from collections.abc import AsyncGenerator, AsyncIterator, Mapping, Sequence
 from contextlib import asynccontextmanager
 from pathlib import Path
-from typing import Annotated
+from typing import Annotated, ClassVar
 
 from fastapi import Depends, FastAPI
 from sqlalchemy import func, select
@@ -10,7 +10,7 @@ from starlette.requests import Request
 
 from demo.models import Base, Project, Task, TaskStatus, User
 from demo.seed import seed
-from hxadmin import ActionResult, Field, FormError, HxAdmin, ModelView, Page, action
+from hxadmin import ActionResult, BadgeTone, Field, FormError, HxAdmin, ModelView, Page, action
 
 DB_PATH = Path(__file__).parent / "demo.db"
 engine = create_async_engine(f"sqlite+aiosqlite:///{DB_PATH}")
@@ -83,9 +83,9 @@ class TaskView(ModelView[Task]):
     page_size_options = (5, 25, 100)
     list_filters = ("status", "priority", "due_date", "title", "project", "assignee")
     export_formats = ("csv", "xlsx")
-
-    def format_status(self, obj: Task) -> str:
-        return obj.status.value.upper()
+    badges: ClassVar[Mapping[str, Mapping[str, BadgeTone]]] = {
+        "status": {"todo": "neutral", "doing": "accent", "done": "success"}
+    }
 
     async def on_save(
         self, request: Request, session: AsyncSession, obj: Task, *, created: bool
