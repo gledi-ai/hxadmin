@@ -174,3 +174,14 @@ def test_palette_loads_results_on_open_and_opens_near_the_top(
     panel = html[html.index('id="palette" role="dialog"') :]
     panel = panel[: panel.index(">")]
     assert "sm:mt-[12vh] sm:self-start" in panel
+
+
+def test_palette_has_a_search_button_on_small_screens(
+    factory: AppFactory, make_client: MakeClient
+) -> None:
+    with make_client(build(factory)) as client:
+        html = client.get("/admin/").text
+    button = html[: html.index('aria-label="Search or jump to"')]
+    button = button[button.rindex("<") :]
+    assert "sm:hidden" in button
+    assert '@click="launch()"' in html[html.index('aria-label="Search or jump to"') :][:200]

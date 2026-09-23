@@ -360,6 +360,7 @@
         {{ m.icon_button('menu', 'Toggle navigation', class='lg:hidden', attrs={'@click': 'sidebarOpen = !sidebarOpen'}) }}
         <div class="min-w-0 flex-1 truncate text-sm text-fg-muted">{% block breadcrumb %}{% endblock %}</div>
         <div x-data="palette()" @keydown.window="if (($event.ctrlKey || $event.metaKey) && $event.key.toLowerCase() === 'k') { $event.preventDefault(); launch(); }">
+          {{ m.icon_button('search', 'Search or jump to', 'ghost', class='sm:hidden', attrs={'@click': 'launch()'}) }}
           <button type="button" @click="launch()"
                   class="hidden items-center gap-2 rounded-md border border-input bg-surface px-3 py-1.5 text-sm text-fg-muted shadow-sm hover:bg-surface-2 sm:flex sm:w-64">
             {{ m.icon('search', 'size-4 shrink-0') }}
