@@ -13,7 +13,7 @@ Invalid values fall back to the defaults. Requests with `HX-Request: true` get o
 
 ## Table
 
-The table sits in a bordered card. Columns size to their content; the primary column (the first of `list_columns`) takes the remaining width and is the only link, to the detail page. Relations render as plain muted text, enums and declared bools as badges (see [Badges](views.md#badges)), other bools as a check or cross icon, and missing values as `—`. Numbers are right-aligned with tabular figures.
+The header shows the plural name with the row count ("Tasks · 6", updated as you search and filter) and the New button. The table sits in a bordered card. Columns size to their content; the primary column (the first of `list_columns`) takes the remaining width and is the only link, to the detail page. Relations render as plain muted text, enums and declared bools as badges (see [Badges](views.md#badges)), other bools as a check or cross icon, and missing values as `—`. Numbers are right-aligned with tabular figures. Checked rows are highlighted.
 
 With no rows, the table is replaced by an empty state: "No tasks yet" with a "New task" button, or "No tasks match these filters" with a "Reset filters" button when a search or filter is active.
 
