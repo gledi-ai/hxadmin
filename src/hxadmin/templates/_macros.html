@@ -261,16 +261,16 @@
 {%- call menu('row-menu-' ~ view.pk_of(obj), trigger, label='Row actions', trigger_class=button_classes('ghost', 'sm', square=True), placement='bottom-end') -%}
   {%- if view.can_view %}{{ menu_item('View', href=admin.url(request, '/' ~ view.identity ~ '/' ~ view.pk_of(obj)), icon='eye') }}{% endif %}
   {%- if view.can_edit %}{{ menu_item('Edit', href=admin.url(request, '/' ~ view.identity ~ '/' ~ view.pk_of(obj) ~ '/edit'), icon='pencil') }}{% endif %}
-  {%- for action in row_actions %}{{ action_menu_item(view, action, obj, 'list') }}{% endfor %}
+  {%- for action in row_actions %}{{ action_menu_item(view, action, obj, 'list', inset=view.can_view or view.can_edit or view.can_delete) }}{% endfor %}
   {%- if view.can_delete and has_head %}{{ menu_separator() }}{% endif %}
   {%- if view.can_delete %}{{ delete_menu_item(view, obj) }}{% endif %}
 {%- endcall -%}
 {%- endmacro %}
 
-{% macro action_menu_item(view, action, obj=none, origin="detail") -%}
+{% macro action_menu_item(view, action, obj=none, origin="detail", inset=False) -%}
 {%- set url = admin.url(request, '/' ~ view.identity ~ ('/' ~ view.pk_of(obj) if obj is not none else '') ~ '/action/' ~ action.name) -%}
 {%- if action.method == "POST" -%}
-{{ menu_item(action.label, attrs={
+{{ menu_item(action.label, inset=inset, attrs={
     "hx-post": url,
     "hx-target": "#detail" if origin == "detail" else "#list",
     "hx-vals": {"_from": origin}|tojson|forceescape,
@@ -278,14 +278,14 @@
     "form": "bulk" if obj is none else none,
 }) }}
 {%- elif obj is none -%}
-{{ menu_item(action.label, type="submit", attrs={
+{{ menu_item(action.label, type="submit", inset=inset, attrs={
     "form": "bulk",
     "formmethod": "get",
     "formaction": url,
     "@click": "$event.preventDefault(); close(true); $dispatch('confirm', {message: " ~ (action.confirm|tojson|forceescape) ~ ", submit: () => $el.form.requestSubmit($el)})" if action.confirm else none,
 }) }}
 {%- else -%}
-{{ menu_item(action.label, href=url ~ ("?_from=list" if origin == "list" else ""), attrs={
+{{ menu_item(action.label, inset=inset, href=url ~ ("?_from=list" if origin == "list" else ""), attrs={
     "@click": "$event.preventDefault(); close(true); $dispatch('confirm', {message: " ~ (action.confirm|tojson|forceescape) ~ ", submit: () => window.location.assign($el.href)})" if action.confirm else none,
 }) }}
 {%- endif -%}

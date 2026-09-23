@@ -23,7 +23,7 @@
       {% if show_menu %}
       {% set _menu_trigger %}{{ m.icon('ellipsis', 'size-4') }}{% endset %}
       {% call m.menu(view.identity ~ '-detail-actions', _menu_trigger, label="More actions", trigger_class=m.button_classes('secondary', square=True), placement="bottom-end") %}
-      {% for action in menu_actions %}{{ m.action_menu_item(view, action, obj, 'detail') }}{% endfor %}
+      {% for action in menu_actions %}{{ m.action_menu_item(view, action, obj, 'detail', inset=view.can_delete) }}{% endfor %}
       {% if menu_actions and view.can_delete %}{{ m.menu_separator() }}{% endif %}
       {% if view.can_delete %}{{ m.delete_menu_item(view, obj) }}{% endif %}
       {% endcall %}
