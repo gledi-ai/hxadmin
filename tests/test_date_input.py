@@ -105,3 +105,14 @@ def test_theme_overrides_load_after_the_picker_stylesheet(
     with make_client(build(factory)) as client:
         html = client.get("/admin/reading/new").text
     assert html.index("/static/vendor/air-datepicker.css") < html.index("/static/hxadmin.css")
+
+
+def test_picker_hides_its_pointer_and_sits_4px_below_the_input() -> None:
+    from pathlib import Path
+
+    import hxadmin
+
+    root = Path(hxadmin.__file__).parent
+    css = (root / "static" / "src" / "hxadmin.css").read_text()
+    assert ".air-datepicker--pointer {\n  display: none;\n}" in css
+    assert "offset: 4," in (root / "templates" / "layout.html").read_text()
