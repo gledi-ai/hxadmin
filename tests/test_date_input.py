@@ -59,9 +59,9 @@ def test_new_form_renders_a_date_input_per_kind(
 ) -> None:
     with make_client(build(factory)) as client:
         html = client.get("/admin/reading/new").text
-    assert """x-data='dateInput("date", "")'""" in html
-    assert """x-data='dateInput("time", "")'""" in html
-    assert html.count("""x-data='dateInput("datetime", "")'""") == 2
+    assert 'x-data="dateInput(&#34;date&#34;, &#34;&#34;)"' in html
+    assert 'x-data="dateInput(&#34;time&#34;, &#34;&#34;)"' in html
+    assert html.count('x-data="dateInput(&#34;datetime&#34;, &#34;&#34;)"') == 2
     assert '<input type="hidden" name="day" value="" :value="value"' in html
     assert '<input type="hidden" name="at" value="" :value="value"' in html
     assert '<input type="hidden" name="taken_at" value="" :value="value"' in html
@@ -73,9 +73,9 @@ def test_edit_form_prefills_the_hidden_iso_value_per_kind(
 ) -> None:
     with make_client(build(factory)) as client:
         html = client.get("/admin/reading/1/edit").text
-    assert """x-data='dateInput("date", "2026-01-01")'""" in html
-    assert """x-data='dateInput("time", "09:00:00")'""" in html
-    assert """x-data='dateInput("datetime", "2026-01-01T09:00")'""" in html
+    assert 'x-data="dateInput(&#34;date&#34;, &#34;2026-01-01&#34;)"' in html
+    assert 'x-data="dateInput(&#34;time&#34;, &#34;09:00:00&#34;)"' in html
+    assert 'x-data="dateInput(&#34;datetime&#34;, &#34;2026-01-01T09:00&#34;)"' in html
 
 
 def test_form_pages_include_the_vendored_picker_assets(
