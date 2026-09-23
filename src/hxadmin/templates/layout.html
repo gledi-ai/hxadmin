@@ -160,25 +160,9 @@
           timeFormat: "HH:mm",
           firstDay: 0,
         };
-        function pad(n) { return String(n).padStart(2, "0"); }
-        function parse(iso) {
-          if (!iso) return null;
-          if (kind === "time") {
-            var parts = iso.split(":");
-            var t = new Date();
-            t.setHours(+parts[0] || 0, +parts[1] || 0, 0, 0);
-            return t;
-          }
-          var d = new Date(iso);
-          return isNaN(d.getTime()) ? null : d;
-        }
-        function toIso(date) {
-          if (!date) return "";
-          if (kind === "time") return pad(date.getHours()) + ":" + pad(date.getMinutes());
-          var s = date.getFullYear() + "-" + pad(date.getMonth() + 1) + "-" + pad(date.getDate());
-          if (kind === "datetime") s += "T" + pad(date.getHours()) + ":" + pad(date.getMinutes());
-          return s;
-        }
+        var dates = window.hxadminDates;
+        function parse(iso) { return dates.parseIso(kind, iso); }
+        function toIso(date) { return dates.toIso(kind, date); }
         return {
           picker: null,
           silent: false,
@@ -215,6 +199,14 @@
           clear: function () {
             this.value = "";
             this.picker.clear();
+          },
+          commit: function () {
+            var text = this.$refs.visible.value.trim();
+            if (!text) return this.clear();
+            var typed = dates.parseTyped(kind, text);
+            if (typed) return this.picker.selectDate(typed);
+            var current = parse(this.value);
+            this.$refs.visible.value = current ? this.picker.formatDate(current, kind === "time" ? "HH:mm" : kind === "datetime" ? "MM/dd/yyyy HH:mm" : "MM/dd/yyyy") : "";
           },
           reset: function () {
             if (!this.value) return;
@@ -287,6 +279,46 @@
         };
       });
     });
+    window.hxadminDates = (function () {
+      function pad(n) { return String(n).padStart(2, "0"); }
+      function build(y, mo, d, h, mi) {
+        var date = new Date(y, mo - 1, d, h, mi, 0, 0);
+        var ok = date.getFullYear() === y && date.getMonth() === mo - 1 && date.getDate() === d && date.getHours() === h && date.getMinutes() === mi;
+        return ok ? date : null;
+      }
+      function today(h, mi) {
+        var now = new Date();
+        return build(now.getFullYear(), now.getMonth() + 1, now.getDate(), h, mi);
+      }
+      function parseIso(kind, iso) {
+        if (!iso) return null;
+        var m;
+        if (kind === "time") {
+          m = /^(\d{1,2}):(\d{2})/.exec(iso);
+          return m ? today(+m[1], +m[2]) : null;
+        }
+        m = /^(\d{4})-(\d{2})-(\d{2})(?:[T ](\d{2}):(\d{2}))?/.exec(iso);
+        return m ? build(+m[1], +m[2], +m[3], +(m[4] || 0), +(m[5] || 0)) : null;
+      }
+      function parseTyped(kind, text) {
+        var m;
+        if (kind === "time") {
+          m = /^(\d{1,2}):(\d{2})$/.exec(text);
+          return m ? today(+m[1], +m[2]) : null;
+        }
+        m = /^(\d{1,2})\/(\d{1,2})\/(\d{4})(?:\s+(\d{1,2}):(\d{2}))?$/.exec(text);
+        if (!m || (kind === "date" && m[4] !== undefined)) return null;
+        return build(+m[3], +m[1], +m[2], +(m[4] || 0), +(m[5] || 0));
+      }
+      function toIso(kind, date) {
+        if (!date) return "";
+        if (kind === "time") return pad(date.getHours()) + ":" + pad(date.getMinutes());
+        var s = date.getFullYear() + "-" + pad(date.getMonth() + 1) + "-" + pad(date.getDate());
+        if (kind === "datetime") s += "T" + pad(date.getHours()) + ":" + pad(date.getMinutes());
+        return s;
+      }
+      return { parseIso: parseIso, parseTyped: parseTyped, toIso: toIso };
+    })();
     function hxadminClearInputs(matches) {
       var form = document.getElementById("list-filters");
       if (!form) return;
