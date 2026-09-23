@@ -63,7 +63,7 @@ def test_list_renders_selection_bulk_bar_and_row_actions(
     with make_client(build(factory)) as client:
         html = client.get("/admin/user/").text
         partial = client.get("/admin/user/", headers={"HX-Request": "true"}).text
-    assert '<div id="list" class="hx-list" x-data="bulk()">' in html
+    assert '<div id="list" class="hx-list" x-data="bulk()"' in html
     assert '<form id="bulk" x-show="count"' in html
     assert 'hx-post="/admin/user/action/deactivate"' in html
     assert 'hx-target="#list"' in html
@@ -134,7 +134,7 @@ def test_select_all_is_a_valid_alpine_expression_and_tracks_partial_selection(
 ) -> None:
     with make_client(build(factory)) as client:
         html = client.get("/admin/user/").text
-    start = html.index('aria-label="Select all"')
+    start = html.index('data-select-all="desktop"')
     tag = html[start : html.index("</th>", start)]
     assert '@change="var ' not in tag
     assert ":indeterminate=" not in tag
