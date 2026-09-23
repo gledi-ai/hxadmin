@@ -382,7 +382,6 @@
           <div id="palette-results" x-ref="results" role="listbox" aria-label="Results" class="-mx-2 mt-2 max-h-80 overflow-y-auto"></div>
           {% endcall %}
         </div>
-        {% if user %}
         {% set display_name = hx_user_label(user) %}
         {% set initials = hx_user_initials(display_name) %}
         {% set _user_trigger %}<span data-avatar class="flex size-7 shrink-0 items-center justify-center rounded-full bg-accent-soft text-xs font-semibold text-accent">{% if initials %}{{ initials }}{% else %}{{ m.icon('user', 'size-4') }}{% endif %}</span>{% if display_name %}<span class="hidden max-w-32 truncate text-sm sm:inline">{{ display_name }}</span>{% endif %}{% endset %}
@@ -402,7 +401,6 @@
           {% endif %}
           {% endcall %}
         </div>
-        {% endif %}
       </header>
       <main id="main" class="flex-1 overflow-y-auto p-6">
         {% block content %}{% endblock %}
