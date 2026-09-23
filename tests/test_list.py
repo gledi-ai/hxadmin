@@ -248,3 +248,14 @@ def test_selected_rows_are_highlighted(
         html = client.get("/admin/user/").text
     assert '<tr class="hover:bg-surface-2 has-checked:bg-accent-soft/40">' in html
     assert "has-checked:border-accent/50 has-checked:bg-accent-soft/40" in html
+
+
+def test_error_page_explains_the_status(
+    factory: AppFactory, make_client: Callable[[FastAPI], TestClient]
+) -> None:
+    with make_client(build(factory)) as client:
+        response = client.get("/admin/nope/")
+    assert response.status_code == 404
+    assert ">Error 404</p>" in response.text
+    assert '<h1 class="mt-1 text-2xl font-semibold">Not Found</h1>' in response.text
+    assert "doesn&#39;t exist or has been moved." in response.text
