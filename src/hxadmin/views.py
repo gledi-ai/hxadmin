@@ -108,7 +108,10 @@ class ModelView[T]:
             field = self.fields.get(name)
             if not isinstance(field, Field) or field.kind not in ("enum", "bool"):
                 raise ValueError(f"{owner}: cannot declare badges for {name!r}")
-            for tone in tones.values():
+            known = {"true", "false"} if field.kind == "bool" else {v for v, _ in field.choices}
+            for raw, tone in tones.items():
+                if raw not in known:
+                    raise ValueError(f"{owner}: {raw!r} is not a value of {name!r}")
                 if tone not in _BADGE_TONES:
                     raise ValueError(f"{owner}: unknown badge tone {tone!r} for {name!r}")
 
@@ -198,8 +201,8 @@ class ModelView[T]:
             return getattr(self, f"format_{name}")(obj)
         return getattr(obj, name)
 
-    def badge_tone(self, name: str, raw: str) -> BadgeTone:
-        return self.badges.get(name, {}).get(raw, "neutral")
+    def badge_tone(self, name: str, raw: object) -> BadgeTone:
+        return self.badges.get(name, {}).get(str(raw), "neutral")
 
     async def on_save(
         self, request: Request, session: AsyncSession, obj: T, *, created: bool
