@@ -7,6 +7,7 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 from hxadmin import HxAdmin, Page
+from hxadmin import filters as filter_module
 from hxadmin.components import html_attrs
 from tests.conftest import AppFactory, allow_all
 
@@ -356,3 +357,13 @@ def test_html_attrs_rules() -> None:
     )
     assert rendered == ' @click="a(&#34;x&#34;)" hidden hx-get="/q?a=1&amp;b=2" data-n="3"'
     assert str(html_attrs()) == ""
+
+
+def test_phase_5_leftovers_are_gone() -> None:
+    macros = (
+        Path(__file__).parent.parent / "src" / "hxadmin" / "templates" / "_macros.html"
+    ).read_text()
+    assert not hasattr(filter_module, "filter_chips")
+    assert "macro edit_link" not in macros
+    assert "macro delete_button" not in macros
+    assert 'form": "bulk"' not in macros[macros.index("macro action_menu_item") :]
