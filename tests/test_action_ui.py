@@ -139,3 +139,18 @@ def test_select_all_is_a_valid_alpine_expression_and_tracks_partial_selection(
     assert '@change="var ' not in tag
     assert ":indeterminate=" not in tag
     assert 'x-effect="$el.indeterminate = count > 0 && count < total;' in tag
+
+
+def duplicate_ids(html: str) -> list[str]:
+    ids = re.findall(r'\sid="([^"]+)"', html)
+    return sorted({i for i in ids if ids.count(i) > 1})
+
+
+def test_pages_have_no_duplicate_ids(factory: AppFactory, make_client: MakeClient) -> None:
+    with make_client(build(factory)) as client:
+        pages = {
+            url: client.get(url).text
+            for url in ("/admin/", "/admin/user/", "/admin/user/2", "/admin/user/2/edit")
+        }
+    assert {url: duplicate_ids(html) for url, html in pages.items() if duplicate_ids(html)} == {}
+    assert 'id="card-row-menu-1-trigger"' in pages["/admin/user/"]
