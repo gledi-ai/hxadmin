@@ -24,7 +24,10 @@ def test_sidebar_rail_toggle_markup(factory: AppFactory, make_client: MakeClient
     assert "localStorage.getItem('hxadmin-sidebar')" in html
     assert "document.documentElement.classList.toggle('hxadmin-collapsed'" in html
     assert 'aria-label="Toggle sidebar"' in html
-    assert "Toggle sidebar ⌘B" in html
+    assert (
+        'Toggle sidebar <span class="mac:hidden">Ctrl+B</span>'
+        '<span class="hidden mac:inline">⌘B</span>' in html
+    )
     assert ".key.toLowerCase() === 'b'" in html
     assert "Collapse<" not in html
     assert 'class="hidden shrink-0 border-t border-border p-2 lg:block"' not in html
@@ -204,3 +207,21 @@ def test_closed_nav_groups_are_hidden_before_alpine_starts(
     head = html[: html.index("vendor/htmx.min.js")]
     assert "[data-nav-group=\"' + CSS.escape(key.slice(14))" in head
     assert 'addEventListener("alpine:initialized"' in head
+
+
+def test_shortcut_hints_follow_the_platform(factory: AppFactory, make_client: MakeClient) -> None:
+    app = factory.app()
+    HxAdmin(app, session=factory.get_session, auth=allow_all)
+    with make_client(app) as client:
+        html = client.get("/admin/").text
+    head = html[: html.index("vendor/htmx.min.js")]
+    assert 'classList.add("hxadmin-mac")' in head
+    assert '<span class="mac:hidden">Ctrl K</span><span class="hidden mac:inline">⌘K</span>' in html
+
+
+def test_error_toasts_are_alerts(factory: AppFactory, make_client: MakeClient) -> None:
+    app = factory.app()
+    HxAdmin(app, session=factory.get_session, auth=allow_all)
+    with make_client(app) as client:
+        html = client.get("/admin/").text
+    assert ":role=\"toast.level === 'error' ? 'alert' : 'status'\"" in html.replace("&#39;", "'")

@@ -317,3 +317,16 @@ def test_header_stacks_and_fields_group_on_small_screens(
         in html
     )
     assert '<div class="space-y-0.5 sm:contents">' in html
+
+
+def test_related_tabs_are_linked_to_their_panels(
+    factory: AppFactory, make_client: Callable[[FastAPI], TestClient]
+) -> None:
+    with make_client(build(factory)) as client:
+        html = client.get("/admin/post/1").text
+    tab = re.search(r'<button type="button" role="tab"[^>]*>', html, re.DOTALL)
+    assert tab is not None
+    assert 'id="related-tab-tags"' in tab.group(0)
+    assert 'aria-controls="related-panel-tags"' in tab.group(0)
+    assert 'aria-selected="true"' in tab.group(0)
+    assert 'id="related-panel-tags" aria-labelledby="related-tab-tags"' in html
