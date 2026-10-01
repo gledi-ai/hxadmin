@@ -331,3 +331,14 @@ def test_related_tabs_are_linked_to_their_panels(
     assert 'aria-controls="related-panel-tags"' in tab.group(0)
     assert 'aria-selected="true"' in tab.group(0)
     assert 'id="related-panel-tags" aria-labelledby="related-tab-tags"' in html
+
+
+def test_text_and_json_detail_values_span_both_columns(
+    factory: AppFactory, make_client: Callable[[FastAPI], TestClient]
+) -> None:
+    with make_client(build(factory)) as client:
+        html = client.get("/admin/post/1").text
+    widths = dict(re.findall(r'data-field="(\w+)" data-field-width="(\w+)"', html))
+    assert widths["body"] == "full"
+    assert widths["status"] == "half"
+    assert widths["title"] == "half"
