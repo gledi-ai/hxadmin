@@ -216,7 +216,10 @@ def test_shortcut_hints_follow_the_platform(factory: AppFactory, make_client: Ma
         html = client.get("/admin/").text
     head = html[: html.index("vendor/htmx.min.js")]
     assert 'classList.add("hxadmin-mac")' in head
-    assert '<span class="mac:hidden">Ctrl K</span><span class="hidden mac:inline">⌘K</span>' in html
+    trigger = html[html.index("Search or jump to…</span>") :]
+    hint = visible_text(trigger[: trigger.index("</button>")])
+    assert "Ctrl+K" in hint
+    assert "⌘K" in hint
 
 
 def test_error_toasts_are_alerts(factory: AppFactory, make_client: MakeClient) -> None:
