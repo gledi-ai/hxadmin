@@ -336,7 +336,14 @@ def test_related_tabs_are_linked_to_their_panels(
 def test_text_and_json_detail_values_span_both_columns(
     factory: AppFactory, make_client: Callable[[FastAPI], TestClient]
 ) -> None:
-    with make_client(build(factory)) as client:
+    app = factory.app(seed=seed)
+    admin = HxAdmin(app, session=factory.get_session, auth=allow_all)
+
+    @admin.register
+    class PostView(ModelView[Post]):
+        model = Post
+
+    with make_client(app) as client:
         html = client.get("/admin/post/1").text
     widths = dict(re.findall(r'data-field="(\w+)" data-field-width="(\w+)"', html))
     assert widths["body"] == "full"
