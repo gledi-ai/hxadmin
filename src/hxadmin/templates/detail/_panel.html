@@ -36,7 +36,8 @@
 {% for fields in _groups %}
 <dl class="grid grid-cols-1 gap-x-8 gap-y-4 md:grid-cols-2{{ ' mt-4 border-t border-border pt-4' if not loop.first else '' }}" data-detail-group="{{ 'relations' if fields[0].kind == 'relation' else 'columns' }}">
   {% for field in fields %}
-  <div class="min-w-0 space-y-1{{ ' md:col-span-2' if field.kind in ('text', 'json') else '' }}">
+  {% set _full = field.kind in ('text', 'json') %}
+  <div class="min-w-0 space-y-1{{ ' md:col-span-2' if _full }}" data-field="{{ field.name }}" data-field-width="{{ 'full' if _full else 'half' }}">
     <dt class="text-xs font-medium text-fg-muted">{{ field.label }}</dt>
     <dd class="text-sm break-words">{{ m.cell(view, field, view.cell(obj, field.name)) }}</dd>
   </div>
