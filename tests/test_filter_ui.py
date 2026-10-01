@@ -220,7 +220,10 @@ def test_date_range_filters_use_the_date_picker(
     with make_client(build(factory)) as client:
         html = client.get("/admin/post/?f.published_at.min=2026-01-01T09:00").text
     assert 'type="datetime-local"' not in html
-    assert 'x-data="dateInput(&#34;datetime&#34;, &#34;2026-01-01T09:00&#34;)"' in html
+    assert (
+        'x-data="dateInput(&#34;datetime&#34;, &#34;2026-01-01T09:00&#34;, '
+        '&#34;MM/dd/yyyy HH:mm&#34;)"' in html
+    )
     assert (
         'name="f.published_at.min" value="2026-01-01T09:00" :value="value" x-ref="hidden"'
         ' class="hx-filter-pick"'

@@ -60,3 +60,15 @@ def pick(options: Mapping[str, str], key: str, what: str) -> str:
     except KeyError:
         allowed = ", ".join(options)
         raise ValueError(f"Unknown {what} {key!r}: use one of {allowed}") from None
+
+
+DATE_FORMATS: Mapping[str, str] = {
+    "date": "MM/dd/yyyy",
+    "datetime": "MM/dd/yyyy HH:mm",
+    "time": "HH:mm",
+}
+
+
+def date_format(kind: str) -> str:
+    """Air Datepicker format for a date input of `kind`; lower-cased, its placeholder."""
+    return pick(DATE_FORMATS, kind, "date kind")

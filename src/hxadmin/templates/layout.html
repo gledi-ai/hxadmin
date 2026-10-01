@@ -160,7 +160,7 @@
           },
         };
       });
-      Alpine.data("dateInput", function (kind, initial) {
+      Alpine.data("dateInput", function (kind, initial, format) {
         // The vendored library's built-in default locale is Russian; force English.
         var EN_LOCALE = {
           days: ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"],
@@ -193,7 +193,7 @@
               selectedDates: initialDate ? [initialDate] : [],
               timepicker: kind === "datetime",
               onlyTimepicker: kind === "time",
-              dateFormat: kind === "time" ? "HH:mm" : "MM/dd/yyyy",
+              dateFormat: kind === "time" ? format : format.split(" ")[0],
               timeFormat: "HH:mm",
               autoClose: kind !== "datetime",
               onSelect: function (opts) {
@@ -220,7 +220,7 @@
             var typed = dates.parseTyped(kind, text);
             if (typed) return this.picker.selectDate(typed);
             var current = parse(this.value);
-            this.$refs.visible.value = current ? this.picker.formatDate(current, kind === "time" ? "HH:mm" : kind === "datetime" ? "MM/dd/yyyy HH:mm" : "MM/dd/yyyy") : "";
+            this.$refs.visible.value = current ? this.picker.formatDate(current, format) : "";
           },
           reset: function () {
             if (!this.value) return;

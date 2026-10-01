@@ -59,9 +59,12 @@ def test_new_form_renders_a_date_input_per_kind(
 ) -> None:
     with make_client(build(factory)) as client:
         html = client.get("/admin/reading/new").text
-    assert 'x-data="dateInput(&#34;date&#34;, &#34;&#34;)"' in html
-    assert 'x-data="dateInput(&#34;time&#34;, &#34;&#34;)"' in html
-    assert html.count('x-data="dateInput(&#34;datetime&#34;, &#34;&#34;)"') == 2
+    assert 'x-data="dateInput(&#34;date&#34;, &#34;&#34;, &#34;MM/dd/yyyy&#34;)"' in html
+    assert 'x-data="dateInput(&#34;time&#34;, &#34;&#34;, &#34;HH:mm&#34;)"' in html
+    assert (
+        html.count('x-data="dateInput(&#34;datetime&#34;, &#34;&#34;, &#34;MM/dd/yyyy HH:mm&#34;)"')
+        == 2
+    )
     assert '<input type="hidden" name="day" value="" :value="value"' in html
     assert '<input type="hidden" name="at" value="" :value="value"' in html
     assert '<input type="hidden" name="taken_at" value="" :value="value"' in html
@@ -73,9 +76,12 @@ def test_edit_form_prefills_the_hidden_iso_value_per_kind(
 ) -> None:
     with make_client(build(factory)) as client:
         html = client.get("/admin/reading/1/edit").text
-    assert 'x-data="dateInput(&#34;date&#34;, &#34;2026-01-01&#34;)"' in html
-    assert 'x-data="dateInput(&#34;time&#34;, &#34;09:00:00&#34;)"' in html
-    assert 'x-data="dateInput(&#34;datetime&#34;, &#34;2026-01-01T09:00&#34;)"' in html
+    assert 'x-data="dateInput(&#34;date&#34;, &#34;2026-01-01&#34;, &#34;MM/dd/yyyy&#34;)"' in html
+    assert 'x-data="dateInput(&#34;time&#34;, &#34;09:00:00&#34;, &#34;HH:mm&#34;)"' in html
+    assert (
+        'x-data="dateInput(&#34;datetime&#34;, &#34;2026-01-01T09:00&#34;, '
+        '&#34;MM/dd/yyyy HH:mm&#34;)"' in html
+    )
 
 
 def test_form_pages_include_the_vendored_picker_assets(
@@ -189,3 +195,14 @@ def test_typed_dates_are_committed_on_change(factory: AppFactory, make_client: M
     assert '@change="commit()"' in html
     assert "dates.parseTyped(kind, text)" in html
     assert "new Date(iso)" not in html
+
+
+def test_date_inputs_take_their_format_from_one_map(
+    factory: AppFactory, make_client: MakeClient
+) -> None:
+    with make_client(build(factory)) as client:
+        html = client.get("/admin/reading/new").text
+    assert 'placeholder="mm/dd/yyyy"' in html
+    assert 'placeholder="mm/dd/yyyy hh:mm"' in html
+    assert "&#34;MM/dd/yyyy HH:mm&#34;" in html
+    assert '"MM/dd/yyyy HH:mm" : "MM/dd/yyyy"' not in html
