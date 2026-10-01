@@ -23,7 +23,7 @@
 {% if result.total == 0 %}
 {% set filtered = params.q or params.filters %}
 {% if filtered %}
-{{ m.empty_state('inbox', 'No ' ~ view.name_plural|lower ~ ' match these filters', action=m.button('Reset filters', 'secondary', href=base_url, attrs={'@click': '$event.preventDefault(); hxadminResetFilters(true)'}) if push_url else none, class='bg-surface') }}
+{{ m.empty_state('inbox', 'No ' ~ view.name_plural|lower ~ ' match these filters', action=m.button('Reset filters', 'secondary', href=base_url, attrs={'@click': '$event.preventDefault(); hxadminResetList()'}) if push_url else none, class='bg-surface') }}
 {% else %}
 {{ m.empty_state('inbox', 'No ' ~ view.name_plural|lower ~ ' yet', action=m.button('New ' ~ view.name|lower, 'primary', icon='plus', href=admin.url(request, '/' ~ view.identity ~ '/new')) if push_url and view.can_create else none, class='bg-surface') }}
 {% endif %}

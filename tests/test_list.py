@@ -138,7 +138,7 @@ def test_empty_state_reset_clears_the_toolbar_form(
     button = html[: html.index(">Reset filters<")]
     button = button[button.rindex("<a ") :]
     assert 'href="/admin/user/"' in button
-    assert "hxadminResetFilters(true)" in button
+    assert "hxadminResetList()" in button
     assert "hx-get" not in button
     assert 'name === "q"' in html
 

@@ -119,7 +119,7 @@ def test_reset_button_clears_every_active_filter(
 ) -> None:
     with make_client(build(factory)) as client:
         html = client.get("/admin/post/?f.status=published&f.author=2").text
-    assert '@click="hxadminResetFilters(false)"' in html
+    assert '@click="hxadminResetFilters()"' in html
     assert '@click="hxadminClearFilter(&#34;f.status&#34;)"' in html
     assert '@click="hxadminClearFilter(&#34;f.author&#34;)"' in html
 
