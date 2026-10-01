@@ -167,3 +167,21 @@ def test_single_model_categories_join_the_unheaded_grid(
     assert re.findall(r"<h2[^>]*>([^<]+)</h2>", main) == ["Content"]
     assert re.findall(r"data-card-category>([^<]+)<", main) == ["People"]
     assert main.index("/admin/user/") < main.index("<h2")
+
+
+def test_fold_single_categories() -> None:
+    from hxadmin.nav import DashboardCard, DashboardGroup, fold_single_categories
+
+    def card(label: str) -> DashboardCard:
+        return DashboardCard(label, f"/{label}", None, 1)
+
+    groups = fold_single_categories(
+        {None: [card("Posts")], "People": [card("Groups"), card("Users")], "Work": [card("Tags")]}
+    )
+    assert groups == [
+        DashboardGroup(None, (card("Posts"), DashboardCard("Tags", "/Tags", None, 1, "Work"))),
+        DashboardGroup("People", (card("Groups"), card("Users"))),
+    ]
+    assert fold_single_categories({None: [], "Work": [card("Tags"), card("Posts")]}) == [
+        DashboardGroup("Work", (card("Tags"), card("Posts"))),
+    ]
