@@ -1,3 +1,4 @@
+import dataclasses
 import logging
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
@@ -53,6 +54,7 @@ class DashboardCard:
     url: str
     icon: str | None
     count: int | None
+    category: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -65,6 +67,8 @@ async def build_dashboard(
     admin: "HxAdmin", request: Request, session: AsyncSession
 ) -> list[DashboardGroup]:
     """One card per visible, accessible view, counted through its `get_query` in one query.
+
+    One-model categories join the unheaded group (see `fold_single_categories`).
 
     A view whose query cannot be built, or a count query that fails, shows no count
     (the error goes to the `hxadmin` logger) instead of breaking the dashboard.
@@ -88,4 +92,18 @@ async def build_dashboard(
         groups.setdefault(view.category, []).append(
             DashboardCard(view.name_plural, url, view.icon, counts.get(view.identity))
         )
-    return [DashboardGroup(label, tuple(cards)) for label, cards in groups.items() if cards]
+    return fold_single_categories(groups)
+
+
+def fold_single_categories(groups: dict[str | None, list[DashboardCard]]) -> list[DashboardGroup]:
+    """Uncategorised cards plus every one-model category's card (labelled) first, then the rest."""
+    loose = list(groups.get(None, []))
+    headed: list[DashboardGroup] = []
+    for label, cards in groups.items():
+        if label is None:
+            continue
+        if len(cards) == 1:
+            loose.append(dataclasses.replace(cards[0], category=label))
+        else:
+            headed.append(DashboardGroup(label, tuple(cards)))
+    return ([DashboardGroup(None, tuple(loose))] if loose else []) + headed
