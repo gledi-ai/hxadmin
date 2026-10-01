@@ -367,8 +367,11 @@
     window.hxadminClearFilter = function (key) {
       hxadminClearInputs(function (name) { return name === key || name.indexOf(key + ".") === 0; });
     };
-    window.hxadminResetFilters = function (withSearch) {
-      hxadminClearInputs(function (name) { return name.indexOf("f.") === 0 || (withSearch && name === "q"); });
+    window.hxadminResetFilters = function () {
+      hxadminClearInputs(function (name) { return name.indexOf("f.") === 0; });
+    };
+    window.hxadminResetList = function () {
+      hxadminClearInputs(function (name) { return name.indexOf("f.") === 0 || name === "q"; });
     };
     document.addEventListener("htmx:config:request", function (evt) {
       var ctx = evt.detail.ctx;
