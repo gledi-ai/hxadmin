@@ -77,6 +77,21 @@ clean: ## Remove build artifacts and caches
 	find . -path ./.venv -prune -o -type d -name __pycache__ -print -exec rm -rf {} +
 
 
+##@ Frontend
+
+.PHONY: vendor vendor/outdated vendor/update
+
+vendor: ## Show the vendored frontend library versions (vendor.json)
+	$(NOX) -s vendor
+
+vendor/outdated: ## Check npm for newer frontend library versions
+	$(NOX) -s vendor_outdated
+
+vendor/update: ## Update vendored libraries (make vendor/update htmx.org alpinejs@3.18.0)
+	$(if $(ARGS),,$(error usage: make vendor/update <package>[@version] ...))
+	$(NOX) -s vendor_update -- $(ARGS)
+
+
 ##@ Run
 
 .PHONY: demo

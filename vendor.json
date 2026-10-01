@@ -1,0 +1,55 @@
+{
+  "htmx.org": {
+    "version": "4.0.0",
+    "files": {
+      "dist/htmx.min.js": "htmx.min.js"
+    }
+  },
+  "alpinejs": {
+    "version": "3.17.4",
+    "files": {
+      "dist/cdn.min.js": "alpine.min.js"
+    }
+  },
+  "@alpinejs/anchor": {
+    "version": "3.17.4",
+    "files": {
+      "dist/cdn.min.js": "alpine-anchor.min.js"
+    },
+    "notice": [
+      "alpine-plugins.LICENSE",
+      "@alpinejs/anchor {version}"
+    ]
+  },
+  "@alpinejs/focus": {
+    "version": "3.17.4",
+    "files": {
+      "dist/cdn.min.js": "alpine-focus.min.js"
+    },
+    "notice": [
+      "alpine-plugins.LICENSE",
+      "@alpinejs/focus {version}"
+    ]
+  },
+  "air-datepicker": {
+    "version": "3.6.0",
+    "files": {
+      "air-datepicker.js": "air-datepicker.min.js",
+      "air-datepicker.css": "air-datepicker.css"
+    },
+    "notice": [
+      "air-datepicker.LICENSE",
+      "Air Datepicker {version}"
+    ]
+  },
+  "lucide-static": {
+    "version": "1.46.0",
+    "files": {
+      "icons/*.svg": "lucide/",
+      "LICENSE": "lucide/LICENSE"
+    }
+  },
+  "tailwindcss": {
+    "version": "4.3.3"
+  }
+}
