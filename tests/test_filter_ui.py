@@ -9,6 +9,7 @@ from starlette.requests import Request
 
 from hxadmin import ActionResult, HxAdmin, ModelView, action
 from tests.conftest import AppFactory, Post, Tag, User, allow_all
+from tests.js import needs_node, run_layout_js
 from tests.test_filters import seed
 
 type MakeClient = Callable[[FastAPI], TestClient]
@@ -124,15 +125,66 @@ def test_reset_button_clears_every_active_filter(
     assert '@click="hxadminClearFilter(&#34;f.author&#34;)"' in html
 
 
+FORM = """
+const submitted = [];
+function input(name, value, type) {
+  return { name, value, type: type || "text", checked: type === "checkbox", dispatchEvent() {} };
+}
+const els = [
+  input("q", "zz"), input("sort", "title"), input("f.due", "x"),
+  input("f.due_date.min", "2026-01-01"), input("f.status", "todo", "checkbox"),
+];
+document.elements["list-filters"] = { elements: els, requestSubmit() { submitted.push(true); } };
+const value = (e) => (e.type === "checkbox" ? e.checked : e.value);
+const state = () => Object.fromEntries(els.map((e) => [e.name, value(e)]));
+"""
+
+
+@needs_node
 def test_clearing_one_filter_leaves_filters_sharing_its_prefix(
     factory: AppFactory, make_client: MakeClient
 ) -> None:
     with make_client(build(factory)) as client:
         html = client.get("/admin/post/").text
-    assert 'return name === key || name.indexOf(key + ".") === 0;' in html
     assert "[name^=" not in html
-    assert "filters-cleared" not in html
     assert '@hxadmin-clear="reset()"' in html
+    probe = (
+        FORM
+        + 'window.hxadminClearFilter("f.due");'
+        + "console.log(JSON.stringify([state(), submitted.length]));"
+    )
+    assert run_layout_js(html, probe) == [
+        {"q": "zz", "sort": "title", "f.due": "", "f.due_date.min": "2026-01-01", "f.status": True},
+        1,
+    ]
+
+
+@needs_node
+def test_reset_filters_keeps_search_and_reset_list_clears_it(
+    factory: AppFactory, make_client: MakeClient
+) -> None:
+    with make_client(build(factory)) as client:
+        html = client.get("/admin/post/").text
+    filters = run_layout_js(
+        html, FORM + "window.hxadminResetFilters(); console.log(JSON.stringify(state()));"
+    )
+    assert filters == {
+        "q": "zz",
+        "sort": "title",
+        "f.due": "",
+        "f.due_date.min": "",
+        "f.status": False,
+    }
+    everything = run_layout_js(
+        html, FORM + "window.hxadminResetList(); console.log(JSON.stringify(state()));"
+    )
+    assert everything == {
+        "q": "",
+        "sort": "title",
+        "f.due": "",
+        "f.due_date.min": "",
+        "f.status": False,
+    }
 
 
 def test_partial_swaps_filter_summaries_out_of_band(
@@ -249,19 +301,56 @@ def test_toolbar_controls_share_one_height(factory: AppFactory, make_client: Mak
     assert heights == {"h-8"}
 
 
+@needs_node
 def test_toolbar_requests_drop_empty_params(factory: AppFactory, make_client: MakeClient) -> None:
     with make_client(build(factory)) as client:
         html = client.get("/admin/post/").text
-    hook = html[html.index('addEventListener("htmx:config:request"') :]
-    hook = hook[: hook.index("});\n    });")]
-    assert 'ctx.sourceElement.id !== "list-filters"' in hook
-    assert "body.delete(key)" in hook
+    probe = """
+    function run(id, method) {
+      const body = new FormData();
+      body.append("q", ""); body.append("f.status", ""); body.append("f.status", "todo");
+      body.append("f.due.min", ""); body.append("size", "25");
+      const ctx = { sourceElement: { id }, request: { method, body } };
+      fire("htmx:config:request", { detail: { ctx } });
+      return Array.from(new Set(body.keys()));
+    }
+    const runs = [run("list-filters", "GET"), run("list-filters", "POST"), run("other", "GET")];
+    console.log(JSON.stringify(runs));
+    """
+    assert run_layout_js(html, probe) == [
+        ["f.status", "size"],
+        ["q", "f.status", "f.due.min", "size"],
+        ["q", "f.status", "f.due.min", "size"],
+    ]
 
 
+@needs_node
 def test_filter_calendars_open_beside_their_panel(
     factory: AppFactory, make_client: MakeClient
 ) -> None:
     with make_client(build(factory)) as client:
         html = client.get("/admin/post/").text
     assert "popover ? { position: dates.besidePanel(popover) } : {}" in html
-    assert "function besidePanel(panel)" in html
+    probe = """
+    function place(innerWidth, box) {
+      window.innerWidth = innerWidth;
+      const panel = { clientTop: 0, clientLeft: 0, getBoundingClientRect: () => box };
+      const o = {
+        $target: { getBoundingClientRect: () => ({ top: box.top + 40 }) },
+        $datepicker: { offsetWidth: 250, style: {} },
+        $pointer: { style: {} },
+      };
+      window.hxadminDates.besidePanel(panel)(o);
+      return [o.$datepicker.style.left, o.$datepicker.style.top, o.$pointer.style.display];
+    }
+    console.log(JSON.stringify([
+      place(1440, { left: 100, right: 400, width: 300, top: 50, height: 200 }),
+      place(1440, { left: 1100, right: 1400, width: 300, top: 50, height: 200 }),
+      place(390, { left: 2, right: 388, width: 386, top: 50, height: 200 }),
+    ]));
+    """
+    assert run_layout_js(html, probe) == [
+        ["308px", "40px", "none"],
+        ["-258px", "40px", "none"],
+        ["6px", "208px", "none"],
+    ]

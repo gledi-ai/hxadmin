@@ -1,20 +1,15 @@
 import datetime
 import decimal
-import json
-import os
-import re
-import shutil
-import subprocess
 import uuid
 from collections.abc import Callable
 
-import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from hxadmin import HxAdmin, ModelView
 from tests.conftest import AppFactory, Reading, allow_all
+from tests.js import needs_node, run_layout_js
 
 type MakeClient = Callable[[FastAPI], TestClient]
 
@@ -130,8 +125,6 @@ def test_picker_hides_its_pointer_and_sits_4px_below_the_input() -> None:
     assert "offset: 4," in (root / "templates" / "layout.html").read_text()
 
 
-DATES_JS = re.compile(r"window\.hxadminDates = \(function \(\) \{.*?\n    \}\)\(\);", re.DOTALL)
-
 DATES_PROBE = """
 const d = window.hxadminDates;
 const show = (date) => (date ? d.toIso("datetime", date) : null);
@@ -153,26 +146,13 @@ console.log(JSON.stringify({
 """
 
 
-NODE = shutil.which("node")
-
-
-@pytest.mark.skipif(NODE is None, reason="needs node")
+@needs_node
 def test_date_helpers_parse_local_dates_and_typed_input(
     factory: AppFactory, make_client: MakeClient
 ) -> None:
     with make_client(build(factory)) as client:
         html = client.get("/admin/reading/new").text
-    match = DATES_JS.search(html)
-    assert match is not None
-    script = "var window = {};\n" + match.group(0) + DATES_PROBE
-    out = subprocess.run(
-        [str(NODE), "-e", script],
-        capture_output=True,
-        text=True,
-        check=True,
-        env={**os.environ, "TZ": "America/New_York"},
-    ).stdout
-    assert json.loads(out) == {
+    assert run_layout_js(html, DATES_PROBE, tz="America/New_York") == {
         "isoDate": "2026-09-23T00:00",
         "isoDatetime": "2026-09-23T14:30",
         "isoTime": "09:05",
@@ -189,12 +169,37 @@ def test_date_helpers_parse_local_dates_and_typed_input(
     }
 
 
+@needs_node
 def test_typed_dates_are_committed_on_change(factory: AppFactory, make_client: MakeClient) -> None:
     with make_client(build(factory)) as client:
         html = client.get("/admin/reading/new").text
     assert '@change="commit()"' in html
-    assert "dates.parseTyped(kind, text)" in html
-    assert "new Date(iso)" not in html
+    probe = """
+    globalThis.AirDatepicker = class {
+      selectDate(d) { this.selected = d; }
+      clear() { this.cleared = true; }
+      formatDate() { return "kept"; }
+    };
+    function make(value, typed) {
+      const c = factories.dateInput("date", value, "MM/dd/yyyy");
+      c.$refs = { visible: { value: typed }, hidden: {} };
+      c.$el = { closest: () => null };
+      c.$watch = () => {};
+      c.$nextTick = (f) => f();
+      c.init();
+      c.commit();
+      const d = c.picker.selected;
+      const picked = d ? window.hxadminDates.toIso("date", d) : null;
+      return [picked, !!c.picker.cleared, c.$refs.visible.value];
+    }
+    const runs = [make("", "12/25/2026"), make("2026-01-02", ""), make("2026-01-02", "junk")];
+    console.log(JSON.stringify(runs));
+    """
+    assert run_layout_js(html, probe) == [
+        ["2026-12-25", False, "12/25/2026"],
+        [None, True, ""],
+        [None, False, "kept"],
+    ]
 
 
 def test_date_inputs_take_their_format_from_one_map(

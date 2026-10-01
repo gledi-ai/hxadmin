@@ -9,6 +9,7 @@ from starlette.requests import Request
 
 from hxadmin import HxAdmin, ModelView
 from tests.conftest import AppFactory, Group, Post, Tag, User, allow_all
+from tests.js import needs_node, run_layout_js
 from tests.test_detail import seed
 
 type MakeClient = Callable[[FastAPI], TestClient]
@@ -187,12 +188,27 @@ def test_palette_has_a_search_button_on_small_screens(
     assert '@click="launch()"' in html[html.index('aria-label="Search or jump to"') :][:200]
 
 
+@needs_node
 def test_palette_sets_aria_activedescendant_when_highlighting(
     factory: AppFactory, make_client: MakeClient
 ) -> None:
     with make_client(build(factory)) as client:
         html = client.get("/admin/").text
     assert ':aria-activedescendant="' not in html
-    highlight = html[html.index("highlight: function () {") :]
-    highlight = highlight[: highlight.index("move: function")]
-    assert 'this.$refs.input.setAttribute("aria-activedescendant"' in highlight
+    probe = """
+    const attrs = {};
+    const opts = ["a", "b", "c"].map((id) => ({
+      id, attrs: {}, setAttribute(k, v) { this.attrs[k] = v; }, scrollIntoView() {},
+    }));
+    const p = factories.palette();
+    p.$refs = {
+      input: { setAttribute(k, v) { attrs[k] = v; } },
+      results: { querySelectorAll: () => opts },
+    };
+    p.reset();
+    const first = attrs["aria-activedescendant"];
+    p.move(-1);
+    const wrapped = attrs["aria-activedescendant"];
+    console.log(JSON.stringify([first, wrapped, opts.map((o) => o.attrs["aria-selected"])]));
+    """
+    assert run_layout_js(html, probe) == ["a", "c", ["false", "false", "true"]]
