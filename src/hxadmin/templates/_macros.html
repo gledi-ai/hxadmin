@@ -203,7 +203,7 @@
 {% macro filter_summary_span(filter, value, options, oob=False) -%}
 {%- set active = value.values or value.min or value.max or value.empty -%}
 {%- set pill = "inline-flex h-8 items-center gap-1.5 whitespace-nowrap rounded-full border px-3 text-sm font-medium " ~ ("border-input bg-surface text-fg" if active else "border-dashed border-border text-fg-muted hover:border-fg-subtle hover:text-fg") -%}
-<span id="filter-{{ filter.name }}-summary"{% if oob %} hx-swap-oob="true"{% endif %} class="{{ pill }}">{% if active %}{{ filter.label }}<span class="mx-0.5 h-3 w-px bg-border" aria-hidden="true"></span><span class="text-fg-muted">{{ filter_summary(filter, value, options) }}</span>{% else %}{{ icon('plus', 'size-3.5') }}{{ filter.label }}{% endif %}</span>
+<span id="filter-{{ filter.name }}-summary"{% if oob %} hx-swap-oob="true"{% endif %} class="{{ pill }}">{% if active %}{{ filter.label }}<span class="mx-0.5 h-3 w-px bg-border" aria-hidden="true"></span><span class="text-fg-muted" data-filter-summary-value>{{ filter_summary(filter, value, options) }}</span>{% else %}{{ icon('plus', 'size-3.5') }}{{ filter.label }}{% endif %}</span>
 {%- endmacro %}
 
 {% macro filter_button(filter, value, options) -%}

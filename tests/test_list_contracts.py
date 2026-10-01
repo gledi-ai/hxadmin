@@ -13,6 +13,7 @@ from starlette.requests import Request
 from hxadmin import ActionResult, HxAdmin, ModelView, action
 from hxadmin.export import ExportFormat
 from tests.conftest import AppFactory, Post, User, allow_all
+from tests.html import tag, visible_text
 from tests.test_filters import seed
 
 type MakeClient = Callable[[FastAPI], TestClient]
@@ -60,12 +61,9 @@ def summary(html: str, name: str) -> str:
     """The visible text of a filter button's summary, badges flattened to their text."""
     start = html.index(f'id="filter-{name}-summary"')
     span = html[start : html.index("</button>", start)]
-    parts = span.split('<span class="mx-0.5', 1)
-    if len(parts) == 1:
+    if "data-filter-summary-value" not in span:
         return ""
-    text = re.sub(r"<svg.*?</svg>", "", parts[1], flags=re.DOTALL)
-    text = re.sub(r"<[^>]+>", " ", text[text.index(">") + 1 :])
-    return " ".join(text.split())
+    return visible_text(span[span.index("data-filter-summary-value") :].split(">", 1)[1])
 
 
 @pytest.mark.parametrize(
@@ -234,7 +232,8 @@ def test_mobile_list_has_select_all_and_room_for_the_bulk_bar(
         html = client.get("/admin/post/").text
     assert 'data-select-all="mobile"' in html
     assert "input[id^=pk-mobile-]:not(:disabled)" in html
-    assert ":class=\"count > 0 && 'pb-24'\"" in html.replace("&#39;", "'")
+    bound = tag(html, 'id="list"').replace("&#39;", "'")
+    assert re.search(r":class=\"count > 0 && 'pb-\d+'\"", bound)
 
 
 def test_mobile_toolbar_puts_export_beside_search_and_filters_below(

@@ -10,6 +10,7 @@ from starlette.requests import Request
 
 from hxadmin import HxAdmin, ModelView
 from tests.conftest import AppFactory, Group, Post, Tag, User, Vote, allow_all
+from tests.html import classes, tag
 
 
 async def seed(session: AsyncSession) -> None:
@@ -312,14 +313,11 @@ def test_header_stacks_and_fields_group_on_small_screens(
 ) -> None:
     with make_client(build(factory)) as client:
         html = client.get("/admin/user/1").text
-    assert (
-        'class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4"'
-        in html
-    )
+    assert {"flex-col", "sm:flex-row"} <= classes(tag(html, "data-detail-header"))
     groups = re.findall(r'<dl class="([^"]*)" data-detail-group="(\w+)"', html)
     assert [name for _, name in groups] == ["columns", "relations"]
-    for classes, _ in groups:
-        assert {"grid-cols-1", "md:grid-cols-2"} <= set(classes.split())
+    for dl_class, _ in groups:
+        assert {"grid-cols-1", "md:grid-cols-2"} <= set(dl_class.split())
 
 
 def test_related_tabs_are_linked_to_their_panels(

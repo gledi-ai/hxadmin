@@ -14,6 +14,7 @@ import hxadmin
 from hxadmin import HxAdmin, ModelView, Page
 from hxadmin.nav import NavGroup, NavItem, build_nav
 from tests.conftest import AppFactory, User, allow_all
+from tests.html import h1_texts
 from tests.test_detail import seed
 from tests.test_nav import _request
 
@@ -72,7 +73,7 @@ def test_page_renders_in_admin_shell(
     html = response.text
     assert response.status_code == 200
     assert "<title>Sync management · HxAdmin</title>" in html
-    assert '<h1 class="mb-6 text-xl font-semibold">Sync management</h1>' in html
+    assert h1_texts(html) == ["Sync management"]
     assert "users: 2 path: /admin/sync who: admin@example.com" in html
     assert 'href="/admin/sync"' in html
     assert 'href="/admin/user/"' in html
@@ -128,7 +129,7 @@ def test_page_beats_model_routes(
     with make_client(app) as client:
         response = client.get("/admin/reports/monthly")
     assert response.status_code == 200
-    assert '<h1 class="mb-6 text-xl font-semibold">Monthly</h1>' in response.text
+    assert h1_texts(response.text) == ["Monthly"]
 
 
 def test_pages_require_auth(factory: AppFactory, make_client: MakeClient) -> None:
