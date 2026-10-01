@@ -1,0 +1,14 @@
+{% extends "layout.html" %}
+{% import "_macros.html" as m with context %}
+{% block title %}{{ view.name_plural }} · {{ admin.title }}{% endblock %}
+{% block breadcrumb %}<a href="{{ admin.url(request, '/') }}" class="hover:underline">Dashboard</a>{% endblock %}
+{% block content %}
+<div class="mb-4 flex items-center justify-between gap-4">
+  <h1 class="text-xl font-semibold">{{ view.name_plural }} <span class="font-normal text-fg-subtle">·</span> {{ m.list_count(result.total) }}</h1>
+  {% if view.can_create %}{{ m.button('New ' ~ view.name|lower, 'primary', icon='plus', href=admin.url(request, '/' ~ view.identity ~ '/new')) }}{% endif %}
+</div>
+{% include "list/_toolbar.html" %}
+<div id="list" class="hx-list" x-data="bulk()" :class="count > 0 && 'pb-24'">
+  {% include "list/_table.html" %}
+</div>
+{% endblock %}

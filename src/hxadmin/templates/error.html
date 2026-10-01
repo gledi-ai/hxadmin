@@ -1,0 +1,17 @@
+{% extends "layout.html" %}
+{% import "_macros.html" as m with context %}
+{% block breadcrumb %}<a href="{{ admin.url(request, '/') }}" class="hover:underline">Dashboard</a>{% endblock %}
+{% set hints = {
+  403: "You don't have permission to view this page.",
+  404: "The page you're looking for doesn't exist or has been moved.",
+  409: "This change conflicts with other data.",
+} %}
+{% block content %}
+<div class="flex min-h-[60vh] flex-col items-center justify-center px-6 text-center">
+  <div class="mb-5 flex size-12 items-center justify-center rounded-lg border border-border bg-surface text-fg-muted shadow-sm">{{ m.icon('triangle-alert', 'size-5') }}</div>
+  <p class="text-sm font-medium tabular-nums text-accent">Error {{ status_code }}</p>
+  <h1 class="mt-1 text-2xl font-semibold">{{ detail }}</h1>
+  <p class="mt-2 max-w-sm text-sm text-fg-muted">{{ hints.get(status_code, "Something went wrong while loading this page.") }}</p>
+  <div class="mt-6">{{ m.button('Back to dashboard', 'primary', icon='arrow-left', href=admin.url(request, '/')) }}</div>
+</div>
+{% endblock %}

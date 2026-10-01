@@ -1,0 +1,22 @@
+{% import "_macros.html" as m with context %}
+<form method="post" action="{{ action_url }}" hx-post="{{ action_url }}" hx-target="closest .hx-form">
+  <div class="max-w-[720px]">
+    {% if errors.form %}{{ m.alert(errors.form, 'danger', class='mb-4') }}{% endif %}
+    <div class="grid grid-cols-1 gap-4 rounded-lg border border-border bg-surface p-4 sm:grid-cols-2">
+      {% for field in fields %}
+      {% set _width = field_width(field) %}
+
+      <div class="min-w-0{{ ' sm:col-span-2' if _width == 'full' }}" data-field-width="{{ _width }}">{% include "form/_field.html" %}</div>
+      {% endfor %}
+    </div>
+  </div>
+  <div class="sticky bottom-0 mt-4 border-t border-border bg-bg py-3">
+    <div class="flex max-w-[720px] items-center gap-2">
+      {{ m.button('Cancel', 'ghost', href=cancel_url) }}
+      <div class="ml-auto flex items-center gap-2">
+        {% if view.can_create %}{{ m.button('Save and add another', 'secondary', type='submit', name='_then', value='another') }}{% endif %}
+        {{ m.button('Save', 'primary', type='submit') }}
+      </div>
+    </div>
+  </div>
+</form>

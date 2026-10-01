@@ -1,0 +1,269 @@
+{#-
+  The macro library. Import it with {% import "_macros.html" as m with context %}.
+
+  Components live in templates/components/*.html (each documented at the top of its file)
+  and are re-exported here, so m.button(...) and friends work. Override one by putting a
+  template of the same name, such as components/button.html, in your templates_dir.
+
+  icon.html      icon
+  button.html    button, icon_button, button_classes
+  badge.html     badge
+  card.html      card
+  menu.html      popover, menu, menu_item, menu_separator, menu_label
+  dialog.html    dialog, dialog_footer
+  feedback.html  empty_state, stat, alert
+  misc.html      tooltip, kbd
+  date.html      date_input
+
+  The macros below render admin-specific pieces (cells, row actions, filters) and need the
+  request context.
+-#}
+{% import "components/icon.html" as _icon_module %}
+{% import "components/button.html" as _button_module %}
+{% import "components/badge.html" as _badge_module %}
+{% import "components/card.html" as _card_module %}
+{% import "components/menu.html" as _menu_module %}
+{% import "components/dialog.html" as _dialog_module %}
+{% import "components/feedback.html" as _feedback_module %}
+{% import "components/misc.html" as _misc_module %}
+{% import "components/date.html" as _date_module %}
+{% set icon = _icon_module.icon %}
+{% set button = _button_module.button %}
+{% set icon_button = _button_module.icon_button %}
+{% set button_classes = _button_module.button_classes %}
+{% set badge = _badge_module.badge %}
+{% set card = _card_module.card %}
+{% set popover = _menu_module.popover %}
+{% set menu = _menu_module.menu %}
+{% set menu_item = _menu_module.menu_item %}
+{% set menu_separator = _menu_module.menu_separator %}
+{% set menu_label = _menu_module.menu_label %}
+{% set dialog = _dialog_module.dialog %}
+{% set dialog_footer = _dialog_module.dialog_footer %}
+{% set empty_state = _feedback_module.empty_state %}
+{% set stat = _feedback_module.stat %}
+{% set alert = _feedback_module.alert %}
+{% set tooltip = _misc_module.tooltip %}
+{% set kbd = _misc_module.kbd %}
+{% set date_input = _date_module.date_input %}
+
+{% macro cell(view, field, value, link=True) -%}
+{%- if field.name in view.formatted -%}
+  {{ value }}
+{%- elif value is none -%}
+  <span class="text-fg-subtle">—</span>
+{%- elif field.kind == "relation" -%}
+  {%- if field.multiple -%}
+    {{ value|length }}
+  {%- else -%}
+    {%- set target = admin.view_for(field.target) -%}
+    {%- if not link -%}
+      <span class="text-fg-muted">{{ target.display(value) if target else admin.display(value) }}</span>
+    {%- elif target and target.can_view -%}
+      <a class="text-accent hover:underline" href="{{ admin.url(request, '/' ~ target.identity ~ '/' ~ target.pk_of(value)) }}">{{ target.display(value) }}</a>
+    {%- else -%}
+      {{ admin.display(value) }}
+    {%- endif -%}
+  {%- endif -%}
+{%- elif field.kind == "bool" and field.name in view.badges -%}
+  {{ badge('Yes' if value else 'No', view.badge_tone(field.name, 'true' if value else 'false')) }}
+{%- elif field.kind == "bool" -%}
+  <span aria-label="{{ 'Yes' if value else 'No' }}" class="{{ 'text-accent' if value else 'text-fg-muted' }}">{{ icon('check' if value else 'x', 'size-4 inline') }}</span>
+{%- elif field.kind == "enum" -%}
+  {%- set raw = value.value if value.value is defined else value -%}
+  {{ badge(raw, view.badge_tone(field.name, raw)) }}
+{%- elif field.kind in ("datetime", "date", "time") -%}
+  {{ value.isoformat(" ", "minutes") if field.kind == "datetime" else value.isoformat() }}
+{%- else -%}
+  {{ value }}
+{%- endif -%}
+{%- endmacro %}
+
+{% macro delete_menu_item(view, obj) -%}
+{%- set payload = {
+    "title": "Delete " ~ view.name|lower ~ "?",
+    "message": "Delete " ~ view.display(obj) ~ "? This cannot be undone.",
+    "danger": true,
+    "action": admin.url(request, '/' ~ view.identity ~ '/' ~ view.pk_of(obj) ~ '/delete'),
+} -%}
+{{ menu_item("Delete", icon="trash-2", tone="danger", attrs={"@click": "close(true); $dispatch('confirm', " ~ (payload|tojson|forceescape) ~ ")"}) }}
+{%- endmacro %}
+
+{% macro bulk_bar(view) -%}
+{%- set bulk_actions = view.permitted_actions(request, bulk=True) -%}
+{%- if bulk_actions or view.export_formats %}
+<form id="bulk" x-show="count" x-cloak
+      class="fixed inset-x-0 bottom-6 z-40 mx-auto flex w-fit max-w-[calc(100vw-2rem)] flex-wrap items-center gap-2 rounded-lg border border-border bg-popover px-3 py-2 text-sm text-fg shadow-lg">
+  <span class="mr-1 font-medium" x-text="count + ' selected'"></span>
+  {%- for action in bulk_actions %}{{ action_button(view, action, none, 'list', button_classes('secondary', 'sm')) }}{% endfor %}
+  {%- if view.export_formats %}
+  {%- set trigger -%}{{ icon('download', 'size-4') }} Export{%- endset -%}
+  {%- call menu('bulk-export', trigger, trigger_class=button_classes('secondary', 'sm'), placement='top') -%}
+    {%- for fmt in view.export_formats %}
+    {{ menu_item(fmt|upper, type='submit', attrs={'formmethod': 'get', 'formaction': admin.url(request, '/' ~ view.identity ~ '/_export/' ~ fmt)}) }}
+    {%- endfor %}
+  {%- endcall %}
+  {%- endif %}
+  {{ icon_button('x', 'Clear selection', 'ghost', 'sm', attrs={'@click': "document.querySelectorAll('input[form=bulk][name=pks]:checked').forEach(function (c) { c.checked = false; c.dispatchEvent(new Event('change', {bubbles: true})); })"}) }}
+</form>
+{%- endif -%}
+{%- endmacro %}
+
+
+{% macro action_button(view, action, obj=none, origin="detail", class="") -%}
+{%- set url = admin.url(request, '/' ~ view.identity ~ ('/' ~ view.pk_of(obj) if obj is not none else '') ~ '/action/' ~ action.name) -%}
+{%- if action.method == "POST" -%}
+<button type="button" class="{{ class }}" hx-post="{{ url }}" hx-target="{{ '#detail' if origin == 'detail' else '#list' }}"
+        hx-vals="{{ {'_from': origin}|tojson|forceescape }}"{% if obj is none %} form="bulk"{% endif %}{% if action.confirm %} hx-confirm="{{ action.confirm }}"{% endif %}>{{ action.label }}</button>
+{%- elif obj is none -%}
+<button type="submit" form="bulk" formmethod="get" formaction="{{ url }}" class="{{ class }}"{% if action.confirm %}
+        @click="$event.preventDefault(); $dispatch('confirm', {message: {{ action.confirm|tojson|forceescape }}, submit: () => $el.form.requestSubmit($el)})"{% endif %}>{{ action.label }}</button>
+{%- else -%}
+<a href="{{ url }}{{ '?_from=list' if origin == 'list' else '' }}" class="{{ class }}"{% if action.confirm %}
+   @click="$event.preventDefault(); $dispatch('confirm', {message: {{ action.confirm|tojson|forceescape }}, submit: () => window.location.assign($el.href)})"{% endif %}>{{ action.label }}</a>
+{%- endif -%}
+{%- endmacro %}
+
+{% macro filter_summary(filter, value, options) -%}
+{%- if filter.kind == "range" -%}
+  {%- if value.min and value.max -%}{{ value.min }}–{{ value.max }}
+  {%- elif value.min -%}≥ {{ value.min }}
+  {%- elif value.max -%}≤ {{ value.max }}
+  {%- endif -%}
+  {%- if value.empty %}{{ ' + Empty' if (value.min or value.max) else 'Empty' }}{% endif -%}
+{%- elif filter.kind == "text" -%}
+  {%- if value.values -%}“{{ value.values[0] }}”{%- endif -%}
+  {%- if value.empty %}{{ ' + Empty' if value.values else 'Empty' }}{% endif -%}
+{%- else -%}
+  {%- set names = dict(filter.choices) -%}
+  {%- if filter.kind == "relation" -%}{%- set _ = names.update(dict(options)) -%}{%- endif -%}
+  {%- if value.values|length > 2 -%}
+    {{ value.values|length }} selected
+  {%- elif value.values -%}
+    {%- for raw in value.values %}{{ badge(names.get(raw, raw)) }}{% if not loop.last %} {% endif %}{% endfor -%}
+  {%- endif -%}
+  {%- if value.empty %}{{ ' + Empty' if value.values else 'Empty' }}{% endif -%}
+{%- endif -%}
+{%- endmacro %}
+
+{% macro filter_panel(filter, value, options) -%}
+{%- if filter.kind in ("choice", "relation") %}
+<div x-data="{ q: '' }" class="space-y-2">
+  <label class="relative block">
+    <span class="pointer-events-none absolute inset-y-0 left-2 flex items-center text-fg-muted">{{ icon('search', 'size-3.5') }}</span>
+    <input type="search" x-model="q" placeholder="Search…" aria-label="Search {{ filter.label|lower }} options" class="w-full rounded-md border border-input bg-surface py-1 pl-7 pr-2 text-sm">
+  </label>
+  <div class="max-h-48 space-y-0.5 overflow-y-auto">
+    {%- for raw, label in (filter.choices if filter.kind == "choice" else options) %}
+    <label class="flex items-center gap-2 rounded px-1 py-1 text-sm hover:bg-surface-2" x-show="!q || {{ label|lower|tojson|forceescape }}.includes(q.toLowerCase())">
+      <input type="checkbox" name="{{ filter.key }}" value="{{ raw }}"{% if raw in value.values %} checked{% endif %} class="hx-filter-pick"> {{ label }}
+    </label>
+    {%- endfor %}
+  </div>
+  {%- if filter.nullable %}
+  <label class="flex items-center gap-2 border-t border-border pt-2 text-sm text-fg-muted"><input type="checkbox" name="{{ filter.key }}.empty" value="1"{% if value.empty %} checked{% endif %} class="hx-filter-pick"> Empty</label>
+  {%- endif %}
+  <div class="flex justify-end border-t border-border pt-2">
+    <button type="button" class="text-sm text-fg-muted hover:text-fg hover:underline" @click="hxadminClearFilter({{ filter.key|tojson|forceescape }})">Clear</button>
+  </div>
+</div>
+{%- elif filter.kind == "range" %}
+{%- set input_class = "w-full rounded-md border border-input bg-surface px-2 py-1 text-sm text-fg" -%}
+{%- set date_kind = {"date": "date", "datetime-local": "datetime", "time": "time"}.get(filter.input_type) -%}
+<div class="space-y-2">
+  {%- for bound, text in (("min", "From"), ("max", "To")) %}
+  <label class="block text-xs text-fg-muted"><span class="mb-1 block">{{ text }}</span>
+    {%- if date_kind %}
+    {{ date_input(filter.key ~ "." ~ bound, value[bound], kind=date_kind, id="filter-" ~ filter.name ~ "-" ~ bound, class=input_class, value_class="hx-filter-pick") }}
+    {%- else %}
+    <input type="{{ filter.input_type }}" name="{{ filter.key }}.{{ bound }}" value="{{ value[bound] or '' }}" aria-label="{{ filter.label }} {{ text|lower }}"{% if filter.input_type == "number" %} step="any"{% endif %} class="hx-filter-pick {{ input_class }}">
+    {%- endif %}
+  </label>
+  {%- endfor %}
+  {%- if filter.nullable %}
+  <label class="flex items-center gap-2 border-t border-border pt-2 text-sm text-fg-muted"><input type="checkbox" name="{{ filter.key }}.empty" value="1"{% if value.empty %} checked{% endif %} class="hx-filter-pick"> Empty</label>
+  {%- endif %}
+  <div class="flex justify-end border-t border-border pt-2">
+    <button type="button" class="text-sm text-fg-muted hover:text-fg hover:underline" @click="hxadminClearFilter({{ filter.key|tojson|forceescape }})">Clear</button>
+  </div>
+</div>
+{%- else %}
+<div class="space-y-2">
+  <input type="search" name="{{ filter.key }}" value="{{ value.values[0] if value.values else '' }}" aria-label="{{ filter.label }} contains" placeholder="Contains…" class="hx-filter-text w-full rounded-md border border-input bg-surface px-2 py-1 text-sm">
+  {%- if filter.nullable %}
+  <label class="flex items-center gap-2 border-t border-border pt-2 text-sm text-fg-muted"><input type="checkbox" name="{{ filter.key }}.empty" value="1"{% if value.empty %} checked{% endif %} class="hx-filter-pick"> Empty</label>
+  {%- endif %}
+  <div class="flex justify-end border-t border-border pt-2">
+    <button type="button" class="text-sm text-fg-muted hover:text-fg hover:underline" @click="hxadminClearFilter({{ filter.key|tojson|forceescape }})">Clear</button>
+  </div>
+</div>
+{%- endif -%}
+{%- endmacro %}
+
+{% macro filter_summary_span(filter, value, options, oob=False) -%}
+{%- set active = value.values or value.min or value.max or value.empty -%}
+{%- set pill = "inline-flex h-8 items-center gap-1.5 whitespace-nowrap rounded-full border px-3 text-sm font-medium " ~ ("border-input bg-surface text-fg" if active else "border-dashed border-border text-fg-muted hover:border-fg-subtle hover:text-fg") -%}
+<span id="filter-{{ filter.name }}-summary"{% if oob %} hx-swap-oob="true"{% endif %} class="{{ pill }}">{% if active %}{{ filter.label }}<span class="mx-0.5 h-3 w-px bg-border" aria-hidden="true"></span><span class="text-fg-muted" data-filter-summary-value>{{ filter_summary(filter, value, options) }}</span>{% else %}{{ icon('plus', 'size-3.5') }}{{ filter.label }}{% endif %}</span>
+{%- endmacro %}
+
+{% macro filter_button(filter, value, options) -%}
+{%- set trigger -%}
+{{- filter_summary_span(filter, value, options) -}}
+{%- endset -%}
+{%- call popover('filter-' ~ filter.name, trigger, label=filter.label, trigger_class="rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-bg", size="sm") -%}
+{{ filter_panel(filter, value, options) }}
+{%- endcall -%}
+{%- endmacro %}
+
+{% macro list_count(total, oob=False) -%}
+<span id="list-count"{% if oob %} hx-swap-oob="true"{% endif %} class="font-normal tabular-nums text-fg-muted">{{ total }}</span>
+{%- endmacro %}
+
+{% macro filter_reset(active, oob=False) -%}
+<span id="list-reset"{% if oob %} hx-swap-oob="true"{% endif %}>{% if active %}<button type="button" class="{{ button_classes('ghost', 'sm') }}" @click="hxadminResetFilters()">Reset</button>{% endif %}</span>
+{%- endmacro %}
+
+{% macro export_menu_items(view, base_url, params, oob=False) -%}
+<div id="list-export-items"{% if oob %} hx-swap-oob="true"{% endif %}>
+  {%- for fmt in view.export_formats %}
+  {{ menu_item(fmt|upper, href=base_url ~ '_export/' ~ fmt ~ '?' ~ params.qs(page=none, size=none)) }}
+  {%- endfor %}
+</div>
+{%- endmacro %}
+
+{% macro export_menu(view, base_url, params) -%}
+{%- if view.export_formats -%}
+{%- set trigger -%}{{ icon('download', 'size-4') }} Export{%- endset -%}
+{%- call menu('list-export', trigger, trigger_class=button_classes('secondary', 'sm'), placement='bottom-end') -%}
+{{ export_menu_items(view, base_url, params) }}
+{%- endcall -%}
+{%- endif -%}
+{%- endmacro %}
+
+{% macro row_menu(view, obj, row_actions, id_prefix="") -%}
+{%- set trigger -%}{{ icon('ellipsis', 'size-4') }}{%- endset -%}
+{%- set has_head = view.can_view or view.can_edit or row_actions -%}
+{%- call menu(id_prefix ~ 'row-menu-' ~ view.pk_of(obj), trigger, label='Row actions', trigger_class=button_classes('ghost', 'sm', square=True), placement='bottom-end') -%}
+  {%- if view.can_view %}{{ menu_item('View', href=admin.url(request, '/' ~ view.identity ~ '/' ~ view.pk_of(obj)), icon='eye') }}{% endif %}
+  {%- if view.can_edit %}{{ menu_item('Edit', href=admin.url(request, '/' ~ view.identity ~ '/' ~ view.pk_of(obj) ~ '/edit'), icon='pencil') }}{% endif %}
+  {%- for action in row_actions %}{{ action_menu_item(view, action, obj, 'list', inset=view.can_view or view.can_edit or view.can_delete) }}{% endfor %}
+  {%- if view.can_delete and has_head %}{{ menu_separator() }}{% endif %}
+  {%- if view.can_delete %}{{ delete_menu_item(view, obj) }}{% endif %}
+{%- endcall -%}
+{%- endmacro %}
+
+{% macro action_menu_item(view, action, obj, origin="detail", inset=False) -%}
+{%- set url = admin.url(request, '/' ~ view.identity ~ '/' ~ view.pk_of(obj) ~ '/action/' ~ action.name) -%}
+{%- if action.method == "POST" -%}
+{{ menu_item(action.label, inset=inset, attrs={
+    "hx-post": url,
+    "hx-target": "#detail" if origin == "detail" else "#list",
+    "hx-vals": {"_from": origin}|tojson|forceescape,
+    "hx-confirm": action.confirm,
+}) }}
+{%- else -%}
+{{ menu_item(action.label, inset=inset, href=url ~ ("?_from=list" if origin == "list" else ""), attrs={
+    "@click": "$event.preventDefault(); close(true); $dispatch('confirm', {message: " ~ (action.confirm|tojson|forceescape) ~ ", submit: () => window.location.assign($el.href)})" if action.confirm else none,
+}) }}
+{%- endif -%}
+{%- endmacro %}

@@ -1,0 +1,66 @@
+{% import "_macros.html" as m with context %}
+{% set row_actions = view.permitted_actions(request, bulk=False) %}
+{% set inline_actions = row_actions|length <= 2 and not (row_actions|selectattr('confirm')|list) %}
+{% set menu_actions = [] if inline_actions else row_actions %}
+{% set show_menu = menu_actions or view.can_delete %}
+{% set badge_fields = (view.detail_fields|selectattr('kind', 'equalto', 'enum')|list)[:2] %}
+<div class="mb-4 flex flex-col gap-1">
+  {% if back_url %}
+  <a href="{{ back_url }}" class="inline-flex w-fit items-center gap-1 text-sm text-fg-muted hover:text-fg">
+    {{ m.icon('chevron-left', 'size-4') }}Back to {{ view.name_plural }}
+  </a>
+  {% endif %}
+  <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4" data-detail-header>
+    <div class="flex min-w-0 items-center gap-2">
+      <h1 class="truncate text-xl font-semibold">{{ view.display(obj) }}</h1>
+      {% for field in badge_fields %}{% set _value = view.cell(obj, field.name) %}{% if _value is not none %}{{ m.cell(view, field, _value) }}{% endif %}{% endfor %}
+    </div>
+    <div class="flex shrink-0 items-center gap-2">
+      {% if inline_actions %}
+      {% for action in row_actions %}{{ m.action_button(view, action, obj, 'detail', m.button_classes('secondary')) }}{% endfor %}
+      {% endif %}
+      {% if view.can_edit %}{{ m.button('Edit', 'primary', icon='pencil', href=admin.url(request, '/' ~ view.identity ~ '/' ~ view.pk_of(obj) ~ '/edit')) }}{% endif %}
+      {% if show_menu %}
+      {% set _menu_trigger %}{{ m.icon('ellipsis', 'size-4') }}{% endset %}
+      {% call m.menu(view.identity ~ '-detail-actions', _menu_trigger, label="More actions", trigger_class=m.button_classes('secondary', square=True), placement="bottom-end") %}
+      {% for action in menu_actions %}{{ m.action_menu_item(view, action, obj, 'detail', inset=view.can_delete) }}{% endfor %}
+      {% if menu_actions and view.can_delete %}{{ m.menu_separator() }}{% endif %}
+      {% if view.can_delete %}{{ m.delete_menu_item(view, obj) }}{% endif %}
+      {% endcall %}
+      {% endif %}
+    </div>
+  </div>
+</div>
+{% set _groups = [scalar_fields|rejectattr('kind', 'equalto', 'relation')|list, scalar_fields|selectattr('kind', 'equalto', 'relation')|list]|select|list %}
+{% call m.card() %}
+{% for fields in _groups %}
+<dl class="grid grid-cols-1 gap-x-8 gap-y-4 md:grid-cols-2{{ ' mt-4 border-t border-border pt-4' if not loop.first else '' }}" data-detail-group="{{ 'relations' if fields[0].kind == 'relation' else 'columns' }}">
+  {% for field in fields %}
+  {% set _full = field.kind in ('text', 'json') %}
+  <div class="min-w-0 space-y-1{{ ' md:col-span-2' if _full }}" data-field="{{ field.name }}" data-field-width="{{ 'full' if _full else 'half' }}">
+    <dt class="text-xs font-medium text-fg-muted">{{ field.label }}</dt>
+    <dd class="text-sm break-words">{{ m.cell(view, field, view.cell(obj, field.name)) }}</dd>
+  </div>
+  {% endfor %}
+</dl>
+{% endfor %}
+{% endcall %}
+{% if collections %}
+<div class="mt-6" x-data="{ tab: '{{ collections[0][0].name }}' }">
+  <div class="flex gap-1 border-b border-border" role="tablist">
+    {% for field, url in collections %}
+    <button type="button" role="tab" id="related-tab-{{ field.name }}" aria-controls="related-panel-{{ field.name }}"
+            aria-selected="{{ 'true' if loop.first else 'false' }}" :aria-selected="(tab === '{{ field.name }}').toString()"
+            @click="tab = '{{ field.name }}'"
+            :class="tab === '{{ field.name }}' ? 'border-accent text-fg' : 'border-transparent text-fg-muted hover:text-fg'"
+            class="-mb-px border-b-2 px-3 py-2 text-sm font-medium">{{ field.label }}</button>
+    {% endfor %}
+  </div>
+  {% for field, url in collections %}
+  <div x-show="tab === '{{ field.name }}'" {% if not loop.first %}x-cloak{% endif %} role="tabpanel" id="related-panel-{{ field.name }}" aria-labelledby="related-tab-{{ field.name }}" class="hx-list pt-4"
+       hx-get="{{ url }}" hx-trigger="intersect once" hx-target="this">
+    <p class="text-sm text-fg-muted">Loading…</p>
+  </div>
+  {% endfor %}
+</div>
+{% endif %}

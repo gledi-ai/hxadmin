@@ -1,0 +1,40 @@
+{#-
+  Tooltips and keyboard hints. These take only class (appended to their own classes), not
+  the attrs and kwargs of the other components.
+
+  tooltip(text, placement="right", when="true", class="")
+    Wraps its {% call %} block, which must be a single element (the trigger), and shows text
+    next to it on hover and keyboard focus; Esc hides it. placement: an x-anchor placement
+    (see components/menu.html). when is an Alpine expression that gates the tooltip, for
+    example "collapsed" to show it only in the sidebar rail. The tooltip has role="tooltip"
+    and the trigger gets aria-describedby pointing at it. class goes on the tooltip. The
+    wrapper uses display: contents, so the trigger keeps its place in the layout.
+
+  kbd(text, class="")
+    A keyboard key or shortcut, such as "⌘K" or "Esc".
+
+  Examples:
+    {% call m.tooltip("Users", when="collapsed") %}<a href="…">…</a>{% endcall %}
+    {{ m.kbd("⌘K") }}
+-#}
+{% set _placements = {
+  "top": "top", "top-start": "top-start", "top-end": "top-end",
+  "right": "right", "right-start": "right-start", "right-end": "right-end",
+  "bottom": "bottom", "bottom-start": "bottom-start", "bottom-end": "bottom-end",
+  "left": "left", "left-start": "left-start", "left-end": "left-end",
+} %}
+
+{% macro tooltip(text, placement="right", when="true", class="") -%}
+{%- set position = hx_pick(_placements, placement, "placement") -%}
+<span x-data="{ tip: false }" x-id="['hx-tooltip']" class="contents"
+      x-init="$nextTick(() => $el.firstElementChild && $el.firstElementChild.setAttribute('aria-describedby', $id('hx-tooltip')))"
+      @mouseenter="tip = !!({{ when }})" @mouseleave="tip = false" @focusin="tip = !!({{ when }})" @focusout="tip = false" @keydown.escape="tip = false">
+  {{- caller() -}}
+  <span role="tooltip" :id="$id('hx-tooltip')" x-show="tip" x-cloak x-anchor.{{ position }}.offset.6.fixed="$el.previousElementSibling"
+        class="{{ ('pointer-events-none z-50 whitespace-nowrap rounded-md bg-fg px-2 py-1 text-xs font-medium text-bg shadow-md ' ~ class)|trim }}">{{ text }}</span>
+</span>
+{%- endmacro %}
+
+{% macro kbd(text, class="") -%}
+<kbd class="{{ ('pointer-events-none inline-flex h-5 min-w-5 select-none items-center justify-center rounded-sm border border-border bg-surface-2 px-1 font-sans text-[11px] font-medium text-fg-muted ' ~ class)|trim }}">{{ text }}</kbd>
+{%- endmacro %}

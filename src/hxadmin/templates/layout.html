@@ -1,0 +1,527 @@
+{% import "_macros.html" as m with context %}
+<!doctype html>
+<html lang="en" class="h-full">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}{{ admin.title }}{% endblock %}</title>
+  <script>
+    (function () {
+      var mode = localStorage.getItem("hxadmin-theme") || "light";
+      var dark = mode === "dark" || (mode === "system" && matchMedia("(prefers-color-scheme: dark)").matches);
+      if (dark) document.documentElement.classList.add("dark");
+      if (/Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent)) {
+        document.documentElement.classList.add("hxadmin-mac");
+      }
+      if (localStorage.getItem("hxadmin-sidebar") === "collapsed") {
+        document.documentElement.classList.add("hxadmin-collapsed");
+      }
+      var closed = "";
+      for (var i = 0; i < localStorage.length; i++) {
+        var key = localStorage.key(i);
+        if (key.indexOf("hxadmin-group-") === 0 && localStorage.getItem(key) === "closed") {
+          closed += '[data-nav-group="' + CSS.escape(key.slice(14)) + '"] > ul { display: none; }';
+        }
+      }
+      if (closed) {
+        var style = document.createElement("style");
+        style.textContent = closed;
+        document.head.appendChild(style);
+        document.addEventListener("alpine:initialized", function () { style.remove(); });
+      }
+    })();
+  </script>
+  <link rel="stylesheet" href="{{ admin.url(request, '/static/vendor/air-datepicker.css') }}">
+  <link rel="stylesheet" href="{{ admin.url(request, '/static/hxadmin.css') }}">
+  <script src="{{ admin.url(request, '/static/vendor/htmx.min.js') }}"></script>
+  <script src="{{ admin.url(request, '/static/vendor/air-datepicker.min.js') }}"></script>
+  <script defer src="{{ admin.url(request, '/static/vendor/alpine-anchor.min.js') }}"></script>
+  <script defer src="{{ admin.url(request, '/static/vendor/alpine-focus.min.js') }}"></script>
+  <script defer src="{{ admin.url(request, '/static/vendor/alpine.min.js') }}"></script>
+  <script>
+    // htmx's settle step copies old attributes onto same-id new elements, clobbering Alpine state.
+    htmx.config.defaultSettleDelay = 0;
+    document.addEventListener("alpine:init", function () {
+      Alpine.data("theme", function () {
+        return {
+          mode: localStorage.getItem("hxadmin-theme") || "light",
+          apply: function () {
+            var dark = this.mode === "dark" || (this.mode === "system" && matchMedia("(prefers-color-scheme: dark)").matches);
+            document.documentElement.classList.toggle("dark", dark);
+            localStorage.setItem("hxadmin-theme", this.mode);
+          },
+          set: function (mode) {
+            this.mode = mode;
+            this.apply();
+          },
+        };
+      });
+      Alpine.data("hxPopover", function (kind) {
+        return {
+          expanded: false,
+          toggle: function () {
+            if (this.expanded) this.close(false);
+            else this.show(0);
+          },
+          show: function (index) {
+            var self = this;
+            this.expanded = true;
+            this.$nextTick(function () {
+              if (kind === "menu") return self.focusItem(index);
+              var first = self.$focus.within(self.$refs.panel).getFirst();
+              (first || self.$refs.panel).focus();
+            });
+          },
+          close: function (restore) {
+            if (!this.expanded) return;
+            this.expanded = false;
+            if (restore) this.$refs.trigger.focus();
+          },
+          leave: function (event) {
+            if (event.relatedTarget && !this.$root.contains(event.relatedTarget)) this.close(false);
+          },
+          items: function () {
+            return Array.prototype.slice.call(this.$refs.panel.querySelectorAll("[role^=menuitem]:not([aria-disabled=true]):not(:disabled)"));
+          },
+          focusItem: function (index) {
+            var items = this.items();
+            if (!items.length) return this.$refs.panel.focus();
+            items[((index % items.length) + items.length) % items.length].focus();
+          },
+          move: function (delta) {
+            var at = this.items().indexOf(document.activeElement);
+            this.focusItem(at < 0 ? (delta > 0 ? 0 : -1) : at + delta);
+          },
+        };
+      });
+      Alpine.data("palette", function () {
+        return {
+          open: false,
+          active: 0,
+          init: function () {
+            var self = this;
+            this.$refs.input.addEventListener("htmx:after:swap", function () { self.reset(); });
+          },
+          launch: function () {
+            var self = this;
+            this.open = true;
+            this.$nextTick(function () {
+              self.$refs.input.value = "";
+              self.$refs.input.focus();
+              self.$refs.input.dispatchEvent(new CustomEvent("palette-open"));
+            });
+          },
+          close: function () {
+            this.open = false;
+          },
+          options: function () {
+            return Array.prototype.slice.call(this.$refs.results.querySelectorAll("[role=option]"));
+          },
+          highlight: function () {
+            var self = this;
+            var opts = this.options();
+            opts.forEach(function (el, index) {
+              el.setAttribute("aria-selected", index === self.active ? "true" : "false");
+            });
+            this.$refs.input.setAttribute("aria-activedescendant", opts[this.active] ? opts[this.active].id : "");
+          },
+          move: function (delta) {
+            var opts = this.options();
+            if (!opts.length) return;
+            this.active = ((this.active + delta) % opts.length + opts.length) % opts.length;
+            this.highlight();
+            opts[this.active].scrollIntoView({ block: "nearest" });
+          },
+          reset: function () {
+            this.active = 0;
+            this.highlight();
+          },
+          choose: function () {
+            var opts = this.options();
+            if (opts[this.active]) opts[this.active].click();
+          },
+        };
+      });
+      Alpine.data("combobox", function (name, multiple, initial) {
+        return {
+          name: name,
+          multiple: multiple,
+          selected: initial,
+          open: false,
+          query: "",
+          pick: function (pk, label) {
+            if (!this.multiple) this.selected = [];
+            if (!this.selected.some(function (s) { return s.pk === pk; })) this.selected.push({ pk: pk, label: label });
+            this.query = "";
+            this.open = false;
+          },
+          remove: function (pk) {
+            this.selected = this.selected.filter(function (s) { return s.pk !== pk; });
+          },
+        };
+      });
+      Alpine.data("dateInput", function (kind, initial, format) {
+        // The vendored library's built-in default locale is Russian; force English.
+        var EN_LOCALE = {
+          days: ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"],
+          daysShort: ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"],
+          daysMin: ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"],
+          months: ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"],
+          monthsShort: ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"],
+          today: "Today",
+          clear: "Clear",
+          dateFormat: "MM/dd/yyyy",
+          timeFormat: "HH:mm",
+          firstDay: 0,
+        };
+        var dates = window.hxadminDates;
+        function parse(iso) { return dates.parseIso(kind, iso); }
+        function toIso(date) { return dates.toIso(kind, date); }
+        return {
+          picker: null,
+          silent: false,
+          value: initial || "",
+          init: function () {
+            var self = this;
+            var initialDate = parse(this.value);
+            var popover = this.$el.closest("[role=dialog]");
+            this.picker = new AirDatepicker(this.$refs.visible, Object.assign(popover ? { position: dates.besidePanel(popover) } : {}, {
+              locale: EN_LOCALE,
+              container: popover || "",
+              offset: 4,
+              showEvent: popover ? "click" : "focus",
+              selectedDates: initialDate ? [initialDate] : [],
+              timepicker: kind === "datetime",
+              onlyTimepicker: kind === "time",
+              dateFormat: kind === "time" ? format : format.split(" ")[0],
+              timeFormat: "HH:mm",
+              autoClose: kind !== "datetime",
+              onSelect: function (opts) {
+                self.value = toIso(Array.isArray(opts.date) ? opts.date[0] : opts.date);
+              },
+            }));
+            this.$watch("value", function () {
+              if (self.silent) { self.silent = false; return; }
+              self.$nextTick(function () {
+                self.$refs.hidden.dispatchEvent(new Event("change", { bubbles: true }));
+              });
+            });
+          },
+          destroy: function () {
+            this.picker.destroy();
+          },
+          clear: function () {
+            this.value = "";
+            this.picker.clear();
+          },
+          commit: function () {
+            var text = this.$refs.visible.value.trim();
+            if (!text) return this.clear();
+            var typed = dates.parseTyped(kind, text);
+            if (typed) return this.picker.selectDate(typed);
+            var current = parse(this.value);
+            this.$refs.visible.value = current ? this.picker.formatDate(current, format) : "";
+          },
+          reset: function () {
+            if (!this.value) return;
+            this.silent = true;
+            this.clear();
+          },
+        };
+      });
+      Alpine.data("toasts", function (initial) {
+        return {
+          items: [],
+          next: 0,
+          init: function () {
+            initial.forEach(this.push, this);
+          },
+          push: function (toast) {
+            var id = ++this.next;
+            var entry = { id: id, message: toast.message, level: toast.level || "success", timer: null };
+            this.items.push(entry);
+            if (this.items.length > 3) this.items.splice(0, this.items.length - 3);
+            this.schedule(entry);
+          },
+          schedule: function (entry) {
+            if (entry.level === "error") return;
+            var self = this;
+            entry.timer = setTimeout(function () { self.dismiss(entry.id); }, 5000);
+          },
+          pause: function (id) {
+            var entry = this.items.find(function (t) { return t.id === id; });
+            if (entry && entry.timer) { clearTimeout(entry.timer); entry.timer = null; }
+          },
+          resume: function (id) {
+            var entry = this.items.find(function (t) { return t.id === id; });
+            if (entry) this.schedule(entry);
+          },
+          dismiss: function (id) {
+            this.items = this.items.filter(function (t) { return t.id !== id; });
+          },
+        };
+      });
+      Alpine.data("bulk", function () {
+        return {
+          count: 0,
+          total: 0,
+          wide: window.matchMedia("(min-width: 640px)").matches,
+          init: function () {
+            var self = this;
+            this.refresh();
+            window.matchMedia("(min-width: 640px)").addEventListener("change", function (evt) {
+              self.wide = evt.matches;
+            });
+            document.addEventListener("htmx:after:swap", function () { self.refresh(); });
+            // Card and table checkboxes are two DOM nodes for one row; mirror one onto the
+            // other so exactly one (the enabled, visible one) is ever submitted.
+            document.addEventListener("change", function (evt) {
+              var el = evt.target;
+              if (!el.matches || !el.matches("input[form=bulk][name=pks]")) return;
+              var twinId = el.id.indexOf("pk-desktop-") === 0
+                ? el.id.replace("pk-desktop-", "pk-mobile-")
+                : el.id.replace("pk-mobile-", "pk-desktop-");
+              var twin = document.getElementById(twinId);
+              if (twin) twin.checked = el.checked;
+              self.refresh();
+            });
+          },
+          refresh: function () {
+            this.count = document.querySelectorAll("input[form=bulk][name=pks]:checked:not(:disabled)").length;
+            this.total = document.querySelectorAll("input[form=bulk][name=pks]:not(:disabled)").length;
+          },
+        };
+      });
+    });
+    window.hxadminDates = (function () {
+      function pad(n) { return String(n).padStart(2, "0"); }
+      function build(y, mo, d, h, mi) {
+        var date = new Date(y, mo - 1, d, h, mi, 0, 0);
+        var ok = date.getFullYear() === y && date.getMonth() === mo - 1 && date.getDate() === d && date.getHours() === h && date.getMinutes() === mi;
+        return ok ? date : null;
+      }
+      function today(h, mi) {
+        var now = new Date();
+        return build(now.getFullYear(), now.getMonth() + 1, now.getDate(), h, mi);
+      }
+      function parseIso(kind, iso) {
+        if (!iso) return null;
+        var m;
+        if (kind === "time") {
+          m = /^(\d{1,2}):(\d{2})/.exec(iso);
+          return m ? today(+m[1], +m[2]) : null;
+        }
+        m = /^(\d{4})-(\d{2})-(\d{2})(?:[T ](\d{2}):(\d{2}))?/.exec(iso);
+        return m ? build(+m[1], +m[2], +m[3], +(m[4] || 0), +(m[5] || 0)) : null;
+      }
+      function parseTyped(kind, text) {
+        var m;
+        if (kind === "time") {
+          m = /^(\d{1,2}):(\d{2})$/.exec(text);
+          return m ? today(+m[1], +m[2]) : null;
+        }
+        m = /^(\d{1,2})\/(\d{1,2})\/(\d{4})(?:\s+(\d{1,2}):(\d{2}))?$/.exec(text);
+        if (!m || (kind === "date" && m[4] !== undefined)) return null;
+        return build(+m[3], +m[1], +m[2], +(m[4] || 0), +(m[5] || 0));
+      }
+      function toIso(kind, date) {
+        if (!date) return "";
+        if (kind === "time") return pad(date.getHours()) + ":" + pad(date.getMinutes());
+        var s = date.getFullYear() + "-" + pad(date.getMonth() + 1) + "-" + pad(date.getDate());
+        if (kind === "datetime") s += "T" + pad(date.getHours()) + ":" + pad(date.getMinutes());
+        return s;
+      }
+      /** Position callback for Air Datepicker: open beside `panel` (right, else left, else below), clamped to the viewport. */
+      function besidePanel(panel) {
+        return function (o) {
+          var box = panel.getBoundingClientRect();
+          var target = o.$target.getBoundingClientRect();
+          var width = o.$datepicker.offsetWidth;
+          var gap = 8;
+          var top = target.top - box.top - panel.clientTop;
+          var left;
+          if (box.right + gap + width <= window.innerWidth) left = box.width + gap - panel.clientLeft;
+          else if (box.left - gap - width >= 0) left = -width - gap - panel.clientLeft;
+          else {
+            left = Math.max(gap, Math.min(box.left, window.innerWidth - gap - width)) - box.left - panel.clientLeft;
+            top = box.height + gap - panel.clientTop;
+          }
+          o.$datepicker.style.left = left + "px";
+          o.$datepicker.style.top = top + "px";
+          o.$pointer.style.display = "none";
+        };
+      }
+      return { parseIso: parseIso, parseTyped: parseTyped, toIso: toIso, besidePanel: besidePanel };
+    })();
+    function hxadminClearInputs(matches) {
+      var form = document.getElementById("list-filters");
+      if (!form) return;
+      Array.prototype.forEach.call(form.elements, function (el) {
+        if (!el.name || !matches(el.name)) return;
+        if (el.type === "checkbox") el.checked = false;
+        else el.value = "";
+        el.dispatchEvent(new CustomEvent("hxadmin-clear"));
+      });
+      form.requestSubmit();
+    }
+    window.hxadminClearFilter = function (key) {
+      hxadminClearInputs(function (name) { return name === key || name.indexOf(key + ".") === 0; });
+    };
+    window.hxadminResetFilters = function () {
+      hxadminClearInputs(function (name) { return name.indexOf("f.") === 0; });
+    };
+    window.hxadminResetList = function () {
+      hxadminClearInputs(function (name) { return name.indexOf("f.") === 0 || name === "q"; });
+    };
+    document.addEventListener("htmx:config:request", function (evt) {
+      var ctx = evt.detail.ctx;
+      if (!ctx.sourceElement || ctx.sourceElement.id !== "list-filters" || ctx.request.method !== "GET") return;
+      var body = ctx.request.body;
+      Array.from(body.keys()).forEach(function (key) {
+        if (body.getAll(key).every(function (v) { return v === ""; })) body.delete(key);
+      });
+    });
+    document.addEventListener("htmx:confirm", function (evt) {
+      evt.preventDefault();
+      window.dispatchEvent(new CustomEvent("confirm", {
+        detail: { message: evt.detail.ctx.confirm, submit: evt.detail.issueRequest, cancel: evt.detail.dropRequest },
+      }));
+    });
+  </script>
+  {% block head %}{% endblock %}
+</head>
+<body class="h-full bg-bg text-fg" x-data="{ sidebarOpen: false, confirm: null, dismiss() { if (this.confirm && this.confirm.cancel) this.confirm.cancel(); this.confirm = null; } }" @confirm.window="confirm = $event.detail">
+  <div class="flex h-full">
+    <div x-show="sidebarOpen" x-cloak x-transition.opacity class="fixed inset-0 z-20 bg-overlay lg:hidden" @click="sidebarOpen = false" aria-hidden="true"></div>
+    <aside x-data="{
+             collapsed: localStorage.getItem('hxadmin-sidebar') === 'collapsed',
+             toggle() {
+               this.collapsed = !this.collapsed;
+               localStorage.setItem('hxadmin-sidebar', this.collapsed ? 'collapsed' : 'expanded');
+               document.documentElement.classList.toggle('hxadmin-collapsed', this.collapsed);
+             },
+           }"
+           @keydown.window="if (($event.ctrlKey || $event.metaKey) && $event.key.toLowerCase() === 'b') { $event.preventDefault(); toggle(); }"
+           class="fixed inset-y-0 left-0 z-30 flex w-60 -translate-x-full flex-col border-r border-border bg-bg transition-transform lg:relative lg:translate-x-0 lg:collapsed:w-14"
+           :class="sidebarOpen && 'translate-x-0'">
+      <div class="flex h-14 shrink-0 items-center justify-between gap-2 px-3 lg:collapsed:justify-center">
+        <a href="{{ admin.url(request, '/') }}" class="flex min-w-0 flex-1 items-center gap-2 lg:collapsed:flex-none">
+          {% if admin.logo_url %}
+          <img src="{{ admin.logo_url }}" alt="" class="size-6 shrink-0 rounded-md object-cover">
+          {% else %}
+          <span class="flex size-6 shrink-0 items-center justify-center rounded-md bg-accent text-xs font-semibold text-accent-fg">{{ admin.title[:1]|upper }}</span>
+          {% endif %}
+          <span class="truncate text-sm font-semibold lg:collapsed:hidden">{{ admin.title }}</span>
+        </a>
+        {% set _toggle_tip %}Toggle sidebar <span class="mac:hidden">Ctrl+B</span><span class="hidden mac:inline">⌘B</span>{% endset %}
+        {% call m.tooltip(_toggle_tip, placement="right") %}
+        {{ m.icon_button('panel-left', 'Toggle sidebar', class='shrink-0 max-lg:hidden lg:collapsed:absolute lg:collapsed:top-16 lg:collapsed:left-1/2 lg:collapsed:-translate-x-1/2', attrs={'@click': 'toggle()'}) }}
+        {% endcall %}
+        {{ m.icon_button('x', 'Close navigation', class='shrink-0 lg:hidden', attrs={'@click': 'sidebarOpen = false'}) }}
+      </div>
+      <nav class="flex-1 overflow-y-auto px-3 py-2 lg:collapsed:pt-14" aria-label="Main">
+        {% for group in nav %}
+        <div class="mb-2"{% if group.label %} data-nav-group="{{ group.label }}" x-data="{ open: localStorage.getItem('hxadmin-group-' + ({{ group.label|tojson|forceescape }})) !== 'closed' }"{% endif %}>
+          {% if group.label %}
+          <button type="button"
+                  @click="open = !open; localStorage.setItem('hxadmin-group-' + ({{ group.label|tojson|forceescape }}), open ? 'open' : 'closed')"
+                  aria-expanded="false" :aria-expanded="open"
+                  class="flex w-full items-center justify-between rounded-md px-2 py-1 text-xs font-medium text-fg-muted hover:text-fg lg:collapsed:hidden">
+            <span>{{ group.label }}</span>
+            <span class="transition-transform" :class="open ? '' : '-rotate-90'">{{ m.icon('chevron-down', 'size-3.5') }}</span>
+          </button>
+          {% endif %}
+          <ul{% if group.label %} x-show="open"{% endif %} class="space-y-0.5 lg:collapsed:block!">
+            {% for item in group.items %}
+            <li>
+              {% call m.tooltip(item.label, when="collapsed", placement="right") %}
+              <a href="{{ item.url }}"
+                 class="flex items-center gap-2 rounded-md px-2 py-1.5 text-sm lg:collapsed:justify-center {{ 'bg-accent-soft font-medium text-accent' if item.active else 'text-fg hover:bg-surface-2' }}">
+                {{ m.icon(item.icon or 'table', 'size-4 shrink-0' ~ (' text-accent' if item.active else ' text-fg-muted')) }}
+                <span class="min-w-0 flex-1 truncate lg:collapsed:hidden">{{ item.label }}</span>
+              </a>
+              {% endcall %}
+            </li>
+            {% endfor %}
+          </ul>
+        </div>
+        {% endfor %}
+      </nav>
+    </aside>
+    <div class="flex min-w-0 flex-1 flex-col">
+      <header class="flex h-14 items-center gap-3 border-b border-border bg-surface px-4">
+        {{ m.icon_button('menu', 'Toggle navigation', class='lg:hidden', attrs={'@click': 'sidebarOpen = !sidebarOpen'}) }}
+        <div class="min-w-0 flex-1 truncate text-sm text-fg-muted">{% block breadcrumb %}{% endblock %}</div>
+        <div x-data="palette()" @keydown.window="if (($event.ctrlKey || $event.metaKey) && $event.key.toLowerCase() === 'k') { $event.preventDefault(); launch(); }">
+          {{ m.icon_button('search', 'Search or jump to', 'ghost', class='sm:hidden', attrs={'@click': 'launch()'}) }}
+          <button type="button" @click="launch()"
+                  class="hidden items-center gap-2 rounded-md border border-input bg-surface px-3 py-1.5 text-sm text-fg-muted shadow-sm hover:bg-surface-2 sm:flex sm:w-64">
+            {{ m.icon('search', 'size-4 shrink-0') }}
+            <span class="flex-1 truncate text-left">Search or jump to…</span>
+            {% set _palette_key %}<span class="mac:hidden">Ctrl+K</span><span class="hidden mac:inline">⌘K</span>{% endset %}
+            {{ m.kbd(_palette_key) }}
+          </button>
+          {% call m.dialog("palette", "Command palette", open="open", close="close()", size="lg", dismissible=False, title_class="sr-only", class="gap-0! sm:mt-[12vh] sm:self-start") %}
+          <div class="flex items-center gap-2 border-b border-border pb-3">
+            {{ m.icon('search', 'size-4 shrink-0 text-fg-muted') }}
+            <input type="search" name="q" x-ref="input" role="combobox" aria-expanded="true" aria-controls="palette-results"
+                   aria-autocomplete="list" aria-activedescendant="" placeholder="Search or jump to…"
+                   autocomplete="off" autofocus
+                   class="w-full border-0 bg-transparent p-0 text-sm text-fg placeholder:text-fg-subtle focus:outline-none focus:ring-0 [&::-webkit-search-cancel-button]:hidden"
+                   hx-get="{{ admin.url(request, '/_palette') }}" hx-target="#palette-results" hx-swap="innerHTML"
+                   hx-trigger="input changed delay:150ms, palette-open"
+                   @keydown.down.prevent="move(1)" @keydown.up.prevent="move(-1)" @keydown.enter.prevent="choose()">
+          </div>
+          <div id="palette-results" x-ref="results" role="listbox" aria-label="Results" class="-mx-2 mt-2 max-h-80 overflow-y-auto"></div>
+          {% endcall %}
+        </div>
+        {% set display_name = hx_user_label(user) %}
+        {% set initials = hx_user_initials(display_name) %}
+        {% set _user_trigger %}<span data-avatar class="flex size-7 shrink-0 items-center justify-center rounded-full bg-accent-soft text-xs font-semibold text-accent">{% if initials %}{{ initials }}{% else %}{{ m.icon('user', 'size-4') }}{% endif %}</span>{% if display_name %}<span class="hidden max-w-32 truncate text-sm sm:inline">{{ display_name }}</span>{% endif %}{% endset %}
+        <div x-data="theme()" x-init="apply()">
+          {% call m.menu("user-menu", _user_trigger, label="Account menu", trigger_class=m.button_classes('ghost', 'md') ~ ' gap-2 px-2', placement="bottom-end") %}
+          {% if display_name %}
+          {{ m.menu_label(display_name) }}
+          {{ m.menu_separator() }}
+          {% endif %}
+          {{ m.menu_label("Theme") }}
+          {{ m.menu_item("Light", icon="sun", role="menuitemradio", attrs={"@click": "set('light')", ":aria-checked": "mode === 'light'"}) }}
+          {{ m.menu_item("Dark", icon="moon", role="menuitemradio", attrs={"@click": "set('dark')", ":aria-checked": "mode === 'dark'"}) }}
+          {{ m.menu_item("System", icon="monitor", role="menuitemradio", attrs={"@click": "set('system')", ":aria-checked": "mode === 'system'"}) }}
+          {% if admin.logout_url %}
+          {{ m.menu_separator() }}
+          {{ m.menu_item("Log out", href=admin.logout_url, icon="log-out") }}
+          {% endif %}
+          {% endcall %}
+        </div>
+      </header>
+      <main id="main" class="flex-1 overflow-y-auto p-6">
+        {% block content %}{% endblock %}
+      </main>
+    </div>
+  </div>
+  <div id="toasts" class="fixed bottom-4 right-4 z-50 flex w-80 flex-col gap-2" aria-live="polite"
+       x-data="toasts({{ toasts|tojson|forceescape }})" @hxadmin-toast.window="push($event.detail)">
+    <template x-for="toast in items" :key="toast.id">
+      <div role="status" :role="toast.level === 'error' ? 'alert' : 'status'" class="flex items-start gap-2 rounded-lg border border-l-4 border-border bg-popover p-3 text-sm shadow-lg"
+           :class="{ 'border-l-success': toast.level === 'success', 'border-l-accent': toast.level === 'info', 'border-l-warning': toast.level === 'warning', 'border-l-danger': toast.level === 'error' }"
+           @mouseenter="pause(toast.id)" @mouseleave="resume(toast.id)">
+        <span data-toast-icon="success" x-show="toast.level === 'success'" class="text-success">{{ m.icon('check-circle', 'size-4') }}</span>
+        <span data-toast-icon="info" x-show="toast.level === 'info'" class="text-accent">{{ m.icon('info', 'size-4') }}</span>
+        <span data-toast-icon="warning" x-show="toast.level === 'warning'" class="text-warning">{{ m.icon('triangle-alert', 'size-4') }}</span>
+        <span data-toast-icon="error" x-show="toast.level === 'error'" class="text-danger">{{ m.icon('circle-x', 'size-4') }}</span>
+        <span class="flex-1 pt-0.5" x-text="toast.message"></span>
+        <button type="button" @click="dismiss(toast.id)" class="text-fg-muted hover:text-fg" aria-label="Dismiss">{{ m.icon('x', 'size-4') }}</button>
+      </div>
+    </template>
+  </div>
+  {% call m.dialog("confirm-dialog", "Confirm", open="confirm", close="dismiss()", size="sm", dismissible=False, title_expr="(confirm && confirm.title) || 'Confirm'") %}
+  <p class="text-sm text-fg-muted" x-text="confirm && confirm.message"></p>
+  <form method="post" :action="confirm && confirm.action" class="mt-4 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end"
+        @submit="if (confirm && confirm.submit) { $event.preventDefault(); var run = confirm.submit; confirm = null; run(); }">
+    {{ m.button('Cancel', attrs={'@click': 'dismiss()'}) }}
+    <button type="submit" :class="(confirm && confirm.danger) ? {{ m.button_classes('danger')|tojson|forceescape }} : {{ m.button_classes('primary')|tojson|forceescape }}">Confirm</button>
+  </form>
+  {% endcall %}
+</body>
+</html>

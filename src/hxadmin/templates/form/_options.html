@@ -1,0 +1,10 @@
+{% if options %}
+<ul class="max-h-60 overflow-y-auto rounded-md border border-border bg-popover shadow-md" role="listbox">
+  {% for pk, label in options %}
+  <li><button type="button" role="option" class="block w-full px-3 py-1.5 text-left text-sm hover:bg-surface-2"
+              @click='pick({{ pk|tojson }}, {{ label|tojson }})'>{{ label }}</button></li>
+  {% endfor %}
+</ul>
+{% else %}
+<p class="px-3 py-1.5 text-sm text-fg-muted">No matches{% if q %} for “{{ q }}”{% endif %}.</p>
+{% endif %}

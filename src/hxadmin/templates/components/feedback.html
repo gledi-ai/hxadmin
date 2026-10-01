@@ -1,0 +1,85 @@
+{#-
+  Feedback: empty states, stats and alerts. Shared arguments (class, attrs, kwargs): see
+  components/button.html.
+
+  empty_state(icon, title, text=None, action=None, bordered=True, class="", attrs=None,
+              **kwargs)
+    A centred placeholder for "nothing here": a Lucide icon in a muted tile, a title, an
+    optional line of text and an optional action (markup, usually a button). The {% call %}
+    block, if any, is rendered after the action (for more actions). bordered=False drops the
+    dashed border, for use inside a card.
+
+  stat(label, value, href=None, icon=None, hint=None, class="", attrs=None, **kwargs)
+    A card with a label, a large tabular value (None shows "—") and an optional hint line.
+    icon: a Lucide name in an accent-soft tile. With href the card is a link.
+
+  alert(text=None, tone="neutral", title=None, icon=None, class="", attrs=None, **kwargs)
+    An inline message. tone: neutral | accent | success | warning | danger. danger and
+    warning get role="alert", the others role="status". icon defaults per tone (info,
+    circle-check, triangle-alert, circle-x). The {% call %} block, if any, replaces text.
+
+  Examples:
+    {{ m.empty_state("inbox", "No tasks yet", "Create one to get started.",
+                     action=m.button("New task", "primary", icon="plus", href=url)) }}
+    {{ m.stat("Open tasks", 12, href=url, icon="list-checks", hint="3 due today") }}
+    {{ m.alert("Could not save the task.", "danger") }}
+-#}
+{% from "components/icon.html" import icon as _icon %}
+{% from "components/card.html" import card as _card %}
+{% set _alert_tones = {
+  "neutral": "border-border bg-surface text-fg",
+  "accent": "border-accent/30 bg-accent-soft text-accent",
+  "success": "border-success/30 bg-success-soft text-success",
+  "warning": "border-warning/30 bg-warning-soft text-warning",
+  "danger": "border-danger/30 bg-danger-soft text-danger",
+} %}
+{% set _alert_icons = {
+  "neutral": "info",
+  "accent": "info",
+  "success": "circle-check",
+  "warning": "triangle-alert",
+  "danger": "circle-x",
+} %}
+
+{% macro empty_state(icon, title, text=None, action=None, bordered=True, class="", attrs=None) -%}
+<div class="{{ ('flex flex-col items-center justify-center px-6 py-12 text-center' ~ (' rounded-lg border border-dashed border-border' if bordered else '') ~ ' ' ~ class)|trim }}"{{ hx_attrs(attrs, kwargs) }}>
+  <div class="mb-4 flex size-10 items-center justify-center rounded-lg border border-border bg-surface-2 text-fg-muted">{{ _icon(icon, "size-5") }}</div>
+  <h3 class="text-sm font-semibold text-fg">{{ title }}</h3>
+  {%- if text %}
+  <p class="mt-1 max-w-sm text-sm text-fg-muted">{{ text }}</p>
+  {%- endif %}
+  {%- if action or caller %}
+  <div class="mt-4 flex flex-wrap items-center justify-center gap-2">{{ action if action }}{{ caller() if caller }}</div>
+  {%- endif %}
+</div>
+{%- endmacro %}
+
+{% macro stat(label, value, href=None, icon=None, hint=None, class="", attrs=None) -%}
+{%- call _card(href=href, class=class, attrs=attrs, **kwargs) -%}
+<div class="flex items-start justify-between gap-3">
+  <div class="min-w-0">
+    <p class="truncate text-sm font-medium text-fg-muted">{{ label }}</p>
+    <p class="mt-1 text-2xl font-semibold tracking-tight tabular-nums">{% if value is none %}<span class="text-fg-subtle">—</span>{% else %}{{ value }}{% endif %}</p>
+    {%- if hint %}
+    <p class="mt-1 text-xs text-fg-muted">{{ hint }}</p>
+    {%- endif %}
+  </div>
+  {%- if icon %}
+  <div class="flex size-9 shrink-0 items-center justify-center rounded-md bg-accent-soft text-accent">{{ _icon(icon, "size-4") }}</div>
+  {%- endif %}
+</div>
+{%- endcall -%}
+{%- endmacro %}
+
+{% macro alert(text=None, tone="neutral", title=None, icon=None, class="", attrs=None) -%}
+{%- set tone_class = hx_pick(_alert_tones, tone, "alert tone") -%}
+<div role="{{ 'alert' if tone in ('danger', 'warning') else 'status' }}" class="{{ ('flex items-start gap-3 rounded-lg border px-4 py-3 text-sm ' ~ tone_class ~ ' ' ~ class)|trim }}"{{ hx_attrs(attrs, kwargs) }}>
+  {{ _icon(icon or _alert_icons[tone], "mt-0.5 size-4 shrink-0") }}
+  <div class="min-w-0 flex-1">
+    {%- if title %}
+    <p class="font-medium">{{ title }}</p>
+    {%- endif %}
+    <div class="{{ 'mt-1 ' if title }}break-words">{{ caller() if caller else text }}</div>
+  </div>
+</div>
+{%- endmacro %}

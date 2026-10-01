@@ -1,0 +1,117 @@
+{#-
+  Popovers and dropdown menus. Shared arguments (class, attrs, kwargs): see
+  components/button.html. Both need the hxPopover Alpine component from layout.html and
+  the vendored @alpinejs/anchor and @alpinejs/focus plugins.
+
+  popover(id, trigger, label=None, trigger_class=None, placement="bottom-start",
+          size="md", class="", attrs=None, **kwargs)
+    A trigger button plus a floating panel (the {% call %} block). id names the panel; the
+    trigger gets id ~ "-trigger". trigger is the button's content (markup: text, icons,
+    badges); label, if given, becomes its aria-label (required when trigger has no text).
+    trigger_class defaults to button_classes("secondary", "md"). placement: an x-anchor
+    placement (bottom-start, bottom-end, top, right-start, …); the panel flips when there is
+    no room and is fixed-positioned, so overflow containers do not clip it. size is the panel
+    width: sm (14rem) | md (18rem) | lg (24rem). class, attrs and kwargs go on the panel.
+    Behaviour: click toggles; opening focuses the first focusable element in the panel; Esc
+    closes and returns focus to the trigger; a click outside or focus leaving closes it. The
+    trigger carries aria-expanded, aria-controls and aria-haspopup="dialog"; the panel has
+    role="dialog" labelled by the trigger. Inside, `expanded` and `close(restore)` are in
+    scope (named so that an outer `open`, e.g. a dialog's, is not shadowed).
+
+  menu(id, trigger, label=None, trigger_class=None, placement="bottom-start", class="",
+       attrs=None, **kwargs)
+    A dropdown menu: a popover whose panel has role="menu" and holds menu_item,
+    menu_separator and menu_label. The trigger has aria-haspopup="menu"; Enter, Space or
+    ArrowDown opens it on the first item and ArrowUp on the last. In the menu, ArrowUp and
+    ArrowDown move (wrapping), Home and End jump, Tab and Esc close, and activating an item
+    closes the menu.
+
+  menu_item(label, href=None, icon=None, tone="neutral", shortcut=None, type="button",
+            disabled=False, role="menuitem", inset=False, class="", attrs=None, **kwargs)
+    A menu entry: an <a> with href, else a <button>. tone: neutral | danger. shortcut is a
+    hint shown on the right. inset indents an item without an icon to line up with its
+    siblings that have one. role may be menuitemradio or menuitemcheckbox (then bind
+    :aria-checked through attrs). Disabled items are skipped by the keyboard.
+
+  menu_separator()
+    A divider between groups of items.
+
+  menu_label(text)
+    A small muted heading for a group of items.
+
+  Examples:
+    {% call m.menu("row-menu-" ~ pk, m.icon("ellipsis"), label="Row actions",
+                   trigger_class=m.button_classes("ghost", "sm", square=True),
+                   placement="bottom-end") %}
+      {{ m.menu_item("Edit", href=edit_url, icon="pencil") }}
+      {{ m.menu_separator() }}
+      {{ m.menu_item("Delete", icon="trash-2", tone="danger", attrs={"@click": "…"}) }}
+    {% endcall %}
+
+    {% call m.popover("filter-status", "Status") %}…inputs…{% endcall %}
+-#}
+{% from "components/icon.html" import icon as _icon %}
+{% from "components/button.html" import button_classes as _button_classes %}
+{% set _placements = {
+  "top": "top", "top-start": "top-start", "top-end": "top-end",
+  "right": "right", "right-start": "right-start", "right-end": "right-end",
+  "bottom": "bottom", "bottom-start": "bottom-start", "bottom-end": "bottom-end",
+  "left": "left", "left-start": "left-start", "left-end": "left-end",
+} %}
+{% set _panel = "z-50 rounded-md border border-border bg-popover text-fg shadow-md outline-none" %}
+{% set _popover_sizes = {"sm": "w-56 p-3", "md": "w-72 p-3", "lg": "w-96 p-4"} %}
+{% set _item_tones = {
+  "neutral": "text-fg focus:bg-surface-2",
+  "danger": "text-danger focus:bg-danger-soft",
+} %}
+
+{% macro _floating(kind, id, trigger, label, trigger_class, placement, panel_class, attrs, kwargs) -%}
+{%- set position = hx_pick(_placements, placement, "placement") -%}
+<div x-data="hxPopover({{ kind|tojson|forceescape }})" class="relative inline-flex"
+     @click.outside="close(false)" @focusout="leave($event)" @keydown.escape="if (expanded) { $event.stopPropagation(); close(true); }">
+  <button type="button" x-ref="trigger" id="{{ id }}-trigger" class="{{ trigger_class or _button_classes('secondary', 'md') }}"
+          aria-haspopup="{{ kind if kind == 'menu' else 'dialog' }}" aria-expanded="false" :aria-expanded="expanded" aria-controls="{{ id }}"{% if label %} aria-label="{{ label }}"{% endif %}
+          @click="toggle()"{% if kind == "menu" %} @keydown.down.prevent="show(0)" @keydown.up.prevent="show(-1)"{% endif %}>{{ trigger }}</button>
+  <div x-ref="panel" id="{{ id }}" x-show="expanded" x-cloak x-anchor.{{ position }}.offset.4.fixed="$refs.trigger"
+       x-transition:enter="transition ease-out duration-100" x-transition:enter-start="opacity-0 scale-95" x-transition:enter-end="opacity-100 scale-100"
+       x-transition:leave="transition ease-in duration-75" x-transition:leave-start="opacity-100" x-transition:leave-end="opacity-0"
+       {% if kind == "menu" %}role="menu" aria-orientation="vertical" tabindex="-1"
+       @keydown.down.prevent="move(1)" @keydown.up.prevent="move(-1)" @keydown.home.prevent="focusItem(0)" @keydown.end.prevent="focusItem(-1)"
+       @keydown.tab="close(false)" @mouseleave="$el.focus()" @click="if ($event.target.closest('[role^=menuitem]')) close(true)"{% else %}role="dialog" tabindex="-1"{% endif %}
+       aria-labelledby="{{ id }}-trigger" class="{{ (_panel ~ ' ' ~ panel_class)|trim }}"{{ hx_attrs(attrs, kwargs) }}>
+    {{- caller() -}}
+  </div>
+</div>
+{%- endmacro %}
+
+{% macro popover(id, trigger, label=None, trigger_class=None, placement="bottom-start", size="md", class="", attrs=None) -%}
+{%- set body = caller() -%}
+{%- call _floating("popover", id, trigger, label, trigger_class, placement, hx_pick(_popover_sizes, size, "popover size") ~ " " ~ class, attrs, kwargs) %}{{ body }}{% endcall -%}
+{%- endmacro %}
+
+{% macro menu(id, trigger, label=None, trigger_class=None, placement="bottom-start", class="", attrs=None) -%}
+{%- set body = caller() -%}
+{%- call _floating("menu", id, trigger, label, trigger_class, placement, "min-w-44 p-1 " ~ class, attrs, kwargs) %}{{ body }}{% endcall -%}
+{%- endmacro %}
+
+{% macro menu_item(label, href=None, icon=None, tone="neutral", shortcut=None, type="button", disabled=False, role="menuitem", inset=False, class="", attrs=None) -%}
+{%- set classes = ("flex w-full select-none items-center gap-2 rounded-sm py-1.5 pr-2 text-left text-sm outline-none focus-visible:outline-none aria-disabled:pointer-events-none aria-disabled:opacity-50 " ~ ("pl-8 " if inset and not icon else "pl-2 ") ~ hx_pick(_item_tones, tone, "menu item tone") ~ " " ~ class)|trim -%}
+{%- set icon_class = "size-4 shrink-0" ~ (" text-fg-muted" if tone == "neutral" else "") -%}
+{%- set extra = hx_attrs(attrs, kwargs) -%}
+{%- if href is not none and not disabled -%}
+<a href="{{ href }}" role="{{ role }}" tabindex="-1" class="{{ classes }}" @mouseenter="$el.focus()"{{ extra }}>
+{%- else -%}
+<button type="{{ type }}" role="{{ role }}" tabindex="-1" class="{{ classes }}" @mouseenter="$el.focus()"{% if disabled %} aria-disabled="true"{% endif %}{{ extra }}>
+{%- endif -%}
+{%- if icon %}{{ _icon(icon, icon_class) }}{% endif %}<span class="min-w-0 flex-1 truncate">{{ label }}</span>
+{%- if shortcut %}<span class="ml-auto pl-4 text-xs tracking-widest text-fg-subtle">{{ shortcut }}</span>{% endif -%}
+{%- if href is not none and not disabled %}</a>{% else %}</button>{% endif -%}
+{%- endmacro %}
+
+{% macro menu_separator() -%}
+<div role="separator" aria-orientation="horizontal" class="-mx-1 my-1 h-px bg-border"></div>
+{%- endmacro %}
+
+{% macro menu_label(text) -%}
+<div role="presentation" class="px-2 py-1.5 text-xs font-medium text-fg-muted">{{ text }}</div>
+{%- endmacro %}

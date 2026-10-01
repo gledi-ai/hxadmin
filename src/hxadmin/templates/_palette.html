@@ -1,0 +1,32 @@
+{% import "_macros.html" as m with context %}
+{% set ns = namespace(i=0) %}
+{% if go_to %}
+<div role="group" aria-label="Go to" class="p-1">
+  {{ m.menu_label("Go to") }}
+  {% for item in go_to %}
+  <a id="palette-option-{{ ns.i }}" role="option" href="{{ item.url }}"
+     class="flex items-center gap-2 rounded-sm px-2 py-1.5 text-sm text-fg outline-none aria-selected:bg-surface-2">
+    {{ m.icon(item.icon or 'table', 'size-4 shrink-0 text-fg-muted') }}
+    <span class="min-w-0 flex-1 truncate">{{ item.label }}</span>
+  </a>
+  {% set ns.i = ns.i + 1 %}
+  {% endfor %}
+</div>
+{% endif %}
+{% for view, hits in records %}
+<div role="group" aria-label="{{ view.name_plural }}" class="p-1">
+  {{ m.menu_label(view.name_plural) }}
+  {% for label, url in hits %}
+  <a id="palette-option-{{ ns.i }}" role="option" href="{{ url }}"
+     class="flex items-center gap-2 rounded-sm px-2 py-1.5 text-sm text-fg outline-none aria-selected:bg-surface-2">
+    {{ m.icon(view.icon or 'table', 'size-4 shrink-0 text-fg-muted') }}
+    <span class="min-w-0 flex-1 truncate">{{ label }}</span>
+    <span class="ml-auto shrink-0 pl-4 text-xs text-fg-subtle">{{ view.name }}</span>
+  </a>
+  {% set ns.i = ns.i + 1 %}
+  {% endfor %}
+</div>
+{% endfor %}
+{% if not go_to and not records %}
+{{ m.empty_state('search', 'No results', 'Try a different search.', bordered=False) }}
+{% endif %}
