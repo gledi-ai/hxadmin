@@ -137,6 +137,25 @@ def default_widget(kind: FieldKind) -> Widget:
     return _WIDGETS[kind]
 
 
+_HALF_WIDGETS: frozenset[str] = frozenset(
+    {"select", "number", "checkbox", "date", "datetime-local", "time"}
+)
+
+
+def field_widget(field: Field | RelationField) -> Widget | Literal["relation"]:
+    """The widget a form renders for `field`: its override, else the default for its kind."""
+    if isinstance(field, RelationField):
+        return "relation"
+    return field.widget or default_widget(field.kind)
+
+
+def field_width(field: Field | RelationField) -> Literal["half", "full"]:
+    """`"half"` for short controls (selects, numbers, dates, single relations), else `"full"`."""
+    if isinstance(field, RelationField):
+        return "full" if field.multiple else "half"
+    return "half" if field_widget(field) in _HALF_WIDGETS else "full"
+
+
 def label_for(name: str) -> str:
     return name.replace("_", " ").capitalize()
 

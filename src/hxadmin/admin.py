@@ -23,7 +23,7 @@ from starlette.routing import BaseRoute
 
 from hxadmin.components import html_attrs, pick
 from hxadmin.deps import AuthDependency, SessionDependency
-from hxadmin.fields import default_widget
+from hxadmin.fields import default_widget, field_widget, field_width
 from hxadmin.icons import check_icon, icon
 from hxadmin.nav import build_nav
 from hxadmin.pages import AdminPage, PageEndpoint, PageHandler
@@ -108,6 +108,8 @@ class HxAdmin:
         env.filters["json_pretty"] = json_pretty
         env_globals = cast(dict[str, Any], env.globals)
         env_globals["default_widget"] = default_widget
+        env_globals["field_widget"] = field_widget
+        env_globals["field_width"] = field_width
         env_globals["lucide_icon"] = icon
         env_globals["hx_attrs"] = html_attrs
         env_globals["hx_pick"] = pick
