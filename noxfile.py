@@ -89,3 +89,10 @@ def css(session: nox.Session) -> None:
         "--minify",
         external=True,
     )
+
+
+@nox.session(python=False)
+def changelog(session: nox.Session) -> None:
+    session.run(
+        "uvx", "git-cliff@2.14.2", "--output", "CHANGELOG.md", *session.posargs, external=True
+    )
