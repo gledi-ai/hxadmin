@@ -166,3 +166,17 @@ def test_composite_pk_is_not_autoincrement() -> None:
         f = fields[name]
         assert isinstance(f, Field)
         assert (f.primary_key, f.autoincrement, f.required) == (True, False, True)
+
+
+def test_field_widget_and_width() -> None:
+    from hxadmin.fields import field_widget, field_width
+
+    assert field_widget(Field("n", "int")) == "number"
+    assert field_widget(Field("n", "str", widget="email")) == "email"
+    single = RelationField("author", "Author", User, multiple=False)
+    many = RelationField("tags", "Tags", Tag, multiple=True)
+    assert field_widget(single) == "relation"
+    short = (Field("n", "int"), Field("n", "bool"), Field("n", "date"), Field("n", "enum"), single)
+    assert [field_width(f) for f in short] == ["half"] * 5
+    long = (Field("n", "str"), Field("n", "text"), Field("n", "json"), many)
+    assert [field_width(f) for f in long] == ["full"] * 4

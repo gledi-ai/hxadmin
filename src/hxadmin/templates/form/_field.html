@@ -1,6 +1,6 @@
 {% set value = values.get(field.name) %}
 {% set error = errors.fields.get(field.name) %}
-{% set widget = 'relation' if field.kind == 'relation' else field.widget or default_widget(field.kind) %}
+{% set widget = field_widget(field) %}
 {% set control_base = 'mt-1 w-full rounded-md border bg-surface px-3 text-sm ' ~ ('border-danger' if error else 'border-input') %}
 {% set control = 'h-9 ' ~ control_base %}
 <div>

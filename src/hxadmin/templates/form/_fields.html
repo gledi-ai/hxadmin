@@ -4,9 +4,9 @@
     {% if errors.form %}{{ m.alert(errors.form, 'danger', class='mb-4') }}{% endif %}
     <div class="grid grid-cols-1 gap-4 rounded-lg border border-border bg-surface p-4 sm:grid-cols-2">
       {% for field in fields %}
-      {% set _widget = 'relation' if field.kind == 'relation' else field.widget or default_widget(field.kind) %}
-      {% set _short = (field.kind == 'relation' and not field.multiple) or _widget in ('select', 'number', 'checkbox', 'date', 'datetime-local', 'time') %}
-      <div class="min-w-0{{ '' if _short else ' sm:col-span-2' }}" data-field-width="{{ 'half' if _short else 'full' }}">{% include "form/_field.html" %}</div>
+      {% set _width = field_width(field) %}
+
+      <div class="min-w-0{{ ' sm:col-span-2' if _width == 'full' }}" data-field-width="{{ _width }}">{% include "form/_field.html" %}</div>
       {% endfor %}
     </div>
   </div>
