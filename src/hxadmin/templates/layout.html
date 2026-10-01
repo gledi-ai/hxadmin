@@ -458,7 +458,7 @@
                   class="hidden items-center gap-2 rounded-md border border-input bg-surface px-3 py-1.5 text-sm text-fg-muted shadow-sm hover:bg-surface-2 sm:flex sm:w-64">
             {{ m.icon('search', 'size-4 shrink-0') }}
             <span class="flex-1 truncate text-left">Search or jump to…</span>
-            {% set _palette_key %}<span class="mac:hidden">Ctrl K</span><span class="hidden mac:inline">⌘K</span>{% endset %}
+            {% set _palette_key %}<span class="mac:hidden">Ctrl+K</span><span class="hidden mac:inline">⌘K</span>{% endset %}
             {{ m.kbd(_palette_key) }}
           </button>
           {% call m.dialog("palette", "Command palette", open="open", close="close()", size="lg", dismissible=False, title_class="sr-only", class="gap-0! sm:mt-[12vh] sm:self-start") %}
