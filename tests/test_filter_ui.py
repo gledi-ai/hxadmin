@@ -131,7 +131,7 @@ function input(name, value, type) {
   return { name, value, type: type || "text", checked: type === "checkbox", dispatchEvent() {} };
 }
 const els = [
-  input("q", "zz"), input("sort", "title"), input("f.due", "x"),
+  input("q", "zz"), input("sort", "title"), input("f.due", "x"), input("f.due.min", "1"),
   input("f.due_date.min", "2026-01-01"), input("f.status", "todo", "checkbox"),
 ];
 document.elements["list-filters"] = { elements: els, requestSubmit() { submitted.push(true); } };
@@ -154,7 +154,14 @@ def test_clearing_one_filter_leaves_filters_sharing_its_prefix(
         + "console.log(JSON.stringify([state(), submitted.length]));"
     )
     assert run_layout_js(html, probe) == [
-        {"q": "zz", "sort": "title", "f.due": "", "f.due_date.min": "2026-01-01", "f.status": True},
+        {
+            "q": "zz",
+            "sort": "title",
+            "f.due": "",
+            "f.due.min": "",
+            "f.due_date.min": "2026-01-01",
+            "f.status": True,
+        },
         1,
     ]
 
@@ -172,6 +179,7 @@ def test_reset_filters_keeps_search_and_reset_list_clears_it(
         "q": "zz",
         "sort": "title",
         "f.due": "",
+        "f.due.min": "",
         "f.due_date.min": "",
         "f.status": False,
     }
@@ -182,6 +190,7 @@ def test_reset_filters_keeps_search_and_reset_list_clears_it(
         "q": "",
         "sort": "title",
         "f.due": "",
+        "f.due.min": "",
         "f.due_date.min": "",
         "f.status": False,
     }
