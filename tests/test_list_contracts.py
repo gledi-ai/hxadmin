@@ -247,3 +247,15 @@ def test_mobile_toolbar_puts_export_beside_search_and_filters_below(
     pills = re.search(r'<div class="([^"]*overflow-x-auto[^"]*)"', toolbar)
     assert pills is not None
     assert {"max-sm:order-last", "max-sm:basis-full"} <= set(pills.group(1).split())
+
+
+def test_both_select_all_boxes_share_one_macro(
+    factory: AppFactory, make_client: MakeClient
+) -> None:
+    with make_client(build(factory)) as client:
+        html = client.get("/admin/post/").text
+    boxes = re.findall(r'<input[^>]*data-select-all="(\w+)"[^>]*data-select-scope="([^"]+)"', html)
+    assert boxes == [
+        ("mobile", "input[id^=pk-mobile-]:not(:disabled)"),
+        ("desktop", "input[name=pks]:not(:disabled)"),
+    ]
