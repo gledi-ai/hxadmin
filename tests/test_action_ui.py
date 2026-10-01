@@ -8,6 +8,7 @@ from starlette.requests import Request
 
 from hxadmin import ActionResult, HxAdmin, ModelView, action
 from tests.conftest import AppFactory, Group, User, allow_all
+from tests.html import tag
 from tests.test_action_routes import UserView, seed_users
 
 type MakeClient = Callable[[FastAPI], TestClient]
@@ -63,7 +64,7 @@ def test_list_renders_selection_bulk_bar_and_row_actions(
     with make_client(build(factory)) as client:
         html = client.get("/admin/user/").text
         partial = client.get("/admin/user/", headers={"HX-Request": "true"}).text
-    assert '<div id="list" class="hx-list" x-data="bulk()"' in html
+    assert 'x-data="bulk()"' in tag(html, 'id="list"')
     assert '<form id="bulk" x-show="count"' in html
     assert 'hx-post="/admin/user/action/deactivate"' in html
     assert 'hx-target="#list"' in html

@@ -10,7 +10,7 @@
     {{ m.icon('chevron-left', 'size-4') }}Back to {{ view.name_plural }}
   </a>
   {% endif %}
-  <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+  <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4" data-detail-header>
     <div class="flex min-w-0 items-center gap-2">
       <h1 class="truncate text-xl font-semibold">{{ view.display(obj) }}</h1>
       {% for field in badge_fields %}{% set _value = view.cell(obj, field.name) %}{% if _value is not none %}{{ m.cell(view, field, _value) }}{% endif %}{% endfor %}

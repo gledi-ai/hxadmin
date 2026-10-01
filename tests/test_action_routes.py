@@ -15,6 +15,7 @@ from starlette.responses import PlainTextResponse
 from hxadmin import ActionResult, HxAdmin, ModelView, action
 from hxadmin.toasts import FLASH_COOKIE, TOAST_EVENT
 from tests.conftest import AppFactory, User, allow_all
+from tests.html import h1_texts
 from tests.test_detail import seed
 
 type MakeClient = Callable[[FastAPI], TestClient]
@@ -426,6 +427,6 @@ def test_row_action_rerender_refreshes_the_detail_heading(
     with make_client(build(factory, RenameView)) as client:
         response = client.post("/admin/user/1/action/rename", headers=HX)
         full = client.get("/admin/user/1").text
-    assert '<h1 class="truncate text-xl font-semibold">renamed@x.io</h1>' in response.text
+    assert h1_texts(response.text) == ["renamed@x.io"]
     assert "/admin/user/1/action/rename" in response.text
-    assert full.count('<h1 class="truncate text-xl font-semibold">') == 1
+    assert len(h1_texts(full)) == 1

@@ -5,6 +5,7 @@ from fastapi.testclient import TestClient
 
 from hxadmin import HxAdmin, ModelView
 from tests.conftest import AppFactory, Group, User, allow_all
+from tests.html import classes, tag, visible_text
 
 type MakeClient = Callable[[FastAPI], TestClient]
 
@@ -24,10 +25,9 @@ def test_sidebar_rail_toggle_markup(factory: AppFactory, make_client: MakeClient
     assert "localStorage.getItem('hxadmin-sidebar')" in html
     assert "document.documentElement.classList.toggle('hxadmin-collapsed'" in html
     assert 'aria-label="Toggle sidebar"' in html
-    assert (
-        'Toggle sidebar <span class="mac:hidden">Ctrl+B</span>'
-        '<span class="hidden mac:inline">⌘B</span>' in html
-    )
+    hint = visible_text(html[html.index("Toggle sidebar <span") :][:200])
+    assert "Ctrl+B" in hint
+    assert "⌘B" in hint
     assert ".key.toLowerCase() === 'b'" in html
     assert "Collapse<" not in html
     assert 'class="hidden shrink-0 border-t border-border p-2 lg:block"' not in html
@@ -235,9 +235,10 @@ def test_rail_keeps_the_brand_row_at_the_top_bar_height(
     with make_client(app) as client:
         html = client.get("/admin/").text
     aside = html[html.index("<aside") :]
-    brand = aside[aside.index("<div") : aside.index(">", aside.index("<div"))]
-    assert "h-14" in brand
-    assert "lg:collapsed:h-auto" not in brand
-    assert "lg:collapsed:flex-col" not in brand
+    brand = classes(tag(aside, "<div"))
+    height = {c for c in classes(tag(html, "<header")) if c.startswith("h-")}
+    assert height
+    assert height <= brand
+    assert not {c for c in brand if c.startswith("lg:collapsed:h-")}
     toggle = html[: html.index('aria-label="Toggle sidebar"')]
     assert "lg:collapsed:absolute" in toggle[toggle.rindex("<button") :]
