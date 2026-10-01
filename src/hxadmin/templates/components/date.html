@@ -19,9 +19,11 @@
 {% from "components/icon.html" import icon as _icon %}
 {% macro date_input(name, value=None, kind="date", id=None, required=False, error=False, readonly=False, form=None, class="", value_class="") -%}
 {%- set id = id or ("f-" ~ name) -%}
-<div class="relative" x-data="dateInput({{ kind|tojson|forceescape }}, {{ (value or '')|tojson|forceescape }})">
+
+{%- set format = hx_date_format(kind) -%}
+<div class="relative" x-data="dateInput({{ kind|tojson|forceescape }}, {{ (value or '')|tojson|forceescape }}, {{ format|tojson|forceescape }})">
   <input type="hidden" name="{{ name }}" value="{{ value or '' }}" :value="value" x-ref="hidden"{% if value_class %} class="{{ value_class }}"{% endif %}{% if form %} form="{{ form }}"{% endif %} @hxadmin-clear="reset()">
-  <input id="{{ id }}" type="text" autocomplete="off" x-ref="visible" @keydown.down.prevent="picker.show()" @change="commit()" placeholder="{{ {'date': 'mm/dd/yyyy', 'datetime': 'mm/dd/yyyy hh:mm', 'time': 'hh:mm'}[kind] }}"
+  <input id="{{ id }}" type="text" autocomplete="off" x-ref="visible" @keydown.down.prevent="picker.show()" @change="commit()" placeholder="{{ format|lower }}"
          {% if required %}required{% endif %} {% if readonly %}readonly{% endif %} {% if error %}aria-invalid="true"{% endif %}
          class="{{ class }} pr-8">
   <button type="button" x-show="value" x-cloak @click="clear()" tabindex="-1"

@@ -21,7 +21,7 @@ from starlette.requests import Request
 from starlette.responses import HTMLResponse, RedirectResponse, Response
 from starlette.routing import BaseRoute
 
-from hxadmin.components import html_attrs, pick
+from hxadmin.components import date_format, html_attrs, pick
 from hxadmin.deps import AuthDependency, SessionDependency
 from hxadmin.fields import default_widget, field_widget, field_width
 from hxadmin.icons import check_icon, icon
@@ -113,6 +113,7 @@ class HxAdmin:
         env_globals["lucide_icon"] = icon
         env_globals["hx_attrs"] = html_attrs
         env_globals["hx_pick"] = pick
+        env_globals["hx_date_format"] = date_format
         env_globals["hx_user_label"] = user_label
         env_globals["hx_user_initials"] = user_initials
         return env
