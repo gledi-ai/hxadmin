@@ -331,7 +331,7 @@
         if (kind === "datetime") s += "T" + pad(date.getHours()) + ":" + pad(date.getMinutes());
         return s;
       }
-      // Inside a filter popover, open the calendar beside the panel so it hides no field.
+      /** Position callback for Air Datepicker: open beside `panel` (right, else left, else below), clamped to the viewport. */
       function besidePanel(panel) {
         return function (o) {
           var box = panel.getBoundingClientRect();
