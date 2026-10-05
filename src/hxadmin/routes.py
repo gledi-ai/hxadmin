@@ -353,8 +353,7 @@ def build_router(admin: "HxAdmin") -> APIRouter:
         values, errors = validate(schema, raw)
         if not errors:
             try:
-                with session.no_autoflush:
-                    await apply(admin, request, session, view, obj, values, fields)
+                await apply(admin, request, session, view, obj, values, fields)
             except LookupError as exc:
                 if not created:
                     await session.rollback()

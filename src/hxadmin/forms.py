@@ -217,15 +217,16 @@ async def apply(
 ) -> None:
     """Write validated values onto `obj`, resolving relation pk strings through the target view."""
     columns = cast(Mapper[Any], inspect(view.model)).columns
-    for field_ in fields:
-        if field_.name not in values:
-            continue
-        value = values[field_.name]
-        if isinstance(field_, RelationField):
-            stmt = relation_scope(admin, request, field_)
-            setattr(obj, field_.name, await _relation_value(session, stmt, field_, value))
-        elif not field_.readonly:
-            setattr(obj, field_.name, _column_value(columns[field_.name].type, value))
+    with session.no_autoflush:
+        for field_ in fields:
+            if field_.name not in values:
+                continue
+            value = values[field_.name]
+            if isinstance(field_, RelationField):
+                stmt = relation_scope(admin, request, field_)
+                setattr(obj, field_.name, await _relation_value(session, stmt, field_, value))
+            elif not field_.readonly:
+                setattr(obj, field_.name, _column_value(columns[field_.name].type, value))
 
 
 def _relation_initial(admin: "HxAdmin", field_: RelationField, obj: Any) -> list[tuple[str, str]]:

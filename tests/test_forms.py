@@ -242,6 +242,7 @@ async def test_apply_and_relabel_use_target_view_scope(
     post = Post()
     await apply(admin, _request(), session, view, post, {"author": "1"}, view.writable_fields)
     assert post.author.email == "ada@x.io"
+    session.expunge_all()
     with pytest.raises(LookupError, match="author"):
         await apply(admin, _request(), session, view, Post(), {"author": "2"}, view.writable_fields)
     shown = await relabel(admin, _request(), session, view.writable_fields, {"author": "2"})
