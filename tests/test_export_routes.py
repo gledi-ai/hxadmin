@@ -73,7 +73,7 @@ def test_selection_export_keeps_order_and_ignores_filters(
 
 def test_export_is_scoped_by_get_query(factory: AppFactory, make_client: MakeClient) -> None:
     class ScopedPostView(PostView):
-        def get_query(self, request: Request) -> Select[tuple[Post]]:
+        def get_query(self, request: Request) -> Select[Post]:
             return super().get_query(request).where(Post.title != "Beta")
 
     with make_client(build(factory, ScopedPostView)) as client:

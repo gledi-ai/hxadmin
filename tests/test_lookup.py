@@ -109,7 +109,7 @@ def test_lookup_respects_target_get_query_and_is_accessible(
     class ActiveUsers(ModelView[User]):
         model = User
 
-        def get_query(self, request: Request) -> Select[tuple[User]]:
+        def get_query(self, request: Request) -> Select[User]:
             return select(User).where(User.active.is_(True))
 
     class Locked(ModelView[User]):

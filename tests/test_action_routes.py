@@ -162,7 +162,7 @@ def test_bulk_action_updates_selected_rows(factory: AppFactory, make_client: Mak
 
 def test_bulk_action_is_scoped_by_get_query(factory: AppFactory, make_client: MakeClient) -> None:
     class Scoped(UserView):
-        def get_query(self, request: Request) -> Select[tuple[User]]:
+        def get_query(self, request: Request) -> Select[User]:
             return super().get_query(request).where(User.email != "ada@x.io")
 
     with make_client(build(factory, Scoped)) as client:

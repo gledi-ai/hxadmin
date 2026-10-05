@@ -182,7 +182,7 @@ class ModelView[T]:
         """The bound coroutine method declared with `@action(name)`."""
         return getattr(self, self._action_attrs[name])
 
-    def get_query(self, request: Request) -> Select[tuple[T]]:
+    def get_query(self, request: Request) -> Select[T]:
         return select(self.model)
 
     def pk_of(self, obj: T) -> str:

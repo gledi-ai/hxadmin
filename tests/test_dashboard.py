@@ -33,7 +33,7 @@ def build(factory: AppFactory) -> FastAPI:
         name_plural = "Active users"
         category = "Auth"
 
-        def get_query(self, request: Request) -> Select[tuple[User]]:
+        def get_query(self, request: Request) -> Select[User]:
             return select(User).where(User.active)
 
     @admin.register
@@ -130,7 +130,7 @@ def test_broken_view_does_not_break_the_dashboard(
     class Broken(ModelView[Post]):
         model = Post
 
-        def get_query(self, request: Request) -> Select[tuple[Post]]:
+        def get_query(self, request: Request) -> Select[Post]:
             raise RuntimeError("no")
 
     with caplog.at_level(logging.ERROR, logger="hxadmin"), make_client(app) as client:

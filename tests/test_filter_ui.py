@@ -257,7 +257,7 @@ class CountingUserView(ModelView[User]):
     model = User
     queries = 0
 
-    def get_query(self, request: Request) -> Select[tuple[User]]:
+    def get_query(self, request: Request) -> Select[User]:
         CountingUserView.queries += 1
         return super().get_query(request)
 

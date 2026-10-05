@@ -235,7 +235,7 @@ async def test_apply_and_relabel_use_target_view_scope(
     class ActiveUsers(ModelView[User]):
         model = User
 
-        def get_query(self, request: Request) -> Select[tuple[User]]:
+        def get_query(self, request: Request) -> Select[User]:
             return select(User).where(User.active.is_(True))
 
     view = admin.views["post"]

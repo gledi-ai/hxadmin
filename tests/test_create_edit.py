@@ -149,7 +149,7 @@ def test_create_relation_pk_outside_target_scope_is_unknown(
     class ActiveUsers(ModelView[User]):
         model = User
 
-        def get_query(self, request: Request) -> Select[tuple[User]]:
+        def get_query(self, request: Request) -> Select[User]:
             return select(User).where(User.active.is_(True))
 
     class Locked(ModelView[User]):
@@ -177,7 +177,7 @@ def test_create_relation_pk_inside_target_scope_is_saved(
     class ActiveUsers(ModelView[User]):
         model = User
 
-        def get_query(self, request: Request) -> Select[tuple[User]]:
+        def get_query(self, request: Request) -> Select[User]:
             return select(User).where(User.active.is_(True))
 
     with make_client(build(factory, user_view=ActiveUsers)) as client:

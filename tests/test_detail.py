@@ -171,7 +171,7 @@ def test_related_scoped_by_target_view_query(
     class UserView(ModelView[User]):
         model = User
 
-        def get_query(self, request: Request) -> Select[tuple[User]]:
+        def get_query(self, request: Request) -> Select[User]:
             return select(User).where(User.active.is_(True))
 
     with make_client(app) as client:

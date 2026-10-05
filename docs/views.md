@@ -62,7 +62,7 @@ The detail page at `/{prefix}/{identity}/{pk}` shows a back link to the list, th
 
 ```python
 class TaskView(ModelView[Task]):
-    def get_query(self, request: Request) -> Select[tuple[Task]]:
+    def get_query(self, request: Request) -> Select[Task]:
         return super().get_query(request).where(Task.archived.is_(False))
 
     def format_status(self, obj: Task) -> str:

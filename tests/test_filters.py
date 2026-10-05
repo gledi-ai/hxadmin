@@ -310,7 +310,7 @@ async def test_reading_filters_narrow_rows(
 class ScopedUserView(ModelView[User]):
     model = User
 
-    def get_query(self, request: Request) -> Select[tuple[User]]:
+    def get_query(self, request: Request) -> Select[User]:
         return super().get_query(request).where(User.email != "hidden@x.io")
 
 

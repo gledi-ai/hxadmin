@@ -43,7 +43,7 @@ def build(factory: AppFactory) -> FastAPI:
         model = Post
         list_columns = ("title", "author", "tags")
 
-        def get_query(self, request: Request) -> Select[tuple[Post]]:
+        def get_query(self, request: Request) -> Select[Post]:
             return super().get_query(request).where(Post.title != "Hidden")
 
     return app
@@ -178,7 +178,7 @@ def test_get_query_override_filters_rows(
     class PostView(ModelView[Post]):
         model = Post
 
-        def get_query(self, request: Request) -> Select[tuple[Post]]:
+        def get_query(self, request: Request) -> Select[Post]:
             return super().get_query(request).where(Post.title != "Hidden")
 
     with make_client(app) as client:
