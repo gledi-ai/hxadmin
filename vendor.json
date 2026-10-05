@@ -43,7 +43,7 @@
     ]
   },
   "lucide-static": {
-    "version": "1.49.0",
+    "version": "1.52.0",
     "files": {
       "icons/*.svg": "lucide/",
       "LICENSE": "lucide/LICENSE"
