@@ -2,7 +2,7 @@ import datetime as dt
 import decimal
 import enum
 import uuid
-from collections.abc import AsyncGenerator, AsyncIterator, Awaitable, Callable
+from collections.abc import AsyncGenerator, AsyncIterator, Awaitable, Callable, Iterator
 from contextlib import asynccontextmanager
 from datetime import datetime
 from typing import Any
@@ -10,6 +10,8 @@ from typing import Any
 import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
+from jinja2 import BytecodeCache, Environment
+from jinja2.bccache import Bucket
 from sqlalchemy import (
     Boolean,
     Column,
@@ -31,6 +33,8 @@ from sqlalchemy.ext.asyncio import (
     create_async_engine,
 )
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
+
+from hxadmin import HxAdmin
 
 type Seeder = Callable[[AsyncSession], Awaitable[None]]
 
@@ -190,6 +194,35 @@ class AppFactory:
 
 def allow_all() -> dict[str, str]:
     return {"name": "admin@example.com"}
+
+
+class MemoryBytecodeCache(BytecodeCache):
+    """Compiled templates shared by every test's environment; keyed by name, path and source."""
+
+    def __init__(self) -> None:
+        self.store: dict[str, bytes] = {}
+
+    def load_bytecode(self, bucket: Bucket) -> None:
+        if (data := self.store.get(bucket.key)) is not None:
+            bucket.bytecode_from_string(data)
+
+    def dump_bytecode(self, bucket: Bucket) -> None:
+        self.store[bucket.key] = bucket.bytecode_to_string()
+
+
+@pytest.fixture(scope="session", autouse=True)
+def shared_template_bytecode() -> Iterator[None]:
+    cache = MemoryBytecodeCache()
+    make_environment = HxAdmin._make_environment
+
+    def cached(self: HxAdmin, templates_dir: Any) -> Environment:
+        env = make_environment(self, templates_dir)
+        env.bytecode_cache = cache
+        return env
+
+    with pytest.MonkeyPatch.context() as mp:
+        mp.setattr(HxAdmin, "_make_environment", cached)
+        yield
 
 
 @pytest.fixture
