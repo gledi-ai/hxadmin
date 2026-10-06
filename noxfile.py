@@ -62,7 +62,7 @@ def audit(session: nox.Session) -> None:
 
 @nox.session
 def lint(session: nox.Session) -> None:
-    sync(session, "lint", "test")
+    sync(session, "lint", "test", "demo")
     session.run("ruff", "check")
     session.run("ruff", "format", "--check")
     session.run("pyrefly", "check")
