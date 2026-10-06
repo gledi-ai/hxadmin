@@ -10,6 +10,8 @@ PY := $(CURDIR)/.venv/bin/python
 
 ARGS := $(wordlist 2,$(words $(MAKECMDGOALS)),$(MAKECMDGOALS))
 
+XDIST := $(if $(ARGS),,-n auto)
+
 
 ##@ General
 
@@ -107,14 +109,14 @@ demo-tables: ## Run the plain-Table demo with reload on http://127.0.0.1:8002/ad
 
 .PHONY: test cov test/cov cov/report test/matrix test/lowest test/wheel
 
-test: ## Run tests on the current interpreter (pass paths/args: make test tests/test_list.py)
-	$(UV) run --locked pytest $(ARGS)
+test: ## Run tests on the current interpreter, in parallel unless paths are given (make test tests/test_list.py)
+	$(UV) run --locked pytest $(XDIST) $(ARGS)
 
 cov test/cov: ## Run tests with coverage (terminal + missing lines)
-	$(UV) run --locked pytest --cov=hxadmin --cov-report=term-missing $(ARGS)
+	$(UV) run --locked pytest $(XDIST) --cov=hxadmin --cov-report=term-missing $(ARGS)
 
 cov/report: ## Run tests with coverage and write xml + html + junit reports
-	$(UV) run --locked pytest --cov=hxadmin --cov-report=term-missing --cov-report=xml --cov-report=html --junitxml=junit.xml $(ARGS)
+	$(UV) run --locked pytest $(XDIST) --cov=hxadmin --cov-report=term-missing --cov-report=xml --cov-report=html --junitxml=junit.xml $(ARGS)
 
 test/matrix: ## Run tests on every supported Python (3.13, 3.14) via nox
 	$(NOX) -s tests

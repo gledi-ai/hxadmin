@@ -17,6 +17,11 @@ PYPROJECT = nox.project.load_toml("pyproject.toml")
 PYTHON_VERSIONS = nox.project.python_versions(PYPROJECT)
 
 
+def pytest_args(session: nox.Session) -> list[str]:
+    """The session's posargs, or the whole suite across all CPUs when none are given."""
+    return session.posargs or ["-n", "auto"]
+
+
 def sync(session: nox.Session, *groups: str) -> None:
     session.run_install(
         "uv",
@@ -32,14 +37,14 @@ def sync(session: nox.Session, *groups: str) -> None:
 @nox.session(python=PYTHON_VERSIONS)
 def tests(session: nox.Session) -> None:
     sync(session, "test")
-    session.run("pytest", "--cov", *session.posargs)
+    session.run("pytest", "--cov", *pytest_args(session))
 
 
 @nox.session(python=PYTHON_VERSIONS)
 def tests_lowest(session: nox.Session) -> None:
     test_deps = nox.project.dependency_groups(PYPROJECT, "test")
     session.install("--resolution=lowest-direct", "-e", ".", *test_deps)
-    session.run("pytest", *session.posargs)
+    session.run("pytest", *pytest_args(session))
 
 
 @nox.session
@@ -47,7 +52,7 @@ def wheel(session: nox.Session) -> None:
     dist = session.create_tmp()
     session.run("uv", "build", "--wheel", "--out-dir", dist, external=True)
     session.install(*Path(dist).glob("*.whl"), *nox.project.dependency_groups(PYPROJECT, "test"))
-    session.run("pytest", *session.posargs)
+    session.run("pytest", *pytest_args(session))
 
 
 @nox.session(python=False)
