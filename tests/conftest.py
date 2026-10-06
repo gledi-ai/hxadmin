@@ -11,12 +11,15 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from sqlalchemy import (
+    Boolean,
     Column,
     DateTime,
     ForeignKey,
+    Integer,
     Numeric,
     SmallInteger,
     StaticPool,
+    String,
     Table,
     Text,
     event,
@@ -117,6 +120,33 @@ class Reading(Base):
     taken_at: Mapped[dt.datetime]
     synced_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True))
     ref: Mapped[uuid.UUID]
+
+
+invoices = Table(
+    "invoices",
+    Base.metadata,
+    Column("id", Integer, primary_key=True),
+    Column("customer", String, nullable=False),
+    Column("total", Integer, nullable=False),
+    Column("paid", Boolean, nullable=False, default=False),
+)
+
+
+class Invoice(Base):
+    __table__ = invoices
+
+
+rates = Table(
+    "rates",
+    Base.metadata,
+    Column("code", String, nullable=False, unique=True),
+    Column("value", Integer, nullable=False),
+)
+
+
+class Rate(Base):
+    __table__ = rates
+    __mapper_args__ = {"primary_key": [rates.c.code]}  # noqa: RUF012
 
 
 def make_engine() -> AsyncEngine:

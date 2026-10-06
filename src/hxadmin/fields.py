@@ -59,9 +59,10 @@ class Field:
 
     `required` is tri-state: `True`/`False` force it, `None` (the default for `Field(...)`
     overrides in `form_fields`) means "derive from the column": on a `ModelView` that is the
-    mapper-derived value, elsewhere it means non-nullable. `kind`, `nullable`, `primary_key`,
-    `autoincrement`, `unique`, `choices` and `default` always describe the column and are
-    replaced by the derived values when used as an override.
+    mapper-derived value, elsewhere it means non-nullable. `kind`, `nullable`, `autoincrement`,
+    `unique`, `choices` and `default` always describe the column, and `primary_key` the
+    mapper's key (so a `__mapper_args__` primary key counts); all are replaced by the derived
+    values when used as an override.
     """
 
     name: str
@@ -202,7 +203,7 @@ def _column_field(key: str, column: Column[Any], mapper: Mapper[Any]) -> Field:
         key,
         kind,
         nullable=nullable,
-        primary_key=bool(column.primary_key),
+        primary_key=any(c is column for c in mapper.primary_key),
         autoincrement=autoincrement,
         unique=bool(column.unique),
         required=required,

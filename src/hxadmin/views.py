@@ -68,6 +68,16 @@ class ModelView[T]:
         column_fields = [f for f in self.fields.values() if isinstance(f, Field)]
         self.pk_names = tuple(f.name for f in column_fields if f.primary_key)
         self.list_fields = self._resolve(self.list_columns or tuple(f.name for f in column_fields))
+        self.stretch_name = next(
+            (
+                f.name
+                for f in self.list_fields
+                if f.kind in ("str", "text", "relation")
+                and not (isinstance(f, Field) and f.primary_key)
+            ),
+            None,
+        )
+        self.link_name = self.stretch_name or self.list_fields[0].name
         self.detail_fields = self._resolve(self.detail_columns or tuple(self.fields))
         self.sort_names = self.sortable or tuple(
             f.name for f in self.list_fields if isinstance(f, Field)

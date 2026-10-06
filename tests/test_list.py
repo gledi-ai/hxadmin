@@ -147,7 +147,7 @@ def test_relation_cells(factory: AppFactory, make_client: Callable[[FastAPI], Te
     with make_client(build(factory)) as client:
         html = client.get("/admin/post/").text
     table = table_section(html)
-    assert 'class="font-medium text-fg hover:underline">Hello</a>' in table
+    assert 'class="font-medium text-accent hover:underline">Hello</a>' in table
     assert '<span class="text-fg-muted">user00@x.io</span>' in table
     assert 'href="/admin/user/1"' not in table
     assert "<td" in html
