@@ -94,10 +94,13 @@ vendor/update: ## Update vendored libraries (make vendor/update htmx.org alpinej
 
 ##@ Run
 
-.PHONY: demo
+.PHONY: demo demo-tables
 
 demo: ## Run the demo app with reload on http://127.0.0.1:8001/admin/
 	$(UV) run --locked --group demo python -m demo
+
+demo-tables: ## Run the plain-Table demo with reload on http://127.0.0.1:8002/admin/
+	$(UV) run --locked --group demo python -m demo_tables
 
 
 ##@ Testing

@@ -20,6 +20,7 @@ node_modules/
 
 # Demo
 demo/demo.db
+demo_tables/demo_tables.db
 
 # Docs
 site/
