@@ -1,5 +1,6 @@
 import inspect
 import json
+import logging
 from collections.abc import Awaitable, Callable, Mapping, Sequence
 from pathlib import Path
 from typing import Any, cast
@@ -26,10 +27,13 @@ from hxadmin.deps import AuthDependency, SessionDependency
 from hxadmin.fields import default_widget, field_widget, field_width
 from hxadmin.icons import check_icon, icon
 from hxadmin.nav import build_nav
+from hxadmin.origin import is_cross_origin, normalize_origin
 from hxadmin.pages import AdminPage, PageEndpoint, PageHandler
 from hxadmin.toasts import FLASH_COOKIE, Toast, encode_flash, hx_trigger, read_flash
 from hxadmin.users import user_initials, user_label
 from hxadmin.views import ModelView
+
+logger = logging.getLogger("hxadmin")
 
 
 def json_pretty(value: Any) -> str:
@@ -75,6 +79,7 @@ class HxAdmin:
         logout_url: str | None = None,
         logo_url: str | None = None,
         templates_dir: str | Path | None = None,
+        trusted_origins: Sequence[str] = (),
     ) -> None:
         self.app = app
         self.title = title
@@ -88,6 +93,7 @@ class HxAdmin:
         self._method_fallbacks: dict[str, BaseRoute] = {}
         self._session = session
         self._auth = auth
+        self.trusted_origins = frozenset(normalize_origin(origin) for origin in trusted_origins)
         self.templates = self._make_environment(templates_dir)
         self.subapp = FastAPI(openapi_url=None, docs_url=None, redoc_url=None)
         self.subapp.mount(
@@ -121,9 +127,19 @@ class HxAdmin:
     def _build_dependencies(self) -> None:
         auth = self._auth
         session = self._session
+        trusted = self.trusted_origins
 
         async def current_user(request: Request, user: Any = Depends(auth)) -> Any:
             request.state.hxadmin_user = user
+            if is_cross_origin(request, trusted):
+                logger.warning(
+                    "Blocked cross-origin %s %s (Origin: %s, Sec-Fetch-Site: %s)",
+                    request.method,
+                    request.url.path,
+                    request.headers.get("origin"),
+                    request.headers.get("sec-fetch-site"),
+                )
+                raise StarletteHTTPException(403, "Cross-origin request blocked.")
             return user
 
         async def current_session(

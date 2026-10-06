@@ -8,6 +8,7 @@ admin = HxAdmin(
     prefix="/admin",
     login_url="/login",  # optional
     logout_url="/logout",  # optional; shown in the top bar
+    trusted_origins=(),  # optional; other origins allowed to send writes
 )
 ```
 
@@ -23,6 +24,23 @@ To deny access, raise `HTTPException(401)` or `HTTPException(403)`. With `login_
 
 Per view, `is_accessible(request)` and `is_visible(request)` narrow access further. Per action, `is_action_allowed(request, name)` does; see [Actions](actions.md).
 
-## CSRF
+## Cross-site requests
 
-hxadmin has no CSRF protection of its own. If the admin is authenticated by cookie, put it behind your session and CSRF middleware.
+hxadmin refuses state-changing requests (`POST`, `PUT`, `PATCH`, `DELETE`) that a browser sends from another origin, so another site cannot make a signed-in admin's browser create, edit, delete or run an action. This covers every admin route, custom pages included, whatever your `auth` uses (cookies included), and needs no tokens in your templates.
+
+- Browsers send `Sec-Fetch-Site`; a write passes when it is `same-origin` (or `none`, a request the user started directly). `same-site` is refused too, so a sibling subdomain cannot write.
+- Browsers too old for `Sec-Fetch-Site` send `Origin`, which must match the request's `Host`.
+- Requests with neither header do not come from a browser (scripts, tests, server-to-server calls) and pass; `auth` still applies.
+- `GET`, `HEAD` and `OPTIONS` always pass, which is why `method="GET"` actions must not change data (see [Actions](actions.md)).
+
+A refused request gets a 403 ("Cross-origin request blocked.": an error page, or an error toast for htmx) and a warning on the `hxadmin` logger naming the method, path, `Origin` and `Sec-Fetch-Site`.
+
+To accept writes from another origin you control, such as a separate frontend, list it:
+
+```python
+admin = HxAdmin(app, ..., trusted_origins=["https://ops.example.com"])
+```
+
+Each entry is a bare origin, `scheme://host[:port]`, with no path; anything else raises `ValueError`.
+
+Behind a reverse proxy, browsers that only send `Origin` need the proxy to pass the public `Host` header through (e.g. nginx `proxy_set_header Host $host;`). Current browsers send `Sec-Fetch-Site`, which does not depend on the proxy.
