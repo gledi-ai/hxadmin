@@ -32,7 +32,7 @@ class UserView(ModelView[User]):
 
 `session` yields an `AsyncSession`; `auth` returns the current user or raises `HTTPException(401)`. Open `/admin/`.
 
-Documentation: [`docs/`](docs/index.md) (build locally with `nox -s docs`). Try everything in the demo: `uv run python -m demo`, then open http://127.0.0.1:8001/admin/. For projects built on plain Core `Table`s instead of ORM models, see `uv run python -m demo_tables` (http://127.0.0.1:8002/admin/).
+Documentation: [docs](https://github.com/gledi-ai/hxadmin/tree/main/docs) (build locally with `nox -s docs`). Try everything in the demo: `uv run python -m demo`, then open http://127.0.0.1:8001/admin/. For projects built on plain Core `Table`s instead of ORM models, see `uv run python -m demo_tables` (http://127.0.0.1:8002/admin/).
 
 ## Development
 
@@ -42,6 +42,7 @@ prek install       # git hooks: ruff, pyrefly, uv-lock
 nox                # lint + tests on every supported Python
 nox -s tests-3.14  # single Python version
 nox -s tests_lowest  # tests against the lowest supported dependency versions
+nox -s tests_latest  # tests against the newest allowed releases (weekly in CI)
 nox -s wheel       # tests against the built wheel
 nox -s audit       # dependency vulnerability audit
 nox -s docs        # build the docs strictly into site/

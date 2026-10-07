@@ -107,7 +107,7 @@ demo-tables: ## Run the plain-Table demo with reload on http://127.0.0.1:8002/ad
 
 ##@ Testing
 
-.PHONY: test cov test/cov cov/report test/matrix test/lowest test/wheel
+.PHONY: test cov test/cov cov/report test/matrix test/lowest test/latest test/wheel
 
 test: ## Run tests on the current interpreter, in parallel unless paths are given (make test tests/test_list.py)
 	$(UV) run --locked pytest $(XDIST) $(ARGS)
@@ -123,6 +123,9 @@ test/matrix: ## Run tests on every supported Python (3.13, 3.14) via nox
 
 test/lowest: ## Run tests against the lowest allowed direct dependencies via nox
 	$(NOX) -s tests_lowest
+
+test/latest: ## Run tests against the newest allowed dependency releases, ignoring the lockfile, via nox
+	$(NOX) -s tests_latest
 
 test/wheel: ## Build the wheel and run the tests against it via nox
 	$(NOX) -s wheel

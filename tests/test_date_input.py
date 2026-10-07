@@ -117,9 +117,7 @@ def test_theme_overrides_load_after_the_picker_stylesheet(
 def test_picker_hides_its_pointer_and_sits_4px_below_the_input() -> None:
     from pathlib import Path
 
-    import hxadmin
-
-    root = Path(hxadmin.__file__).parent
+    root = Path(__file__).parent.parent / "src" / "hxadmin"
     css = (root / "static" / "src" / "hxadmin.css").read_text()
     assert ".air-datepicker--pointer {\n  display: none;\n}" in css
     assert "offset: 4," in (root / "templates" / "layout.html").read_text()

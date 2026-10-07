@@ -47,6 +47,13 @@ def tests_lowest(session: nox.Session) -> None:
     session.run("pytest", *pytest_args(session))
 
 
+@nox.session(python=PYTHON_VERSIONS)
+def tests_latest(session: nox.Session) -> None:
+    test_deps = nox.project.dependency_groups(PYPROJECT, "test")
+    session.install("--upgrade", "--resolution=highest", "-e", ".[xlsx]", *test_deps)
+    session.run("pytest", *pytest_args(session))
+
+
 @nox.session
 def wheel(session: nox.Session) -> None:
     dist = session.create_tmp()
@@ -201,18 +208,31 @@ def _vendor_files(session: nox.Session, meta: dict, files: dict[str, str]) -> No
             return data if data.endswith(b"\n") else data + b"\n"
 
         for source, dest in files.items():
-            if dest.endswith("/"):
-                directory = VENDOR_DIR / dest
+            if dest.endswith(".json"):
                 pattern = PurePosixPath(source)
-                for old in directory.glob(pattern.name):
-                    old.unlink()
-                for name in sorted(members):
-                    if PurePosixPath(name).parent == pattern.parent and fnmatch(
-                        PurePosixPath(name).name, pattern.name
-                    ):
-                        (directory / PurePosixPath(name).name).write_bytes(read(name))
+                svgs = {
+                    PurePosixPath(name).stem: read(name).decode()
+                    for name in members
+                    if PurePosixPath(name).parent == pattern.parent
+                    and fnmatch(PurePosixPath(name).name, pattern.name)
+                }
+                (VENDOR_DIR / dest).write_text(icon_bundle(svgs))
             else:
                 (VENDOR_DIR / dest).write_bytes(read(source))
+
+
+_SVG_BODY = re.compile(r"<svg\b[^>]*>(.*)</svg>", re.DOTALL)
+
+
+def icon_bundle(svgs: dict[str, str]) -> str:
+    """JSON of each icon name to the shapes inside its `<svg>`, without whitespace between tags."""
+    shapes = {}
+    for name, source in sorted(svgs.items()):
+        match = _SVG_BODY.search(source)
+        if match is None:
+            raise ValueError(f"Icon {name!r} is not a valid SVG")
+        shapes[name] = re.sub(r">\s+<", "><", match.group(1).strip())
+    return json.dumps(shapes, separators=(",", ":")) + "\n"
 
 
 @nox.session(python=False)

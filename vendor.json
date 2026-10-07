@@ -45,8 +45,8 @@
   "lucide-static": {
     "version": "1.52.0",
     "files": {
-      "icons/*.svg": "lucide/",
-      "LICENSE": "lucide/LICENSE"
+      "icons/*.svg": "lucide.json",
+      "LICENSE": "lucide.LICENSE"
     }
   },
   "tailwindcss": {

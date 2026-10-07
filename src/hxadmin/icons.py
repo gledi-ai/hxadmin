@@ -1,15 +1,13 @@
-"""Inline Lucide icons from the SVGs vendored in `static/vendor/lucide`."""
+"""Inline Lucide icons from the bundle vendored at `static/vendor/lucide.json`."""
 
-import re
+import json
 from dataclasses import dataclass
 from functools import cache
 from importlib.resources import files
 
 from markupsafe import escape
 
-_ICONS = files("hxadmin").joinpath("static", "vendor", "lucide")
-_NAME = re.compile(r"[a-z0-9]+(?:-[a-z0-9]+)*")
-_BODY = re.compile(r"<svg\b[^>]*>(.*)</svg>", re.DOTALL)
+_BUNDLE = files("hxadmin").joinpath("static", "vendor", "lucide.json")
 _OPEN = (
     '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" '
     'stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"'
@@ -32,9 +30,14 @@ class Icon:
         return self.__html__()
 
 
+@cache
+def _icons() -> dict[str, str]:
+    return json.loads(_BUNDLE.read_text(encoding="utf-8"))
+
+
 def is_icon(name: str) -> bool:
     """Whether `name` is a vendored Lucide icon."""
-    return _NAME.fullmatch(name) is not None and _ICONS.joinpath(f"{name}.svg").is_file()
+    return name in _icons()
 
 
 def check_icon(name: str | None) -> None:
@@ -45,14 +48,9 @@ def check_icon(name: str | None) -> None:
         )
 
 
-@cache
 def _shapes(name: str) -> str:
     check_icon(name)
-    source = _ICONS.joinpath(f"{name}.svg").read_text(encoding="utf-8")
-    match = _BODY.search(source)
-    if match is None:
-        raise ValueError(f"Icon {name!r} is not a valid SVG")
-    return re.sub(r">\s+<", "><", match.group(1).strip())
+    return _icons()[name]
 
 
 def icon(name: str, class_: str = "size-4") -> Icon:

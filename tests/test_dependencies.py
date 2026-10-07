@@ -2,7 +2,7 @@ import anyio
 import python_multipart
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel
 from sqlalchemy import create_engine, select
 from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column
 
@@ -19,7 +19,7 @@ class User(Base):
 
 
 class UserIn(BaseModel):
-    email: EmailStr
+    email: str
 
 
 def test_supported_dependency_versions_work_together() -> None:

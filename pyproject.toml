@@ -9,22 +9,37 @@ authors = [{ name = "Gledi Caushaj" }]
 requires-python = ">=3.13"
 keywords = ["fastapi", "sqlalchemy", "admin", "htmx", "tailwind"]
 classifiers = [
-  "Development Status :: 1 - Planning",
+  "Development Status :: 3 - Alpha",
+  "Environment :: Web Environment",
+  "Framework :: AsyncIO",
   "Framework :: FastAPI",
+  "Framework :: Pydantic :: 2",
   "Intended Audience :: Developers",
+  "Operating System :: OS Independent",
   "Programming Language :: Python :: 3 :: Only",
   "Programming Language :: Python :: 3.13",
   "Programming Language :: Python :: 3.14",
+  "Topic :: Database :: Front-Ends",
+  "Topic :: Internet :: WWW/HTTP :: Dynamic Content",
   "Typing :: Typed",
 ]
 dependencies = [
-  "fastapi>=0.139,<0.143",
+  "fastapi>=0.139,<1.0",
   "anyio>=4.10,<5.0",
   "jinja2>=3.1.6,<4.0",
-  "pydantic[email]>=2.12,<3.0",
+  "markupsafe>=3.0,<4.0",
+  "pydantic>=2.12,<3.0",
   "python-multipart>=0.0.30,<1.0.0",
   "sqlalchemy[asyncio]>=2.0.45,<3.0",
+  "starlette>=1.2,<2.0",
 ]
+
+[project.urls]
+Homepage = "https://github.com/gledi-ai/hxadmin"
+Documentation = "https://github.com/gledi-ai/hxadmin/tree/main/docs"
+Source = "https://github.com/gledi-ai/hxadmin"
+Issues = "https://github.com/gledi-ai/hxadmin/issues"
+Changelog = "https://github.com/gledi-ai/hxadmin/blob/main/CHANGELOG.md"
 
 [project.optional-dependencies]
 xlsx = ["XlsxWriter>=3.2,<4"]
@@ -61,6 +76,7 @@ include = ["/src", "/tests", "/docs", "/zensical.toml", "/CHANGELOG.md"]
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/hxadmin"]
+exclude = ["/src/hxadmin/static/src"]
 
 [tool.uv-dynamic-versioning]
 fallback-version = "0.0.0"
@@ -127,12 +143,14 @@ xfail_strict = true
 [tool.coverage.run]
 source_pkgs = ["hxadmin"]
 branch = true
+concurrency = ["thread", "greenlet"]
 
 [tool.coverage.report]
 show_missing = true
 skip_covered = true
 skip_empty = true
 exclude_also = ["if TYPE_CHECKING:"]
+fail_under = 97
 
 [tool.git-cliff.changelog]
 header = """
