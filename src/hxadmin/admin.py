@@ -104,6 +104,7 @@ class HxAdmin:
         self._build_dependencies()
         self._install_routes()
         self.subapp.add_exception_handler(StarletteHTTPException, self._handle_http_exception)
+        self.subapp.add_exception_handler(Exception, self._handle_server_error)
         app.mount(self.prefix, self.subapp, name="hxadmin")
 
     def _make_environment(self, templates_dir: str | Path | None) -> Environment:
@@ -180,6 +181,18 @@ class HxAdmin:
             )
         response.headers.update(exc.headers or {})
         return response
+
+    async def _handle_server_error(self, request: Request, exc: Exception) -> Response:
+        """An error toast for htmx, else the error page; Starlette still re-raises `exc`."""
+        detail = "Something went wrong."
+        if request.headers.get("HX-Request") == "true":
+            return Response(
+                status_code=500,
+                headers={"HX-Trigger": hx_trigger(Toast(detail, "error")), "HX-Reswap": "none"},
+            )
+        return self.render(
+            request, "error.html", {"status_code": 500, "detail": detail}, status_code=500
+        )
 
     def register[V: ModelView[Any]](self, view_cls: type[V]) -> type[V]:
         view = view_cls()

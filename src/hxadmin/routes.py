@@ -5,8 +5,8 @@ from urllib.parse import urlencode, urlsplit
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
-from sqlalchemy import inspect, select
-from sqlalchemy.exc import IntegrityError
+from sqlalchemy import Select, inspect, select
+from sqlalchemy.exc import DataError, IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import Mapper, with_parent
 from starlette.datastructures import FormData, QueryParams
@@ -46,6 +46,12 @@ if TYPE_CHECKING:
     from hxadmin.admin import HxAdmin
 
 logger = logging.getLogger("hxadmin")
+
+CONFLICT_MESSAGE = (
+    "Couldn't save: this conflicts with existing data (for example a duplicate value)."
+)
+LOOKUP_LIMIT = 20
+LOOKUP_SCAN_MAX = 2000
 
 
 def _is_htmx(request: Request) -> bool:
@@ -89,6 +95,22 @@ def _list_return_url(request: Request, list_url: str) -> str:
 
 def build_router(admin: "HxAdmin") -> APIRouter:
     router = APIRouter(dependencies=[Depends(admin.current_user)])
+
+    async def _display_matches(session: AsyncSession, stmt: Select[Any], q: str) -> list[Any]:
+        """Up to `LOOKUP_LIMIT` rows whose display contains `q`, scanning `LOOKUP_SCAN_MAX` rows."""
+        needle = q.lower()
+        matches: list[Any] = []
+        scan = stmt.limit(LOOKUP_SCAN_MAX).execution_options(yield_per=200)
+        result = await session.stream_scalars(scan)
+        try:
+            async for row in result:
+                if needle in admin.display(row).lower():
+                    matches.append(row)
+                    if len(matches) == LOOKUP_LIMIT:
+                        break
+        finally:
+            await result.close()
+        return matches
 
     async def _list_context(
         request: Request,
@@ -323,10 +345,14 @@ def build_router(admin: "HxAdmin") -> APIRouter:
         )
 
     def _save_errors(
-        exc: IntegrityError | FormError, fields: Sequence[Field | RelationField]
+        exc: IntegrityError | DataError | FormError, fields: Sequence[Field | RelationField]
     ) -> FormErrors:
         if isinstance(exc, IntegrityError):
-            return FormErrors({}, form=str(exc.orig))
+            logger.warning("Save rejected by a database constraint: %s", exc.orig)
+            return FormErrors({}, form=CONFLICT_MESSAGE)
+        if isinstance(exc, DataError):
+            logger.warning("Save rejected by the database: %s", exc.orig)
+            return FormErrors({}, form="Couldn't save: the database rejected a value.")
         if exc.field is not None and any(f.name == exc.field for f in fields):
             return FormErrors({exc.field: exc.message})
         return FormErrors({}, form=exc.message)
@@ -368,7 +394,7 @@ def build_router(admin: "HxAdmin") -> APIRouter:
                 pk = view.pk_of(obj)
                 label = await session.run_sync(lambda _: view.display(obj))
                 await session.commit()
-            except (IntegrityError, FormError) as exc:
+            except (IntegrityError, DataError, FormError) as exc:
                 await session.rollback()
                 if not created:
                     await session.refresh(obj)
@@ -474,9 +500,11 @@ def build_router(admin: "HxAdmin") -> APIRouter:
             if not target.is_accessible(request):
                 raise HTTPException(status_code=403)
             stmt = apply_search(target.get_query(request), target, q)
-        rows = (await session.scalars(stmt.order_by(*pk_columns).limit(20))).all()
+        stmt = stmt.order_by(*pk_columns)
         if q and (target is None or not target.searchable):
-            rows = [row for row in rows if q.lower() in admin.display(row).lower()]
+            rows = await _display_matches(session, stmt, q)
+        else:
+            rows = (await session.scalars(stmt.limit(LOOKUP_LIMIT))).all()
         options = [(pk_string_for(relation.target, row), admin.display(row)) for row in rows]
         return admin.render(request, "form/_options.html", {"options": options, "q": q})
 
@@ -595,12 +623,11 @@ def build_router(admin: "HxAdmin") -> APIRouter:
             await session.commit()
         except IntegrityError as exc:
             await session.rollback()
-            return admin.render(
-                request,
-                "error.html",
-                {"status_code": 409, "detail": str(exc.orig)},
+            logger.warning("Delete rejected by a database constraint: %s", exc.orig)
+            raise HTTPException(
                 status_code=409,
-            )
+                detail=f"Couldn't delete {view.name} “{label}”: other records still refer to it.",
+            ) from None
         except Exception:
             await session.rollback()
             raise

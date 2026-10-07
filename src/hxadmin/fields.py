@@ -35,6 +35,7 @@ type FieldKind = Literal[
     "enum",
     "json",
     "uuid",
+    "other",
 ]
 
 type Widget = Literal[
@@ -124,6 +125,7 @@ _WIDGETS: dict[FieldKind, Widget] = {
     "enum": "select",
     "json": "json",
     "uuid": "text",
+    "other": "text",
 }
 
 
@@ -131,7 +133,7 @@ def kind_for(type_: TypeEngine[Any]) -> FieldKind:
     for cls, kind in _KINDS:
         if isinstance(type_, cls):
             return kind
-    return "str"
+    return "other"
 
 
 def default_widget(kind: FieldKind) -> Widget:

@@ -2,9 +2,10 @@
 
 Create and edit forms are derived from the mapper:
 
-- autoincrement primary keys and foreign-key columns covered by a relationship are skipped;
+- autoincrement primary keys, foreign-key columns covered by a relationship, and columns of a type hxadmin has no input for (`LargeBinary`, `ARRAY`, `Interval`, ...) are skipped; naming such a column in `form_fields` raises at registration;
+- `String(n)` columns accept at most `n` characters, and integer columns the range of their type (`SmallInteger` 16-bit, `Integer` 32-bit, `BigInteger` 64-bit);
 - enum columns become selects, booleans checkboxes, dates and times the themed [date picker](#dates-and-times);
-- relationships become a search-as-you-type combobox, backed by the related view's `searchable` columns: a single relation looks like a select showing the current value with a clear `×`, a multiple one shows its values as removable chips;
+- relationships become a search-as-you-type combobox, backed by the related view's `searchable` columns (without any, it matches each row's display text, scanning the first 2,000 rows, so give large related tables `searchable` columns): a single relation looks like a select showing the current value with a clear `×`, a multiple one shows its values as removable chips;
 - primary keys, including relationships whose foreign keys form the primary key, are read-only on edit.
 
 The form is a left-aligned column up to 720px wide. Short fields (selects, numbers, checkboxes, dates and times, single relations) sit two to a row from the `sm` breakpoint; text, JSON and multiple relations take the full width.
@@ -57,6 +58,6 @@ class TaskView(ModelView[Task]):
             raise FormError("Due date is in the past.", field="due_date")
 ```
 
-The session is rolled back and the form re-renders with the message under `field`, or at the top of the form when `field` is omitted or not on the form. Integrity errors also roll back and show a form-level error. Any other exception rolls back and propagates.
+The session is rolled back and the form re-renders with the message under `field`, or at the top of the form when `field` is omitted or not on the form. Integrity errors (such as a duplicate unique value) and values the database rejects also roll back and show a generic form-level error; the database's own message, which can name constraints and values, goes to the `hxadmin` logger instead. Any other exception rolls back and propagates: htmx requests get a "Something went wrong." toast, page loads the error page.
 
-Delete lives in the detail page's `⋯` menu and in each list row's menu, and asks first in the shared confirm dialog. Deleting runs `on_delete(request, session, obj)` first; a row that other rows still reference answers 409.
+Delete lives in the detail page's `⋯` menu and in each list row's menu, and asks first in the shared confirm dialog. Deleting runs `on_delete(request, session, obj)` first; a row that other rows still reference answers 409 with "other records still refer to it" (an error toast over htmx, else the error page).

@@ -5,7 +5,7 @@ The list page at `/{prefix}/{identity}/` searches, sorts, filters and paginates 
 | Parameter | Meaning |
 |---|---|
 | `q` | Search over `searchable` columns |
-| `sort`, `dir` | Sort column and `asc` / `desc` |
+| `sort`, `dir` | Sort column and `asc` / `desc`; ties, and lists with no sort, are ordered by primary key |
 | `page`, `size` | Page number and page size (one of `page_size_options`) |
 | `f.<name>...` | Filters, below |
 
@@ -34,7 +34,7 @@ class TaskView(ModelView[Task]):
 |---|---|---|---|
 | enum, bool | checkboxes | `f.status=todo&f.status=doing`; bool uses `true` / `false` | any checked value |
 | int, float, numeric, date, datetime, time | from / to inputs | `f.priority.min=2&f.priority.max=4` | inclusive range |
-| string, text, uuid | text box | `f.title=report` | case-insensitive substring |
+| string, text, uuid, other types | text box | `f.title=report` | case-insensitive substring of the value cast to text |
 | many-to-one relation | checkboxes of related rows | `f.project=3` (primary key; `;`-joined if composite) | any checked row |
 
 Range bounds are written back the way their inputs write them (`2026-02-01` on a datetime becomes `2026-02-01T00:00`). A bound with a UTC offset on a column without time zone is converted to UTC. Values no database could compare, such as non-finite numbers, are ignored.

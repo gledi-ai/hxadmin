@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING, Any, Literal, cast
 
 from pydantic import BaseModel, ConfigDict, Json, ValidationError, create_model
 from pydantic import Field as PydField
-from sqlalchemy import Enum, Select, inspect
+from sqlalchemy import BigInteger, Enum, Integer, Select, SmallInteger, String, inspect
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import Mapper
 from sqlalchemy.types import TypeEngine
@@ -38,6 +38,8 @@ _TYPES: dict[FieldKind, Any] = {
 
 _STRING_KINDS: frozenset[FieldKind] = frozenset({"str", "text"})
 
+_INT_RANGES: tuple[tuple[type[Integer], int], ...] = ((SmallInteger, 15), (BigInteger, 63))
+
 
 def _annotation(field: Field) -> Any:
     if field.kind == "enum":
@@ -50,15 +52,26 @@ def is_required(field: Field) -> bool:
     return not field.nullable if field.required is None else field.required
 
 
-def _column_definition(field: Field) -> tuple[Any, Any]:
+def _bounds(field: Field, type_: TypeEngine[Any] | None) -> dict[str, Any]:
+    """Limits the column's type puts on values: string length, integer range."""
+    if field.kind in _STRING_KINDS and isinstance(type_, String) and type_.length:
+        return {"max_length": type_.length}
+    if field.kind == "int" and isinstance(type_, Integer):
+        bits = next((b for cls, b in _INT_RANGES if isinstance(type_, cls)), 31)
+        return {"ge": -(2**bits), "le": 2**bits - 1}
+    return {}
+
+
+def _column_definition(field: Field, type_: TypeEngine[Any] | None) -> tuple[Any, Any]:
     if field.kind == "bool":
         return bool, False
     annotation = _annotation(field)
+    bounds = _bounds(field, type_)
     if not is_required(field):
-        return annotation | None, None
+        return annotation | None, PydField(None, **bounds)
     if field.kind in _STRING_KINDS:
-        return annotation, PydField(min_length=1)
-    return annotation, ...
+        return annotation, PydField(min_length=1, **bounds)
+    return annotation, PydField(..., **bounds)
 
 
 def _relation_definition(field: RelationField) -> tuple[Any, Any]:
@@ -71,12 +84,16 @@ def _relation_definition(field: RelationField) -> tuple[Any, Any]:
 
 def build_schema(model: type[Any], fields: Sequence[Field | RelationField]) -> type[BaseModel]:
     """Build a pydantic model validating raw form values for the given fields."""
+    columns = cast(Mapper[Any], inspect(model)).columns
     definitions: dict[str, Any] = {}
     for field in fields:
         if isinstance(field, RelationField):
             definitions[field.name] = _relation_definition(field)
         elif not field.readonly:
-            definitions[field.name] = _column_definition(field)
+            column = columns.get(field.name)
+            definitions[field.name] = _column_definition(
+                field, column.type if column is not None else None
+            )
     return create_model(
         f"{model.__name__}Form",
         __config__=ConfigDict(extra="ignore", str_strip_whitespace=True),

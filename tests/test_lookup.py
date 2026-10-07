@@ -91,6 +91,24 @@ def test_lookup_registered_without_searchable_filters_by_display(
     assert "No matches" in miss
 
 
+def test_lookup_filtering_by_display_finds_rows_past_the_first_20(
+    factory: AppFactory, make_client: MakeClient
+) -> None:
+    async def many(session: AsyncSession) -> None:
+        session.add_all([User(email=f"u{i:02d}@x.io") for i in range(25)])
+
+    app = factory.app(seed=many)
+    admin = HxAdmin(app, session=factory.get_session, auth=allow_all)
+
+    @admin.register
+    class PostView(ModelView[Post]):
+        model = Post
+
+    with make_client(app) as client:
+        html = client.get("/admin/post/_lookup/author?q=u24").text
+    assert "u24@x.io" in html
+
+
 def test_lookup_unregistered_target_filters_by_str(
     factory: AppFactory, make_client: MakeClient
 ) -> None:

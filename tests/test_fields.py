@@ -44,7 +44,7 @@ from tests.conftest import Post, PostStatus, Tag, User, Vote
         (Enum(PostStatus), "enum"),
         (JSON(), "json"),
         (Uuid(), "uuid"),
-        (LargeBinary(), "str"),
+        (LargeBinary(), "other"),
     ],
 )
 def test_kind_for(type_: TypeEngine[object], kind: str) -> None:

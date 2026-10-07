@@ -296,3 +296,10 @@ def test_list_statement_searches_filters_and_sorts() -> None:
     assert "LIKE lower(:param_1) ESCAPE" in sql
     assert "users.active IN (__[POSTCOMPILE_active_1])" in sql
     assert sql.endswith("ORDER BY users.email DESC, users.id")
+
+
+def test_list_statement_without_sort_orders_by_pk() -> None:
+    view = PostView()
+    params = parse_list_params(_request(), view)
+    sql = str(list_statement(view, select(Post), params))
+    assert sql.endswith("ORDER BY posts.id")

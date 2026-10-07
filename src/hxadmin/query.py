@@ -140,15 +140,15 @@ async def count_many(session: AsyncSession, stmts: Sequence[Select[Any]]) -> lis
 
 
 def list_statement(view: ModelView[Any], stmt: Select[Any], params: ListParams) -> Select[Any]:
-    """`stmt` narrowed by the list's search and filters and ordered by its sort."""
+    """`stmt` narrowed by the list's search and filters, ordered by its sort with the pk last."""
     stmt = apply_search(stmt, view, params.q)
     stmt = apply_filters(stmt, view.model, view.filters, params.filters)
-    if params.sort is not None:
-        column = getattr(view.model, params.sort)
-        order = column.desc() if params.dir == "desc" else column.asc()
-        pk_columns = (getattr(view.model, name) for name in view.pk_names)
-        stmt = stmt.order_by(None).order_by(order, *pk_columns)
-    return stmt
+    pk_columns = [getattr(view.model, name) for name in view.pk_names]
+    if params.sort is None:
+        return stmt.order_by(*pk_columns)
+    column = getattr(view.model, params.sort)
+    order = column.desc() if params.dir == "desc" else column.asc()
+    return stmt.order_by(None).order_by(order, *pk_columns)
 
 
 def with_relations(

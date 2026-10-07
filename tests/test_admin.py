@@ -94,3 +94,24 @@ def test_dashboard_lists_registered_views(
         response = client.get("/admin/")
     assert "People" in response.text
     assert 'href="/admin/user/"' in response.text
+
+
+def test_unexpected_error_renders_error_page_or_toast(factory: AppFactory) -> None:
+    app = factory.app()
+    admin = HxAdmin(app, session=factory.get_session, auth=allow_all)
+
+    @admin.route("/boom", methods=("GET", "POST"))
+    async def boom() -> None:
+        raise RuntimeError("secret internals")
+
+    with TestClient(app, raise_server_exceptions=False) as client:
+        full = client.get("/admin/boom")
+        partial = client.post("/admin/boom", headers={"HX-Request": "true"})
+    assert full.status_code == 500
+    assert "<html" in full.text
+    assert "Error 500" in full.text
+    assert "secret internals" not in full.text
+    assert partial.status_code == 500
+    assert "Something went wrong" in partial.headers["HX-Trigger"]
+    assert partial.headers["HX-Reswap"] == "none"
+    assert "secret internals" not in partial.text

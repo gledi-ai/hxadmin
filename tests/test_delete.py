@@ -1,5 +1,7 @@
+import logging
 from collections.abc import Callable
 
+import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -44,6 +46,20 @@ def test_delete_referenced_row_is_409(factory: AppFactory, make_client: MakeClie
     assert partial.status_code == 409
     assert detail.status_code == 200
     assert "ada@x.io" in detail.text
+
+
+def test_delete_referenced_row_explains_without_database_detail(
+    factory: AppFactory, make_client: MakeClient, caplog: pytest.LogCaptureFixture
+) -> None:
+    with make_client(build(factory)) as client, caplog.at_level(logging.WARNING, logger="hxadmin"):
+        full = client.post("/admin/user/1/delete")
+        partial = client.post("/admin/user/1/delete", headers={"HX-Request": "true"})
+    assert "other records still refer to it" in full.text
+    assert "constraint failed" not in full.text
+    assert "other records still refer to it" in partial.headers["HX-Trigger"]
+    assert partial.headers["HX-Reswap"] == "none"
+    assert partial.text == ""
+    assert "constraint failed" in caplog.text
 
 
 def test_delete_htmx_sends_hx_redirect(factory: AppFactory, make_client: MakeClient) -> None:

@@ -48,7 +48,7 @@ _RANGE_INPUTS: dict[FieldKind, str] = {
     "datetime": "datetime-local",
     "time": "time",
 }
-_TEXT_KINDS: frozenset[FieldKind] = frozenset({"str", "text", "uuid"})
+_TEXT_KINDS: frozenset[FieldKind] = frozenset({"str", "text", "uuid", "other"})
 _NUMERIC_MAX_ADJUSTED = 131071
 _NUMERIC_MIN_EXPONENT = -16383
 

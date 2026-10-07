@@ -147,15 +147,19 @@ class ModelView[T]:
                 if isinstance(f, Field)
                 and not (f.primary_key and f.autoincrement)
                 and f.name not in fk_columns
+                and f.kind != "other"
             ]
             relations = [f for f in self.fields.values() if isinstance(f, RelationField)]
             resolved = [*columns, *relations]
         return tuple(f for f in resolved if f.name not in self.form_exclude)
 
     def _resolve_form_field(self, item: str | Field) -> Field | RelationField:
+        name = item if isinstance(item, str) else item.name
+        derived = self._resolve((name,))[0]
+        if isinstance(derived, Field) and derived.kind == "other":
+            raise ValueError(f"{type(self).__name__}: forms cannot edit the type of {name!r}")
         if isinstance(item, str):
-            return self._resolve((item,))[0]
-        derived = self.fields.get(item.name)
+            return derived
         if not isinstance(derived, Field):
             raise ValueError(f"{type(self).__name__}: {item.name!r} is not a column")
         return replace(

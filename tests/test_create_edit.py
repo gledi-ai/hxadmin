@@ -1,3 +1,4 @@
+import logging
 import re
 from collections.abc import AsyncIterator, Callable
 
@@ -5,11 +6,12 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from sqlalchemy import Select, select
+from sqlalchemy.exc import DataError
 from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.requests import Request
 
 from hxadmin import HxAdmin, ModelView
-from tests.conftest import AppFactory, Group, Post, Tag, User, Vote, allow_all
+from tests.conftest import Account, AppFactory, Group, Post, Tag, User, Vote, allow_all
 from tests.test_detail import seed
 
 type MakeClient = Callable[[FastAPI], TestClient]
@@ -528,3 +530,102 @@ def test_short_fields_share_a_row_and_long_ones_take_the_full_width(
         "author": "half",
         "tags": "full",
     }
+
+
+def build_accounts(factory: AppFactory) -> FastAPI:
+    app = factory.app()
+    admin = HxAdmin(app, session=factory.get_session, auth=allow_all)
+
+    @admin.register
+    class AccountView(ModelView[Account]):
+        model = Account
+
+    return app
+
+
+def test_create_rejects_string_longer_than_column(
+    factory: AppFactory, make_client: MakeClient
+) -> None:
+    with make_client(build_accounts(factory)) as client:
+        response = client.post("/admin/account/new", data={"handle": "ninechars"})
+    assert response.status_code == 422
+    assert "at most 8 characters" in response.text
+
+
+@pytest.mark.parametrize(
+    ("column", "value", "limit"),
+    [
+        ("small", 32768, "32767"),
+        ("medium", 2**31, "2147483647"),
+        ("big", 2**63, "9223372036854775807"),
+    ],
+)
+def test_create_rejects_integer_outside_column_range(
+    factory: AppFactory, make_client: MakeClient, column: str, value: int, limit: str
+) -> None:
+    with make_client(build_accounts(factory)) as client:
+        response = client.post("/admin/account/new", data={"handle": "ok", column: str(value)})
+    assert response.status_code == 422
+    assert f"less than or equal to {limit}" in response.text
+
+
+def test_create_accepts_integers_within_column_range(
+    factory: AppFactory, make_client: MakeClient
+) -> None:
+    data = {"handle": "ok", "small": "-32768", "medium": "2147483647", "big": str(2**31)}
+    with make_client(build_accounts(factory)) as client:
+        response = client.post("/admin/account/new", data=data, follow_redirects=False)
+    assert response.status_code == 303
+
+
+def test_database_rejecting_a_value_is_a_form_error(
+    factory: AppFactory, make_client: MakeClient, caplog: pytest.LogCaptureFixture
+) -> None:
+    app = factory.app(seed=seed)
+    admin = HxAdmin(app, session=factory.get_session, auth=allow_all)
+
+    @admin.register
+    class PostView(ModelView[Post]):
+        model = Post
+
+        async def on_save(
+            self, request: Request, session: AsyncSession, obj: Post, *, created: bool
+        ) -> None:
+            raise DataError("INSERT ...", {}, Exception("value too long for type varchar(8)"))
+
+    with make_client(app) as client, caplog.at_level(logging.WARNING, logger="hxadmin"):
+        response = client.post("/admin/post/new", data=POST_DATA)
+    assert response.status_code == 422
+    assert "the database rejected a value" in response.text
+    assert "varchar(8)" not in response.text
+    assert "varchar(8)" in caplog.text
+
+
+def test_integrity_error_hides_the_database_message(
+    factory: AppFactory, make_client: MakeClient, caplog: pytest.LogCaptureFixture
+) -> None:
+    data = {"email": "ada@x.io", "active": "on"}
+    with make_client(build(factory)) as client, caplog.at_level(logging.WARNING, logger="hxadmin"):
+        response = client.post("/admin/user/new", data=data)
+    assert response.status_code == 422
+    assert "conflicts with existing data" in response.text
+    assert "UNIQUE constraint failed" not in response.text
+    assert "UNIQUE constraint failed" in caplog.text
+
+
+def test_unknown_column_type_is_left_out_of_forms(
+    factory: AppFactory, make_client: MakeClient
+) -> None:
+    with make_client(build_accounts(factory)) as client:
+        html = client.get("/admin/account/new").text
+    assert 'name="handle"' in html
+    assert 'name="blob"' not in html
+
+
+def test_unknown_column_type_cannot_be_a_form_field() -> None:
+    class AccountView(ModelView[Account]):
+        model = Account
+        form_fields = ("handle", "blob")
+
+    with pytest.raises(ValueError, match="'blob'"):
+        AccountView()

@@ -13,11 +13,13 @@ from fastapi.testclient import TestClient
 from jinja2 import BytecodeCache, Environment
 from jinja2.bccache import Bucket
 from sqlalchemy import (
+    BigInteger,
     Boolean,
     Column,
     DateTime,
     ForeignKey,
     Integer,
+    LargeBinary,
     Numeric,
     SmallInteger,
     StaticPool,
@@ -124,6 +126,17 @@ class Reading(Base):
     taken_at: Mapped[dt.datetime]
     synced_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True))
     ref: Mapped[uuid.UUID]
+
+
+class Account(Base):
+    __tablename__ = "accounts"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    handle: Mapped[str] = mapped_column(String(8))
+    small: Mapped[int | None] = mapped_column(SmallInteger)
+    medium: Mapped[int | None]
+    big: Mapped[int | None] = mapped_column(BigInteger)
+    blob: Mapped[bytes | None] = mapped_column(LargeBinary)
 
 
 invoices = Table(
