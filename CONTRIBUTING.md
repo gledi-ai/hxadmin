@@ -27,4 +27,4 @@ Keep pull requests focused on one change, and say in the description how you ver
 
 ## Releasing
 
-On `main`, maintainers run `make changelog VERSION=vX.Y.Z`, commit it, then `make tag VERSION=vX.Y.Z` (an annotated tag carrying the release notes) and `git push origin vX.Y.Z`. The tag's workflow tests the wheel, publishes to PyPI once the `pypi` environment's deployment is approved, then creates the GitHub Release with the same notes and the built files attached.
+On `main`, maintainers run `make changelog VERSION=vX.Y.Z`, commit it, then `make tag VERSION=vX.Y.Z` (an annotated tag carrying the release notes) and `git push origin vX.Y.Z`. The tag's workflow tests the wheel, publishes to PyPI once the `pypi` environment's deployment is approved, then deploys the docs to GitHub Pages and creates the GitHub Release with the same notes and the built files attached. To republish the docs without a release (a typo fix, say), run the Docs workflow by hand from the Actions tab, picking the latest tag as the ref.
