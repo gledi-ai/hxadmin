@@ -27,4 +27,4 @@ Keep pull requests focused on one change, and say in the description how you ver
 
 ## Releasing
 
-Maintainers tag `vX.Y.Z` on `main` after `make changelog VERSION=vX.Y.Z`. The tag's workflow tests the wheel and publishes to PyPI.
+On `main`, maintainers run `make changelog VERSION=vX.Y.Z`, commit it, then `make tag VERSION=vX.Y.Z` (an annotated tag carrying the release notes) and `git push origin vX.Y.Z`. The tag's workflow tests the wheel, publishes to PyPI once the `pypi` environment's deployment is approved, then creates the GitHub Release with the same notes and the built files attached.

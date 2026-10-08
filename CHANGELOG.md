@@ -2,7 +2,7 @@
 
 All notable changes to this project are documented in this file.
 
-## [Unreleased]
+## [0.1.0] - 2026-10-08
 
 ### Features
 
@@ -48,6 +48,9 @@ All notable changes to this project are documented in this file.
 - Redesign form layout, confirm dialog and toasts
 - Add a themed date/datetime/time picker component
 - Merge the detail, form, dialog, toast and date picker redesign
+- Support plain Core tables mapped with __table__
+- Add a demo built only on plain Core tables
+- Refuse cross-origin writes from browsers
 
 ### Bug fixes
 
@@ -123,6 +126,8 @@ All notable changes to this project are documented in this file.
 - Open filter calendars beside their popover, not over it
 - Show the pointer cursor on buttons, links and menu items
 - Write the palette shortcut as Ctrl+K like Ctrl+B
+- Disable autoflush inside forms.apply
+- Harden list ordering, lookups, form bounds and database error handling
 
 ### Refactoring
 
