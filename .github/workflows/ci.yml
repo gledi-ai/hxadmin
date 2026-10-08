@@ -24,6 +24,9 @@ jobs:
 
   tests:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      checks: write
     strategy:
       fail-fast: false
       matrix:
@@ -35,6 +38,28 @@ jobs:
           persist-credentials: false
       - uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
       - run: uvx nox -s tests-${{ matrix.python }} tests_lowest-${{ matrix.python }}
+      - if: ${{ !cancelled() && (github.event_name != 'pull_request' || !github.event.pull_request.head.repo.fork) }}
+        uses: dorny/test-reporter@a43b3a5f7366b97d083190328d2c652e1a8b6aa2 # v3.0.0
+        with:
+          name: Tests (Python ${{ matrix.python }})
+          path: reports/junit.xml
+          reporter: python-xunit
+          fail-on-error: false
+      - if: ${{ !cancelled() && hashFiles('reports/coverage.xml') != '' }}
+        uses: irongut/CodeCoverageSummary@51cc3a756ddcd398d447c044c02cb6aa83fdae95 # v1.3.0
+        with:
+          filename: reports/coverage.xml
+          format: markdown
+          output: file
+          thresholds: "97 99"
+      - if: ${{ !cancelled() && hashFiles('code-coverage-results.md') != '' }}
+        run: cat code-coverage-results.md >> "$GITHUB_STEP_SUMMARY"
+      - if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: reports-${{ matrix.python }}
+          path: reports/
+          if-no-files-found: ignore
 
   latest:
     if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'

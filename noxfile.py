@@ -2,6 +2,7 @@ import base64
 import hashlib
 import io
 import json
+import os
 import re
 import tarfile
 import urllib.request
@@ -34,10 +35,23 @@ def sync(session: nox.Session, *groups: str) -> None:
     )
 
 
+REPORTS = Path("reports")
+
+
 @nox.session(python=PYTHON_VERSIONS)
 def tests(session: nox.Session) -> None:
     sync(session, "test")
-    session.run("pytest", "--cov", *pytest_args(session))
+    reports = (
+        [
+            f"--junitxml={REPORTS / 'junit.xml'}",
+            "--cov-report=term",
+            f"--cov-report=xml:{REPORTS / 'coverage.xml'}",
+            f"--cov-report=html:{REPORTS / 'htmlcov'}",
+        ]
+        if os.environ.get("GITHUB_ACTIONS")
+        else []
+    )
+    session.run("pytest", "--cov", *reports, *pytest_args(session))
 
 
 @nox.session(python=PYTHON_VERSIONS)
