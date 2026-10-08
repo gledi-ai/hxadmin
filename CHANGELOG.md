@@ -2,6 +2,16 @@
 
 All notable changes to this project are documented in this file.
 
+## [0.1.1] - 2026-10-08
+
+### Bug fixes
+
+- Keep the auth user loaded after rollbacks and action refreshes
+
+### Documentation
+
+- Make examples complete and runnable
+
 ## [0.1.0] - 2026-10-08
 
 ### Features
