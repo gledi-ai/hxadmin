@@ -47,11 +47,14 @@ Each component file documents its full signature at the top. Every macro takes `
 
 `_macros.html` also renders the admin-specific pieces, which need the request context: `cell(view, field, value, link=True)` formats one value the way lists and the detail page do (`link=False` renders relations as muted text instead of links), and `row_menu`, `filter_button`, `bulk_bar` and `export_menu` render the list's row menu, filter pills, floating selection bar and export menu.
 
-To open the shared confirm dialog from your own markup, dispatch a `confirm` event with a `message` and either a `submit` callback or an `action` URL to POST to; `title` and `danger: true` (a red Confirm button) are optional:
+To open the shared confirm dialog from your own markup, dispatch a `confirm` event with a `message` and either a `submit` callback or an `action` URL; `title` and `danger: true` (a red Confirm button) are optional. With `action`, Confirm submits a plain form POST to that URL, which suits any POST route of the admin: a row action, a delete, or a [custom page](pages.md#pages-that-write) route. For example, a button running the `raise_priority` row action of a `TaskView` on task 3:
 
 ```jinja
-<button type="button" @click="$dispatch('confirm', {title: 'Archive?', message: 'It will be hidden.', danger: true, action: '/admin/project/3/archive'})">Archive</button>
+{% set url = admin.url(request, '/task/3/action/raise_priority') %}
+<button type="button" @click="$dispatch('confirm', {title: 'Raise priority?', message: 'Task 3 moves up one level.', action: {{ url|tojson|forceescape }}})">Raise priority</button>
 ```
+
+Row actions live at `/{identity}/{pk}/action/{name}` and bulk actions at `/{identity}/action/{name}` (with the rows as repeated `pks` form values), deletes at `/{identity}/{pk}/delete`. A plain POST to them redirects back with a toast, like a form without htmx. `tojson|forceescape` keeps the URL a valid JavaScript string inside the attribute.
 
 ## Icons
 

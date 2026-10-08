@@ -13,7 +13,7 @@ Invalid values fall back to the defaults. Requests with `HX-Request: true` get o
 
 ## Table
 
-The header shows the plural name with the row count ("Tasks · 6", updated as you search and filter) and the New button. The table sits in a bordered card that scrolls within the viewport, with a sticky header. Columns size to their content; the primary column (the first of `list_columns`) takes the remaining width and is the only link, to the detail page. Relations render as plain muted text, enums and declared bools as badges (see [Badges](views.md#badges)), other bools as a check or cross icon, and missing values as `—`. Numbers are right-aligned with tabular figures. Checked rows are highlighted.
+The header shows the plural name with the row count ("Tasks · 6", updated as you search and filter) and the New button. The table sits in a bordered card that scrolls within the viewport, with a sticky header. Columns size to their content; the primary column takes the remaining width and is the only link, to the detail page (when `can_view`). The primary column is the first text or many-to-one relation column of `list_columns` that is not the primary key, or the first column when there is none: with `list_columns = ("id", "title", "status")` it is `title`. To make a column the link, list a text column first or reorder them. Relations render as plain muted text, enums and declared bools as badges (see [Badges](views.md#badges)), other bools as a check or cross icon, and missing values as `—`. Numbers are right-aligned with tabular figures. Checked rows are highlighted.
 
 With no rows, the table is replaced by an empty state: "No tasks yet" with a "New task" button, or "No tasks match these filters" with a "Reset filters" button when a search or filter is active.
 
@@ -25,8 +25,10 @@ Below the `sm` breakpoint, rows render as stacked cards instead: a checkbox, the
 @admin.register
 class TaskView(ModelView[Task]):
     model = Task
-    list_filters = ("status", "priority", "due_date", "title", "project")
+    list_filters = ("status", "priority", "due_date", "title", "project", "assignee")
 ```
+
+With the [docs models](getting-started.md#the-models-in-these-docs), this gives `status` checkboxes (todo, doing, done), a `priority` and a `due_date` range, a "Contains…" box for `title`, and checkboxes of projects and users. `due_date` and `assignee` are nullable, so they also get **Empty**: "tasks without a due date" is `?f.due_date.empty=1`, and "unassigned or assigned to user 1" is `?f.assignee=1&f.assignee.empty=1`.
 
 `list_filters` names columns or many-to-one relations. The control follows the column type:
 

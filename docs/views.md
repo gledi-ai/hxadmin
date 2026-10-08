@@ -7,7 +7,7 @@ A `ModelView[T]` subclass configures one SQLAlchemy model. Register it with `@ad
 class TaskView(ModelView[Task]):
     model = Task
     name = "Task"  # default: the model class name
-    name_plural = "Tasks"  # default: name + "s"
+    name_plural = "Tasks"  # default: name + "s", so set it for "Category" -> "Categories"
     identity = "task"  # URL segment; default: model name, lower-case
     category = "Work"  # sidebar group
     icon = "table"  # any Lucide icon name; unknown names raise ValueError at registration
@@ -54,19 +54,81 @@ The detail page at `/{prefix}/{identity}/{pk}` shows a back link to the list, th
 | `get_query(request)` | Base `select()` for every list, detail, action and export; scope rows here |
 | `format_<column>(obj)` | Display override for one column, used in lists, detail and export |
 | `display(obj)` | Label of a row (default: `str(obj)` if the model defines `__str__`) |
-| `on_save(request, session, obj, *, created)` | Runs before commit on create and edit |
+| `on_save(request, session, obj, *, created)` | Runs before commit on create and edit; see [Forms](forms.md#saving) |
 | `on_delete(request, session, obj)` | Runs before delete |
 | `is_visible(request)` | Show the view in the sidebar, dashboard and command palette |
 | `is_accessible(request)` | Allow access at all (403 otherwise); an inaccessible view is also left out of the sidebar, dashboard and palette |
-| `is_action_allowed(request, name)` | Allow one action; see [Actions](actions.md) |
+| `is_action_allowed(request, name)` | Allow one action; see [Actions](actions.md#permissions) |
+
+`request.state.hxadmin_user` is whatever your `auth` dependency returned, so the hooks can decide per user. The examples below assume the `auth` from [Auth and sessions](auth.md#auth), which returns the signed-in `User` row.
+
+### Scoping rows with `get_query`
+
+```python
+from sqlalchemy import Select
+from starlette.requests import Request
+
+
+@admin.register
+class TaskView(ModelView[Task]):
+    model = Task
+
+    def get_query(self, request: Request) -> Select[Task]:
+        stmt = super().get_query(request).where(Task.archived.is_(False))
+        user = request.state.hxadmin_user
+        if not user.is_superuser:
+            stmt = stmt.where(Task.assignee_id == user.id)
+        return stmt
+```
+
+Everything that reads rows goes through `get_query`: the list and its count, the detail page, edit and delete, row and bulk actions, export, the dashboard count, the command palette, and the relation comboboxes and filters of other views that point at `Task`. A row outside the query answers 404, so a user cannot reach it by guessing its URL either.
+
+`get_query` scopes reads, not writes: a non-superuser can still create a task assigned to someone else, after which it disappears from their list. Guard that in `on_save` with a `FormError` if it matters.
+
+Keep `get_query` a plain `select(...)` of the model, narrowed with `where` (and `options` or `join` as needed). hxadmin adds its own search, filters, order and pagination on top. An `order_by` in it orders the list while no column is sorted (with the primary key as tie-breaker); sorting a column, or a `default_sort`, replaces it.
+
+### Formatting a column
 
 ```python
 class TaskView(ModelView[Task]):
-    def get_query(self, request: Request) -> Select[Task]:
-        return super().get_query(request).where(Task.archived.is_(False))
+    model = Task
 
-    def format_status(self, obj: Task) -> str:
-        return obj.status.value.upper()
+    def format_due_date(self, obj: Task) -> str:
+        return obj.due_date.strftime("%d %b %Y") if obj.due_date else "No due date"
 ```
 
-Relationships used in lists and detail are eager-loaded. Anything a template or `format_` method touches beyond those must be loaded by `get_query`, because async SQLAlchemy cannot lazy-load.
+The returned value is shown as text (HTML-escaped) in the list, the detail page and exports, in place of hxadmin's own rendering. A formatted enum or bool column therefore loses its badge or icon, and a formatted relation its link, so prefer `badges` for those. Exports get the formatted text too, so a formatted date column exports as text rather than as a date cell.
+
+### Access per view
+
+```python
+@admin.register
+class UserView(ModelView[User]):
+    model = User
+
+    def is_accessible(self, request: Request) -> bool:
+        return request.state.hxadmin_user.is_superuser
+```
+
+`is_accessible` is enforced: every route of the view answers 403 for other users, and relations pointing at `User` from other views are locked (see [Lists and filters](lists.md#filters) and [Forms](forms.md)). `is_visible` only hides the view from the sidebar, dashboard and palette; its URLs keep working. Use `is_visible` for views that are reachable through links but too noisy for the sidebar, and `is_accessible` for anything that is a permission.
+
+### Async and relations
+
+Relationships used in lists and detail are eager-loaded. Anything a template or `format_` method touches beyond those must be loaded by `get_query`, because async SQLAlchemy cannot lazy-load: touching an unloaded relationship raises `MissingGreenlet`. For example, to show the project's name next to the title in a list that does not have a `project` column:
+
+```python
+from sqlalchemy.orm import selectinload
+
+
+class TaskView(ModelView[Task]):
+    model = Task
+    list_columns = ("title", "status")
+
+    def get_query(self, request: Request) -> Select[Task]:
+        return super().get_query(request).options(selectinload(Task.project))
+
+    def format_title(self, obj: Task) -> str:
+        return f"{obj.title} ({obj.project.name})"
+```
+
+`format_` and `display` are plain synchronous methods, so they cannot run queries themselves.

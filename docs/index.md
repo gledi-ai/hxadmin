@@ -14,17 +14,20 @@ Admin interface for FastAPI and async SQLAlchemy 2.0+, rendered with Jinja2, htm
 from fastapi import FastAPI
 from hxadmin import HxAdmin, ModelView
 
+from myapp.db import get_session  # yields an AsyncSession
+from myapp.models import Task
+
 app = FastAPI()
 admin = HxAdmin(app, session=get_session, auth=current_admin_user)
 
 
 @admin.register
-class UserView(ModelView[User]):
-    model = User
-    list_columns = ("email", "name", "group")
-    searchable = ("email", "name")
-    list_filters = ("active", "group")
+class TaskView(ModelView[Task]):
+    model = Task
+    list_columns = ("title", "status", "due_date", "project", "assignee")
+    searchable = ("title",)
+    list_filters = ("status", "due_date", "project")
     export_formats = ("csv",)
 ```
 
-Start with [Getting started](getting-started.md).
+`current_admin_user` is your own FastAPI dependency that returns the signed-in user or raises `HTTPException(401)`. [Getting started](getting-started.md) builds this app step by step, models included, and [Auth and sessions](auth.md) shows a complete `auth`.
