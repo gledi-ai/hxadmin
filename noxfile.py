@@ -54,7 +54,7 @@ def tests_latest(session: nox.Session) -> None:
     session.run("pytest", *pytest_args(session))
 
 
-@nox.session
+@nox.session(python=PYTHON_VERSIONS[0])
 def wheel(session: nox.Session) -> None:
     dist = session.create_tmp()
     session.run("uv", "build", "--wheel", "--out-dir", dist, external=True)
@@ -67,7 +67,7 @@ def audit(session: nox.Session) -> None:
     session.run("uv", "audit", "--locked")
 
 
-@nox.session
+@nox.session(python=PYTHON_VERSIONS[0])
 def lint(session: nox.Session) -> None:
     sync(session, "lint", "test", "demo")
     session.run("ruff", "check")
