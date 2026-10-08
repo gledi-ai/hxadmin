@@ -177,10 +177,14 @@ docs/serve: ## Serve the docs with live reload
 changelog: ## Regenerate CHANGELOG.md; VERSION=vX.Y.Z files unreleased commits under that version
 	$(NOX) -s changelog $(if $(VERSION),-- --tag $(VERSION))
 
+PREV_RELEASE = $(shell git describe --tags --abbrev=0 --match 'v[0-9]*' \
+	--exclude '*[0-9]a*' --exclude '*[0-9]b*' --exclude '*rc*' \
+	--exclude '*alpha*' --exclude '*beta*' 2>/dev/null)
+
 tag: ## Create annotated tag VERSION=vX.Y.Z carrying its release notes (push it to release)
 	$(if $(VERSION),,$(error usage: make tag VERSION=vX.Y.Z))
 	git diff --quiet HEAD || { echo "commit your changes first" >&2; exit 1; }
-	git tag -a $(VERSION) -m "$(VERSION)" -m "$$($(UVX) git-cliff@2.14.2 --unreleased --tag $(VERSION) --strip all)"
+	git tag -a $(VERSION) -m "$(VERSION)" -m "$$($(UVX) git-cliff@2.14.2 $(if $(PREV_RELEASE),$(PREV_RELEASE)..)HEAD --tag $(VERSION) --strip all)"
 	@echo "tagged $(VERSION); release with: git push origin $(VERSION)"
 
 
