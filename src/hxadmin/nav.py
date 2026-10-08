@@ -9,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.requests import Request
 
 from hxadmin.query import count_many
+from hxadmin.users import refresh_user
 
 if TYPE_CHECKING:
     from hxadmin.admin import HxAdmin
@@ -86,6 +87,7 @@ async def build_dashboard(
     except SQLAlchemyError:
         logger.exception("Dashboard: counting rows failed")
         await session.rollback()
+        await refresh_user(request, session)
     groups: dict[str | None, list[DashboardCard]] = {None: []}
     for view in views:
         url = admin.url(request, f"/{view.identity}/")

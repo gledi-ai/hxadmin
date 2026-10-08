@@ -40,6 +40,7 @@ from hxadmin.query import (
     with_relations,
 )
 from hxadmin.toasts import Toast, hx_trigger
+from hxadmin.users import refresh_user
 from hxadmin.views import ModelView
 
 if TYPE_CHECKING:
@@ -80,6 +81,11 @@ def _toast_only(status_code: int, toast: Toast) -> Response:
         status_code=status_code,
         headers={"HX-Trigger": hx_trigger(toast), "HX-Reswap": "none"},
     )
+
+
+async def _rollback(request: Request, session: AsyncSession) -> None:
+    await session.rollback()
+    await refresh_user(request, session)
 
 
 def _list_return_url(request: Request, list_url: str) -> str:
@@ -209,10 +215,10 @@ def build_router(admin: "HxAdmin") -> APIRouter:
                 raise TypeError(f"expected ActionResult, got {type(result).__name__}")
             await session.commit()
         except StarletteHTTPException:
-            await session.rollback()
+            await _rollback(request, session)
             raise
         except Exception:
-            await session.rollback()
+            await _rollback(request, session)
             logger.exception("Action %r on %r failed", declared.name, view.identity)
             failed = Toast(f"{declared.label} failed.", "error")
             if _is_htmx(request):
@@ -225,6 +231,7 @@ def build_router(admin: "HxAdmin") -> APIRouter:
         if not _is_htmx(request):
             return admin.redirect(request, back, toast=result.toast)
         session.expire_all()
+        await refresh_user(request, session)
         if detail_pk is not None:
             context = await _detail_context(request, session, view, detail_pk)
             if context is None:
@@ -382,7 +389,7 @@ def build_router(admin: "HxAdmin") -> APIRouter:
                 await apply(admin, request, session, view, obj, values, fields)
             except LookupError as exc:
                 if not created:
-                    await session.rollback()
+                    await _rollback(request, session)
                     await session.refresh(obj)
                 errors = FormErrors({str(exc): "Unknown selection."})
         if not errors:
@@ -395,12 +402,12 @@ def build_router(admin: "HxAdmin") -> APIRouter:
                 label = await session.run_sync(lambda _: view.display(obj))
                 await session.commit()
             except (IntegrityError, DataError, FormError) as exc:
-                await session.rollback()
+                await _rollback(request, session)
                 if not created:
                     await session.refresh(obj)
                 errors = _save_errors(exc, fields)
             except Exception:
-                await session.rollback()
+                await _rollback(request, session)
                 raise
             else:
                 done = Toast(f"{view.name} “{label}” {'created' if created else 'saved'}.")
@@ -622,14 +629,14 @@ def build_router(admin: "HxAdmin") -> APIRouter:
             await session.delete(obj)
             await session.commit()
         except IntegrityError as exc:
-            await session.rollback()
+            await _rollback(request, session)
             logger.warning("Delete rejected by a database constraint: %s", exc.orig)
             raise HTTPException(
                 status_code=409,
                 detail=f"Couldn't delete {view.name} “{label}”: other records still refer to it.",
             ) from None
         except Exception:
-            await session.rollback()
+            await _rollback(request, session)
             raise
         deleted = Toast(f"{view.name} “{label}” deleted.")
         list_url = admin.url(request, f"/{view.identity}/")
