@@ -10,10 +10,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.middleware.sessions import SessionMiddleware
 from starlette.requests import Request
 
-from demo.auth import DEMO_PASSWORD, authenticate, current_user
-from demo.db import engine, get_session, sessionmaker
-from demo.models import Base, Project, Task, TaskStatus, User
-from demo.seed import seed
+from demos.orm.auth import DEMO_PASSWORD, authenticate, current_user
+from demos.orm.db import engine, get_session, sessionmaker
+from demos.orm.models import Base, Project, Task, TaskStatus, User
+from demos.orm.seed import seed
 from hxadmin import ActionResult, BadgeTone, Field, FormError, HxAdmin, ModelView, Page, action
 
 

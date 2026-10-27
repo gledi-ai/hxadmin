@@ -10,8 +10,8 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.requests import Request
 
-from demo.db import get_session
-from demo.models import User
+from demos.orm.db import get_session
+from demos.orm.models import User
 
 DEMO_PASSWORD = "demo"  # noqa: S105
 

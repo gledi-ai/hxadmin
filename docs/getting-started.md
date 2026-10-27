@@ -180,7 +180,7 @@ The URL is used as given, so it must be served by your app (for example with Fas
 The repository ships a small todo app that exercises every feature:
 
 ```bash
-uv run python -m demo
+uv run python -m demos.orm
 ```
 
-Then open <http://127.0.0.1:8001/admin/>. The demo creates and seeds `demo/demo.db` on first start.
+Then open <http://127.0.0.1:8001/admin/>. The demo creates and seeds `demos/orm/demo.db` on first start. Sign in as `ada@example.com` with the password `demo`. `make demo/tables` runs a second demo built on plain Core `Table`s (<http://127.0.0.1:8002/admin/>, `admin@example.com` / `demo`).

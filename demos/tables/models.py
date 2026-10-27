@@ -1,6 +1,6 @@
 from sqlalchemy.orm import DeclarativeBase
 
-from demo_tables.tables import exchange_rates, metadata, products, stock_moves, warehouses
+from demos.tables.tables import exchange_rates, metadata, products, stock_moves, warehouses
 
 
 class Base(DeclarativeBase):

@@ -20,8 +20,7 @@ reports/
 node_modules/
 
 # Demo
-demo/demo.db
-demo_tables/demo_tables.db
+demos/*/demo.db
 
 # Docs
 site/

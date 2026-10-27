@@ -9,13 +9,13 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 from starlette.middleware.sessions import SessionMiddleware
 from starlette.requests import Request
 
-from demo_tables.auth import DEMO_EMAIL, DEMO_PASSWORD, authenticate, current_user
-from demo_tables.models import ExchangeRate, Product, StockMove, Warehouse
-from demo_tables.seed import seed
-from demo_tables.tables import metadata
+from demos.tables.auth import DEMO_EMAIL, DEMO_PASSWORD, authenticate, current_user
+from demos.tables.models import ExchangeRate, Product, StockMove, Warehouse
+from demos.tables.seed import seed
+from demos.tables.tables import metadata
 from hxadmin import BadgeTone, HxAdmin, ModelView
 
-DB_PATH = Path(__file__).parent / "demo_tables.db"
+DB_PATH = Path(__file__).parent / "demo.db"
 engine = create_async_engine(f"sqlite+aiosqlite:///{DB_PATH}")
 sessionmaker = async_sessionmaker(engine, expire_on_commit=False)
 

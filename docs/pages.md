@@ -60,7 +60,7 @@ The templates go in the directory passed as `HxAdmin(templates_dir=...)`, and ex
 {% endblock %}
 ```
 
-The repository's demo has this exact pair of pages (`demo/app.py`, `demo/templates/`).
+The repository's demo has this exact pair of pages (`demos/orm/app.py`, `demos/orm/templates/`).
 
 Handlers are ordinary `async` FastAPI endpoints (`Depends`, path and query parameters, `methods=("POST",)`), guarded by `auth`. A path parameter with a type, like `status: TaskStatus`, is validated by FastAPI: `/stats/nope` answers 422. Return `Page(template, context)` to render inside the admin shell, or any `Response` or JSON-able value.
 

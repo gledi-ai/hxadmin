@@ -102,7 +102,7 @@ cache-keys = [
 
 [tool.ruff]
 line-length = 100
-src = ["src", "tests", "demo", "demo_tables"]
+src = ["src", "tests", "demos"]
 
 [tool.ruff.lint]
 select = [
@@ -132,7 +132,7 @@ select = [
 extend-immutable-calls = ["fastapi.Depends"]
 
 [tool.pyrefly]
-project-includes = ["src", "tests", "demo", "demo_tables"]
+project-includes = ["src", "tests", "demos"]
 search-path = ["src", "."]
 
 [tool.pytest.ini_options]

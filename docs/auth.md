@@ -195,7 +195,7 @@ async def logout(request: Request) -> RedirectResponse:
 
 `verify_password` is the one from the HTTP Basic example above. Clearing the session before setting `user_id` drops anything an attacker planted in it before sign-in. To change the page, put your own `hxadmin/login.html` in `templates_dir` (it can extend `hxadmin-builtin/login.html`, see [Templates](templates.md#extending-a-built-in)); it receives the arguments above plus `admin`, `request` and `admin_root` (the admin's URL prefix, for `{{ admin_root }}/static/hxadmin.css`).
 
-Both demo apps (`make demo`, `make demo-tables`) sign in this way.
+Both demo apps (`make demo`, `make demo/tables`) sign in this way.
 
 Per view, `is_accessible(request)` and `is_visible(request)` narrow access further. Per action, `is_action_allowed(request, name)` does; see [Actions](actions.md#permissions).
 

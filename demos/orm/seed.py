@@ -3,8 +3,8 @@ from datetime import date
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from demo.auth import DEMO_PASSWORD, hash_password
-from demo.models import Project, Task, TaskStatus, User
+from demos.orm.auth import DEMO_PASSWORD, hash_password
+from demos.orm.models import Project, Task, TaskStatus, User
 
 
 def _account(name: str, email: str) -> User:

@@ -4,7 +4,7 @@ from decimal import Decimal
 from sqlalchemy import insert, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from demo_tables.tables import MoveKind, exchange_rates, products, stock_moves, warehouses
+from demos.tables.tables import MoveKind, exchange_rates, products, stock_moves, warehouses
 
 
 async def seed(session: AsyncSession) -> None:
