@@ -2,6 +2,19 @@
 
 All notable changes to this project are documented in this file.
 
+## [0.2.0] - 2026-10-27
+
+### Features
+
+- Replace the account menu with a theme toggle and a sidebar user panel
+- Add a sign-in page rendered with admin.render_login()
+- **breaking:** Namespace the built-in templates under hxadmin/
+
+### Refactoring
+
+- Drop conversions that pyrefly 1.4 flags as redundant, keeping the one non-str error details need
+- Use fastapi.status constants instead of bare HTTP status codes
+
 ## [0.1.1] - 2026-10-08
 
 ### Bug fixes
