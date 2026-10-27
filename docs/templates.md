@@ -80,7 +80,7 @@ Each token is defined once in `@theme` and overridden under `.dark`, so a templa
 
 The sidebar groups views and pages by `category`. It collapses to an icon rail with its toggle button or `⌘B` / `Ctrl+B`; the state is stored in `localStorage` under `hxadmin-sidebar` and applied before paint. Below the `lg` breakpoint it becomes a drawer. The brand block shows `logo_url` when set (see [Branding](getting-started.md#branding)), else the title's first letter in an accent tile.
 
-The top bar holds the breadcrumbs (the parent pages only, since the page title names the current one), the command palette button (a search icon on small screens) and the user menu (theme choice, and Log out when `logout_url` is set).
+The top bar holds the breadcrumbs (the parent pages only, since the page title names the current one), the command palette button (a search icon on small screens), and the theme button. The bottom of the sidebar shows the signed-in user (avatar and name) with a Log out button when `logout_url` is set; it is left out when there is neither a name nor a `logout_url`.
 
 ## Command palette
 
@@ -88,4 +88,4 @@ The top bar holds the breadcrumbs (the parent pages only, since the page title n
 
 ## Theme
 
-The top bar toggles light, dark and system themes; the choice is stored in `localStorage` under `hxadmin-theme` and applied before paint, so there is no flash.
+The theme button in the top bar cycles light → dark → system; its icon shows the current theme and its tooltip names the next. The choice is stored in `localStorage` under `hxadmin-theme` and applied before paint, so there is no flash.

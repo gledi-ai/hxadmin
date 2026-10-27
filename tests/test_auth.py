@@ -90,7 +90,7 @@ class _NamedUser:
         (42, "42", "4"),
     ],
 )
-def test_any_auth_return_value_renders_the_user_menu(
+def test_user_panel_renders_when_the_auth_value_has_a_label(
     factory: AppFactory,
     make_client: Callable[[FastAPI], TestClient],
     returned: object,
@@ -102,7 +102,7 @@ def test_any_auth_return_value_renders_the_user_menu(
     with make_client(app) as client:
         response = client.get("/admin/")
     assert response.status_code == 200
-    assert 'aria-label="Account menu"' in response.text
+    assert ("data-user-panel" in response.text) is (label is not None)
     if label is not None:
         assert f">{label}<" in response.text
     if initials is not None:

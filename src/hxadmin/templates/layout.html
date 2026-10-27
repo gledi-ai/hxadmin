@@ -50,8 +50,15 @@
             document.documentElement.classList.toggle("dark", dark);
             localStorage.setItem("hxadmin-theme", this.mode);
           },
-          set: function (mode) {
-            this.mode = mode;
+          next: function () {
+            return { light: "dark", dark: "system" }[this.mode] || "light";
+          },
+          label: function (mode) {
+            mode = mode || this.mode;
+            return mode.charAt(0).toUpperCase() + mode.slice(1);
+          },
+          cycle: function () {
+            this.mode = this.next();
             this.apply();
           },
         };
@@ -447,6 +454,25 @@
         </div>
         {% endfor %}
       </nav>
+      {% set display_name = hx_user_label(user) %}
+      {% set initials = hx_user_initials(display_name) %}
+      {% if display_name or admin.logout_url %}
+      <div data-user-panel class="flex shrink-0 items-center gap-2 border-t border-border p-3 lg:collapsed:flex-col">
+        {% call m.tooltip(display_name or "", when="collapsed" if display_name else "false", placement="right") %}
+        <span data-avatar class="flex size-7 shrink-0 items-center justify-center rounded-full bg-accent-soft text-xs font-semibold text-accent">{% if initials %}{{ initials }}{% else %}{{ m.icon('user', 'size-4') }}{% endif %}</span>
+        {% endcall %}
+        {% if display_name %}
+        <span class="min-w-0 flex-1 truncate text-sm font-medium lg:collapsed:hidden">{{ display_name }}</span>
+        {% else %}
+        <span class="flex-1 lg:collapsed:hidden"></span>
+        {% endif %}
+        {% if admin.logout_url %}
+        {% call m.tooltip("Log out", placement="right") %}
+        {{ m.icon_button('log-out', 'Log out', href=admin.logout_url, class='shrink-0') }}
+        {% endcall %}
+        {% endif %}
+      </div>
+      {% endif %}
     </aside>
     <div class="flex min-w-0 flex-1 flex-col">
       <header class="flex h-14 items-center gap-3 border-b border-border bg-surface px-4">
@@ -475,23 +501,15 @@
           <div id="palette-results" x-ref="results" role="listbox" aria-label="Results" class="-mx-2 mt-2 max-h-80 overflow-y-auto"></div>
           {% endcall %}
         </div>
-        {% set display_name = hx_user_label(user) %}
-        {% set initials = hx_user_initials(display_name) %}
-        {% set _user_trigger %}<span data-avatar class="flex size-7 shrink-0 items-center justify-center rounded-full bg-accent-soft text-xs font-semibold text-accent">{% if initials %}{{ initials }}{% else %}{{ m.icon('user', 'size-4') }}{% endif %}</span>{% if display_name %}<span class="hidden max-w-32 truncate text-sm sm:inline">{{ display_name }}</span>{% endif %}{% endset %}
-        <div x-data="theme()" x-init="apply()">
-          {% call m.menu("user-menu", _user_trigger, label="Account menu", trigger_class=m.button_classes('ghost', 'md') ~ ' gap-2 px-2', placement="bottom-end") %}
-          {% if display_name %}
-          {{ m.menu_label(display_name) }}
-          {{ m.menu_separator() }}
-          {% endif %}
-          {{ m.menu_label("Theme") }}
-          {{ m.menu_item("Light", icon="sun", role="menuitemradio", attrs={"@click": "set('light')", ":aria-checked": "mode === 'light'"}) }}
-          {{ m.menu_item("Dark", icon="moon", role="menuitemradio", attrs={"@click": "set('dark')", ":aria-checked": "mode === 'dark'"}) }}
-          {{ m.menu_item("System", icon="monitor", role="menuitemradio", attrs={"@click": "set('system')", ":aria-checked": "mode === 'system'"}) }}
-          {% if admin.logout_url %}
-          {{ m.menu_separator() }}
-          {{ m.menu_item("Log out", href=admin.logout_url, icon="log-out") }}
-          {% endif %}
+        <div x-data="theme()" x-init="apply()" class="flex">
+          {% set _theme_tip %}<span x-text="'Theme: ' + label() + ' (click for ' + label(next()) + ')'"></span>{% endset %}
+          {% call m.tooltip(_theme_tip, placement="bottom") %}
+          <button type="button" data-theme-toggle @click="cycle()" :aria-label="'Theme: ' + label() + ', switch to ' + label(next())"
+                  aria-label="Toggle theme" class="{{ m.button_classes('ghost', 'md', True) }}">
+            <span data-theme-icon="light" x-show="mode === 'light'">{{ m.icon('sun', 'size-4') }}</span>
+            <span data-theme-icon="dark" x-show="mode === 'dark'" x-cloak>{{ m.icon('moon', 'size-4') }}</span>
+            <span data-theme-icon="system" x-show="mode === 'system'" x-cloak>{{ m.icon('monitor', 'size-4') }}</span>
+          </button>
           {% endcall %}
         </div>
       </header>

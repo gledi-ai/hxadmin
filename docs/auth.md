@@ -20,7 +20,7 @@ FastAPI resolves a dependency once per request, so when your `auth` (or a custom
 
 ## Auth
 
-`auth` runs on every admin request. Its return value is available as `request.state.hxadmin_user` and as `user` in templates. The top bar's user menu shows `user.name` (an attribute or a mapping key) when it is set, otherwise `str(user)`, with initials derived from it. Any return value works: `None` or a bool (an `auth` that only answers "allowed") shows a generic avatar with no name.
+`auth` runs on every admin request. Its return value is available as `request.state.hxadmin_user` and as `user` in templates. The user panel at the bottom of the sidebar shows `user.name` (an attribute or a mapping key) when it is set, otherwise `str(user)`, with initials derived from it. Any return value works: `None` or a bool (an `auth` that only answers "allowed") shows a generic avatar with no name.
 
 To deny access, raise `HTTPException(401)` or `HTTPException(403)`. With `login_url` set, these send the browser to the login page (303, or `HX-Redirect` for htmx requests). Without it, they render an error page, keeping the exception's headers.
 
@@ -130,7 +130,7 @@ admin = HxAdmin(
 )
 ```
 
-The admin is mounted inside `app`, so middleware added to `app` runs for admin requests too and `request.session` works there. `/login` and `/logout` are your application's routes, outside the admin: `/login` checks the password (`verify_password` above will do) and sets `request.session["user_id"]`, and `/logout` clears it. The Log out entry in the user menu is a plain link, so `/logout` must answer `GET`.
+The admin is mounted inside `app`, so middleware added to `app` runs for admin requests too and `request.session` works there. `/login` and `/logout` are your application's routes, outside the admin: `/login` checks the password (`verify_password` above will do) and sets `request.session["user_id"]`, and `/logout` clears it. The Log out button in the sidebar is a plain link, so `/logout` must answer `GET`.
 
 Per view, `is_accessible(request)` and `is_visible(request)` narrow access further. Per action, `is_action_allowed(request, name)` does; see [Actions](actions.md#permissions).
 

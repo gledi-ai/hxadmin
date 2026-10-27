@@ -1,3 +1,4 @@
+import re
 from collections.abc import Callable
 
 from fastapi import FastAPI
@@ -6,6 +7,7 @@ from fastapi.testclient import TestClient
 from hxadmin import HxAdmin, ModelView
 from tests.conftest import AppFactory, Group, User, allow_all
 from tests.html import classes, tag, visible_text
+from tests.js import needs_node, run_layout_js
 
 type MakeClient = Callable[[FastAPI], TestClient]
 
@@ -86,16 +88,64 @@ def test_user_menu_hides_logout_without_logout_url(
     assert ">Log out<" not in html
 
 
-def test_theme_radio_items(factory: AppFactory, make_client: MakeClient) -> None:
+def test_user_panel_sits_at_the_bottom_of_the_sidebar(
+    factory: AppFactory, make_client: MakeClient
+) -> None:
+    app = factory.app()
+    HxAdmin(app, session=factory.get_session, auth=lambda: {"name": "Ada"}, logout_url="/bye")
+    with make_client(app) as client:
+        html = client.get("/admin/").text
+    sidebar = html[html.index("<aside") : html.index("</aside>")]
+    panel = sidebar[sidebar.index("data-user-panel") :]
+    assert sidebar.index("</nav>") < sidebar.index("data-user-panel")
+    without_tips = re.sub(r'<span role="tooltip".*?</span>', "", panel, flags=re.DOTALL)
+    assert without_tips.count(">Ada<") == 1
+    assert 'href="/bye"' in panel
+    assert 'aria-label="Log out"' in panel
+    assert 'aria-label="Account menu"' not in html
+    assert "data-user-panel" not in html[html.index("<header") : html.index("</header>")]
+
+
+def test_theme_is_a_single_toggle_button_outside_the_user_menu(
+    factory: AppFactory, make_client: MakeClient
+) -> None:
     app = factory.app()
     HxAdmin(app, session=factory.get_session, auth=allow_all)
     with make_client(app) as client:
         html = client.get("/admin/").text
-    assert 'role="menuitemradio"' in html
-    for label, mode in (("Light", "light"), ("Dark", "dark"), ("System", "system")):
-        assert f"set(&#39;{mode}&#39;)" in html
-        assert f"mode === &#39;{mode}&#39;" in html
-        assert f">{label}<" in html
+    assert 'role="menuitemradio"' not in html
+    assert ">Theme<" not in html
+    button = tag(html, "data-theme-toggle")
+    assert "cycle()" in button
+    assert ":aria-label" in button
+    header = html[html.index("<header") : html.index("</header>")]
+    assert "data-theme-toggle" in header
+    for mode in ("light", "dark", "system"):
+        assert f'data-theme-icon="{mode}"' in html
+    assert 'role="tooltip"' in html[html.index("data-theme-toggle") :]
+
+
+@needs_node
+def test_theme_toggle_cycles_light_dark_system(
+    factory: AppFactory, make_client: MakeClient
+) -> None:
+    app = factory.app()
+    HxAdmin(app, session=factory.get_session, auth=allow_all)
+    with make_client(app) as client:
+        html = client.get("/admin/").text
+    probe = """
+    globalThis.matchMedia = () => ({ matches: false });
+    const t = factories.theme();
+    const seen = [[t.mode, t.label(), t.next()]];
+    for (let i = 0; i < 3; i++) { t.cycle(); seen.push([t.mode, t.label(), t.next()]); }
+    console.log(JSON.stringify(seen));
+    """
+    assert run_layout_js(html, probe) == [
+        ["light", "Light", "dark"],
+        ["dark", "Dark", "system"],
+        ["system", "System", "light"],
+        ["light", "Light", "dark"],
+    ]
 
 
 def test_no_old_global_search_form(factory: AppFactory, make_client: MakeClient) -> None:
@@ -172,8 +222,8 @@ def test_theme_and_logout_render_without_a_user(
     HxAdmin(app, session=factory.get_session, auth=lambda: None, logout_url="/logout")
     with make_client(app) as client:
         html = client.get("/admin/").text
-    assert 'aria-label="Account menu"' in html
-    assert html.count('role="menuitemradio"') == 3
+    assert "data-user-panel" in html
+    assert "data-theme-toggle" in html
     assert ">Log out<" in html
     assert "<span data-avatar" in html
 
