@@ -183,7 +183,7 @@ def _default_for(column: Column[Any]) -> Any:
 
 def _is_autoincrement(column: Column[Any], mapper: Mapper[Any]) -> bool:
     return (
-        bool(column.primary_key)
+        column.primary_key
         and column.autoincrement in ("auto", True)
         and isinstance(column.type, Integer)
         and len(mapper.primary_key) == 1

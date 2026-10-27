@@ -1,3 +1,4 @@
+import json
 from collections.abc import Callable
 from pathlib import Path
 from typing import Annotated, Any, cast
@@ -267,3 +268,22 @@ def test_handler_context_keeps_its_own_page_key(
         html = client.get("/admin/paged").text
     assert "page=3" in html
     assert "<title>Paged · HxAdmin</title>" in html
+
+
+def test_htmx_error_toast_stringifies_a_non_str_detail(
+    factory: AppFactory, make_client: MakeClient
+) -> None:
+    app = factory.app()
+    admin = HxAdmin(app, session=factory.get_session, auth=allow_all)
+
+    @admin.page("/broken", title="Broken")
+    async def broken() -> Page:
+        raise HTTPException(status_code=400, detail={"field": "bad"})
+
+    with make_client(app) as client:
+        response = client.get("/admin/broken", headers={"HX-Request": "true"})
+    assert response.status_code == 400
+    assert response.headers["HX-Reswap"] == "none"
+    toast = json.loads(response.headers["HX-Trigger"])["hxadmin-toast"]
+    assert toast["message"] == "{'field': 'bad'}"
+    assert toast["level"] == "error"

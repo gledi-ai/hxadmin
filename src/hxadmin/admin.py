@@ -167,7 +167,9 @@ class HxAdmin:
                 return Response(status_code=200, headers={"HX-Redirect": self.login_url})
             return RedirectResponse(self.login_url, status_code=303)
         if htmx:
-            toast = Toast(str(exc.detail), "error")
+            # FastAPI's HTTPException subclass allows a non-str detail.
+            detail: Any = exc.detail
+            toast = Toast(str(detail), "error")
             response: Response = Response(
                 status_code=exc.status_code,
                 headers={"HX-Trigger": hx_trigger(toast), "HX-Reswap": "none"},

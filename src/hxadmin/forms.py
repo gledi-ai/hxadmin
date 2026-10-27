@@ -186,7 +186,7 @@ def validate(schema: type[BaseModel], raw: Mapping[str, Any]) -> tuple[dict[str,
             if loc:
                 fields.setdefault(str(loc[0]), _message(error))
             elif form is None:
-                form = str(error["msg"])
+                form = error["msg"]
         return {}, FormErrors(fields, form)
     return model.model_dump(exclude_unset=True), FormErrors()
 
