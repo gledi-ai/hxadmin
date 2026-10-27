@@ -6,13 +6,13 @@
     }
   },
   "alpinejs": {
-    "version": "3.17.4",
+    "version": "3.17.5",
     "files": {
       "dist/cdn.min.js": "alpine.min.js"
     }
   },
   "@alpinejs/anchor": {
-    "version": "3.17.4",
+    "version": "3.17.5",
     "files": {
       "dist/cdn.min.js": "alpine-anchor.min.js"
     },
@@ -22,7 +22,7 @@
     ]
   },
   "@alpinejs/focus": {
-    "version": "3.17.4",
+    "version": "3.17.5",
     "files": {
       "dist/cdn.min.js": "alpine-focus.min.js"
     },
@@ -43,7 +43,7 @@
     ]
   },
   "lucide-static": {
-    "version": "1.52.0",
+    "version": "1.62.0",
     "files": {
       "icons/*.svg": "lucide.json",
       "LICENSE": "lucide.LICENSE"

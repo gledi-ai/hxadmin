@@ -1,4 +1,4 @@
-alpine-anchor.min.js is @alpinejs/anchor 3.17.4 and alpine-focus.min.js is @alpinejs/focus 3.17.4,
+alpine-anchor.min.js is @alpinejs/anchor 3.17.5 and alpine-focus.min.js is @alpinejs/focus 3.17.5,
 the CDN builds from npm. anchor bundles @floating-ui/dom; focus bundles focus-trap and tabbable.
 
 == Alpine.js and its plugins ==
