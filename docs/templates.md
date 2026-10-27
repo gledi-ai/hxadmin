@@ -19,6 +19,7 @@ A file with the same name as a built-in template replaces it:
 | `form.html`, `form/_fields.html`, `form/_field.html` | Create and edit forms |
 | `page.html` | Base for custom pages (`{% block body %}`) |
 | `error.html` | Error pages |
+| `login.html` | Sign-in page rendered by `admin.render_login()`; see [Auth](auth.md#the-sign-in-page) |
 | `_macros.html` | Component re-exports, cells, row menu, filter popovers, bulk bar |
 | `_palette.html` | Command palette results |
 

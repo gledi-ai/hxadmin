@@ -130,7 +130,64 @@ admin = HxAdmin(
 )
 ```
 
-The admin is mounted inside `app`, so middleware added to `app` runs for admin requests too and `request.session` works there. `/login` and `/logout` are your application's routes, outside the admin: `/login` checks the password (`verify_password` above will do) and sets `request.session["user_id"]`, and `/logout` clears it. The Log out button in the sidebar is a plain link, so `/logout` must answer `GET`.
+The admin is mounted inside `app`, so middleware added to `app` runs for admin requests too and `request.session` works there. `/login` and `/logout` are your application's routes, outside the admin. The Log out button in the sidebar is a plain link, so `/logout` must answer `GET`.
+
+### The sign-in page
+
+If your app has no login page of its own, `admin.render_login()` renders one in the admin's style (light and dark, `logo_url` and `title`, no sidebar). Its form posts `username` and `password` to the current path:
+
+```python
+from fastapi.responses import HTMLResponse, RedirectResponse
+from sqlalchemy import select
+
+
+@app.get("/login", response_model=None)
+async def login_form(request: Request) -> HTMLResponse:
+    return admin.render_login(request)
+
+
+@app.post("/login", response_model=None)
+async def login(
+    request: Request, session: Annotated[AsyncSession, Depends(get_session)]
+) -> HTMLResponse | RedirectResponse:
+    form = await request.form()
+    email = str(form.get("username", "")).strip()
+    password = str(form.get("password", ""))
+    user = await session.scalar(select(User).where(User.email == email))
+    if (
+        user is None
+        or not user.active
+        or user.password_hash is None
+        or not verify_password(password, user.password_hash)
+    ):
+        return admin.render_login(
+            request, error="Wrong e-mail or password.", username=email, status_code=401
+        )
+    request.session.clear()
+    request.session["user_id"] = user.id
+    return RedirectResponse("/admin/", status_code=303)
+
+
+@app.get("/logout")
+async def logout(request: Request) -> RedirectResponse:
+    request.session.clear()
+    return RedirectResponse("/login", status_code=303)
+```
+
+`render_login` takes, all optional and keyword-only:
+
+| Argument | Default | |
+| --- | --- | --- |
+| `error` | `None` | Shown above the form, for a failed attempt |
+| `username` | `""` | Prefills the first field (the submitted value after an error) |
+| `username_label` | `"E-mail"` | Label of the first field, e.g. `"Username"` |
+| `note` | `None` | A line of text under the form, e.g. who to ask for an account |
+| `action` | the current path | Where the form posts |
+| `status_code` | `200` | `401` suits a failed attempt |
+
+`verify_password` is the one from the HTTP Basic example above. Clearing the session before setting `user_id` drops anything an attacker planted in it before sign-in. To change the page, put your own `login.html` in `templates_dir`; it receives the arguments above plus `admin`, `request` and `admin_root` (the admin's URL prefix, for `{{ admin_root }}/static/hxadmin.css`).
+
+Both demo apps (`make demo`, `make demo-tables`) sign in this way.
 
 Per view, `is_accessible(request)` and `is_visible(request)` narrow access further. Per action, `is_action_allowed(request, name)` does; see [Actions](actions.md#permissions).
 

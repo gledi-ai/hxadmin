@@ -370,3 +370,37 @@ class HxAdmin:
                 FLASH_COOKIE, path=self.url(request, "/"), httponly=True, samesite="lax"
             )
         return response
+
+    def render_login(
+        self,
+        request: Request,
+        *,
+        error: str | None = None,
+        username: str = "",
+        username_label: str = "E-mail",
+        note: str | None = None,
+        action: str | None = None,
+        status_code: int = 200,
+    ) -> HTMLResponse:
+        """Render the sign-in page (`login.html`) from your own login route.
+
+        The form posts `username` and `password` to `action`, which defaults to the
+        current path. Pass `error` (with the submitted `username`) to show a failed
+        attempt, and `note` for a line of text under the form.
+        """
+        if request.scope.get("app") is self.subapp:
+            admin_root = self.url(request, "")
+        else:
+            admin_root = f"{request.scope.get('root_path', '')}{self.prefix}"
+        context = {
+            "admin": self,
+            "request": request,
+            "admin_root": admin_root,
+            "action": action if action is not None else request.url.path,
+            "error": error,
+            "username": username,
+            "username_label": username_label,
+            "note": note,
+        }
+        html = self.templates.get_template("login.html").render(context)
+        return HTMLResponse(html, status_code=status_code)
