@@ -3,15 +3,20 @@ from datetime import date
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from demo.auth import DEMO_PASSWORD, hash_password
 from demo.models import Project, Task, TaskStatus, User
+
+
+def _account(name: str, email: str) -> User:
+    return User(name=name, email=email, password_hash=hash_password(DEMO_PASSWORD))
 
 
 async def seed(session: AsyncSession) -> None:
     if await session.scalar(select(User.id).limit(1)) is not None:
         return
-    ada = User(name="Ada Lovelace", email="ada@example.com")
-    linus = User(name="Linus Torvalds", email="linus@example.com")
-    grace = User(name="Grace Hopper", email="grace@example.com")
+    ada = _account("Ada Lovelace", "ada@example.com")
+    linus = _account("Linus Torvalds", "linus@example.com")
+    grace = _account("Grace Hopper", "grace@example.com")
     website = Project(name="Website", description="Marketing site", members=[ada, grace])
     kernel = Project(name="Kernel", description="Core engine", members=[linus, ada])
     session.add_all(

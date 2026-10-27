@@ -1,29 +1,20 @@
-from collections.abc import AsyncGenerator, AsyncIterator, Mapping, Sequence
+from collections.abc import AsyncGenerator, Mapping, Sequence
 from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Annotated, ClassVar
 
 from fastapi import Depends, FastAPI
+from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlalchemy import func, select
-from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+from sqlalchemy.ext.asyncio import AsyncSession
+from starlette.middleware.sessions import SessionMiddleware
 from starlette.requests import Request
 
+from demo.auth import DEMO_PASSWORD, authenticate, current_user
+from demo.db import engine, get_session, sessionmaker
 from demo.models import Base, Project, Task, TaskStatus, User
 from demo.seed import seed
 from hxadmin import ActionResult, BadgeTone, Field, FormError, HxAdmin, ModelView, Page, action
-
-DB_PATH = Path(__file__).parent / "demo.db"
-engine = create_async_engine(f"sqlite+aiosqlite:///{DB_PATH}")
-sessionmaker = async_sessionmaker(engine, expire_on_commit=False)
-
-
-async def get_session() -> AsyncIterator[AsyncSession]:
-    async with sessionmaker() as session:
-        yield session
-
-
-def dev_user() -> dict[str, str]:
-    return {"name": "dev"}
 
 
 @asynccontextmanager
@@ -37,13 +28,56 @@ async def lifespan(_: FastAPI) -> AsyncGenerator[None]:
 
 
 app = FastAPI(title="Todo demo", lifespan=lifespan)
+# Both demos run on 127.0.0.1, and cookies ignore the port, so each needs its own cookie name.
+app.add_middleware(
+    SessionMiddleware,
+    secret_key="demo-only-not-a-secret",  # noqa: S106
+    session_cookie="hxadmin_demo_session",
+    https_only=False,
+)
 admin = HxAdmin(
     app,
     session=get_session,
-    auth=dev_user,
+    auth=current_user,
     title="Todo admin",
+    login_url="/login",
+    logout_url="/logout",
     templates_dir=Path(__file__).parent / "templates",
 )
+LOGIN_NOTE = f"Demo accounts: ada@, grace@ or linus@example.com, password {DEMO_PASSWORD!r}."
+
+
+@app.get("/login", response_model=None)
+async def login_form(request: Request) -> HTMLResponse | RedirectResponse:
+    if "user_id" in request.session:
+        return RedirectResponse("/admin/", status_code=303)
+    return admin.render_login(request, note=LOGIN_NOTE)
+
+
+@app.post("/login", response_model=None)
+async def login(
+    request: Request, session: Annotated[AsyncSession, Depends(get_session)]
+) -> HTMLResponse | RedirectResponse:
+    form = await request.form()
+    email = str(form.get("username", "")).strip()
+    user = await authenticate(session, email, str(form.get("password", "")))
+    if user is None:
+        return admin.render_login(
+            request,
+            error="Wrong e-mail or password.",
+            username=email,
+            note=LOGIN_NOTE,
+            status_code=401,
+        )
+    request.session.clear()
+    request.session["user_id"] = user.id
+    return RedirectResponse("/admin/", status_code=303)
+
+
+@app.get("/logout")
+async def logout(request: Request) -> RedirectResponse:
+    request.session.clear()
+    return RedirectResponse("/login", status_code=303)
 
 
 @admin.register
@@ -52,6 +86,7 @@ class UserView(ModelView[User]):
     category = "People"
     icon = "users"
     list_columns = ("name", "email", "projects")
+    detail_columns = ("name", "email", "projects", "tasks")
     searchable = ("name", "email")
     default_sort = ("name", "asc")
     form_fields = (

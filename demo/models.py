@@ -29,6 +29,7 @@ class User(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     name: Mapped[str]
     email: Mapped[str] = mapped_column(unique=True)
+    password_hash: Mapped[str | None]
     projects: Mapped[list["Project"]] = relationship(
         secondary=project_members, back_populates="members"
     )
