@@ -102,7 +102,10 @@ def test_login_note_is_shown_under_the_form(factory: AppFactory, make_client: Ma
 def test_login_template_can_be_overridden(
     factory: AppFactory, make_client: MakeClient, tmp_path: Path
 ) -> None:
-    (tmp_path / "login.html").write_text("CUSTOM {{ action }} {{ error }} {{ admin.title }}")
+    (tmp_path / "hxadmin").mkdir()
+    (tmp_path / "hxadmin" / "login.html").write_text(
+        "CUSTOM {{ action }} {{ error }} {{ admin.title }}"
+    )
     app, admin = _app(factory, templates_dir=tmp_path)
 
     @app.get("/login")

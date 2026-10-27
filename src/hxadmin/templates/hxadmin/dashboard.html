@@ -1,5 +1,5 @@
-{% extends "layout.html" %}
-{% import "_macros.html" as m with context %}
+{% extends "hxadmin/layout.html" %}
+{% import "hxadmin/_macros.html" as m with context %}
 {% macro dashboard_card(card) -%}
 {% call m.card(href=card.url) %}
   <div class="flex size-9 items-center justify-center rounded-md bg-accent-soft text-accent">{{ m.icon(card.icon or 'table', 'size-4') }}</div>

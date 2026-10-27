@@ -22,10 +22,10 @@ from tests.test_nav import _request
 type MakeClient = Callable[[FastAPI], TestClient]
 
 SYNC = (
-    '{% extends "page.html" %}{% block body %}'
+    '{% extends "hxadmin/page.html" %}{% block body %}'
     "<p>users: {{ users }} path: {{ path }} who: {{ user.name }}</p>{% endblock %}"
 )
-JOB = '{% extends "page.html" %}{% block body %}job {{ job_id }} q={{ q }}{% endblock %}'
+JOB = '{% extends "hxadmin/page.html" %}{% block body %}job {{ job_id }} q={{ q }}{% endblock %}'
 
 
 class UserView(ModelView[User]):
@@ -60,7 +60,7 @@ def build(factory: AppFactory, tmp_path: Path) -> tuple[FastAPI, HxAdmin]:
 
     @admin.page("/reports/monthly", title="Monthly")
     async def monthly() -> Page:
-        return Page("page.html")
+        return Page("hxadmin/page.html")
 
     return app, admin
 
@@ -142,7 +142,7 @@ def test_pages_require_auth(factory: AppFactory, make_client: MakeClient) -> Non
 
     @admin.page("/sync", title="Sync")
     async def sync_page() -> Page:
-        return Page("page.html")
+        return Page("hxadmin/page.html")
 
     with make_client(app) as client:
         native = client.get("/admin/sync", follow_redirects=False)
@@ -167,7 +167,7 @@ def test_view_registered_after_page_cannot_shadow_it(factory: AppFactory) -> Non
 
     @admin.route("/user/stats")
     async def stats() -> Page:
-        return Page("page.html")
+        return Page("hxadmin/page.html")
 
     with pytest.raises(ValueError, match="page path already uses 'user'"):
         admin.register(UserView)
@@ -183,7 +183,7 @@ def test_sync_handler_is_rejected(factory: AppFactory) -> None:
     admin = HxAdmin(factory.app(), session=factory.get_session, auth=allow_all)
 
     def sync_page() -> Page:
-        return Page("page.html")
+        return Page("hxadmin/page.html")
 
     with pytest.raises(TypeError, match="must be an async function"):
         admin.page("/sync", title="Sync")(cast(Any, sync_page))
@@ -236,26 +236,26 @@ def test_duplicate_page_registrations_are_rejected(factory: AppFactory) -> None:
 
     @admin.page("/sync", title="Sync")
     async def sync() -> Page:
-        return Page("page.html")
+        return Page("hxadmin/page.html")
 
     with pytest.raises(ValueError, match="already registered"):
 
         @admin.route("/sync")
         async def again() -> Page:
-            return Page("page.html")
+            return Page("hxadmin/page.html")
 
     with pytest.raises(ValueError, match="already in the sidebar"):
 
         @admin.page("/sync", title="Sync again", methods=("POST",))
         async def post() -> Page:
-            return Page("page.html")
+            return Page("hxadmin/page.html")
 
 
 def test_handler_context_keeps_its_own_page_key(
     factory: AppFactory, make_client: MakeClient, tmp_path: Path
 ) -> None:
     (tmp_path / "paged.html").write_text(
-        '{% extends "page.html" %}{% block body %}page={{ page }}{% endblock %}'
+        '{% extends "hxadmin/page.html" %}{% block body %}page={{ page }}{% endblock %}'
     )
     app = factory.app()
     admin = HxAdmin(app, session=factory.get_session, auth=allow_all, templates_dir=tmp_path)

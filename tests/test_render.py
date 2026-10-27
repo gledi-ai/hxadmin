@@ -23,8 +23,9 @@ def test_theme_bootstrap_defaults_to_light(
 def test_templates_dir_overrides_package_templates(
     factory: AppFactory, make_client: Callable[[FastAPI], TestClient], tmp_path: Path
 ) -> None:
-    (tmp_path / "dashboard.html").write_text(
-        '{% extends "layout.html" %}{% block content %}CUSTOM DASH{% endblock %}'
+    (tmp_path / "hxadmin").mkdir()
+    (tmp_path / "hxadmin" / "dashboard.html").write_text(
+        '{% extends "hxadmin/layout.html" %}{% block content %}CUSTOM DASH{% endblock %}'
     )
     app = factory.app()
     HxAdmin(app, session=factory.get_session, auth=allow_all, templates_dir=tmp_path)

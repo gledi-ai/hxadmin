@@ -1,5 +1,5 @@
 {#-
-  The macro library. Import it with {% import "_macros.html" as m with context %}.
+  The macro library. Import it with {% import "hxadmin/_macros.html" as m with context %}.
 
   Components live in templates/components/*.html (each documented at the top of its file)
   and are re-exported here, so m.button(...) and friends work. Override one by putting a
@@ -18,15 +18,15 @@
   The macros below render admin-specific pieces (cells, row actions, filters) and need the
   request context.
 -#}
-{% import "components/icon.html" as _icon_module %}
-{% import "components/button.html" as _button_module %}
-{% import "components/badge.html" as _badge_module %}
-{% import "components/card.html" as _card_module %}
-{% import "components/menu.html" as _menu_module %}
-{% import "components/dialog.html" as _dialog_module %}
-{% import "components/feedback.html" as _feedback_module %}
-{% import "components/misc.html" as _misc_module %}
-{% import "components/date.html" as _date_module %}
+{% import "hxadmin/components/icon.html" as _icon_module %}
+{% import "hxadmin/components/button.html" as _button_module %}
+{% import "hxadmin/components/badge.html" as _badge_module %}
+{% import "hxadmin/components/card.html" as _card_module %}
+{% import "hxadmin/components/menu.html" as _menu_module %}
+{% import "hxadmin/components/dialog.html" as _dialog_module %}
+{% import "hxadmin/components/feedback.html" as _feedback_module %}
+{% import "hxadmin/components/misc.html" as _misc_module %}
+{% import "hxadmin/components/date.html" as _date_module %}
 {% set icon = _icon_module.icon %}
 {% set button = _button_module.button %}
 {% set icon_button = _button_module.icon_button %}

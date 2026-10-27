@@ -1,4 +1,4 @@
-{% import "_macros.html" as m with context %}
+{% import "hxadmin/_macros.html" as m with context %}
 {% set params = result.params %}
 <form id="list-filters" class="mb-4 flex flex-wrap items-start gap-2" role="search" method="get" action="{{ base_url }}"
       hx-get="{{ base_url }}" hx-target="next .hx-list" hx-push-url="true" hx-include="#list-state"

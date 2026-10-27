@@ -34,7 +34,7 @@ def test_icon_rejects_unknown_and_unsafe_names() -> None:
 def test_icon_macro_renders_svg_with_class(factory: AppFactory) -> None:
     admin = HxAdmin(factory.app(), session=factory.get_session, auth=allow_all)
     template = admin.templates.from_string(
-        '{% import "_macros.html" as m %}{{ m.icon("plus") }}|{{ m.icon("x", "size-3") }}'
+        '{% import "hxadmin/_macros.html" as m %}{{ m.icon("plus") }}|{{ m.icon("x", "size-3") }}'
     )
     default, sized = template.render().split("|")
     assert default.startswith("<svg ")
@@ -82,6 +82,6 @@ def test_lucide_page_icon_is_accepted(factory: AppFactory) -> None:
 
     @admin.page("/stats", title="Statistics", icon="chart-column")
     async def stats() -> Page:
-        return Page("page.html")
+        return Page("hxadmin/page.html")
 
     assert admin.pages[0].icon == "chart-column"

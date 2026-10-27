@@ -1,4 +1,4 @@
-{% import "_macros.html" as m with context %}
+{% import "hxadmin/_macros.html" as m with context %}
 {% macro select_all(which, root, scope) -%}
 <input type="checkbox" aria-label="Select all" data-select-all="{{ which }}" data-select-scope="{{ scope }}" x-effect="$el.indeterminate = count > 0 && count < total; $el.checked = total > 0 && count === total" @change="$el.closest('{{ root }}').querySelectorAll($el.dataset.selectScope).forEach((c) => { c.checked = $el.checked; c.dispatchEvent(new Event('change', {bubbles: true})); })">
 {%- endmacro %}
@@ -105,6 +105,6 @@
     </tbody>
   </table>
 {% endcall %}
-{% include "list/_pagination.html" %}
+{% include "hxadmin/list/_pagination.html" %}
 {% if selectable %}{{ m.bulk_bar(view) }}{% endif %}
 {% endif %}

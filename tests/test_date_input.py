@@ -120,7 +120,7 @@ def test_picker_hides_its_pointer_and_sits_4px_below_the_input() -> None:
     root = Path(__file__).parent.parent / "src" / "hxadmin"
     css = (root / "static" / "src" / "hxadmin.css").read_text()
     assert ".air-datepicker--pointer {\n  display: none;\n}" in css
-    assert "offset: 4," in (root / "templates" / "layout.html").read_text()
+    assert "offset: 4," in (root / "templates" / "hxadmin" / "layout.html").read_text()
 
 
 DATES_PROBE = """

@@ -8,28 +8,43 @@ Pass `templates_dir` to search your own directory before the built-in templates:
 admin = HxAdmin(app, session=get_session, auth=current_admin_user, templates_dir="templates/admin")
 ```
 
-A file with the same name as a built-in template replaces it:
+The built-in templates live under `hxadmin/`. A file at the same path in your directory replaces the built-in, so `templates/admin/hxadmin/list.html` replaces the list page. Files outside `hxadmin/` (your [custom pages](pages.md), say) never replace a built-in, whatever their name:
 
 | Template | Renders |
 |---|---|
-| `layout.html` | Shell: sidebar, top bar, toasts, confirmation dialog |
-| `dashboard.html` | Dashboard cards |
-| `list.html`, `list/_toolbar.html`, `list/_table.html`, `list/_pagination.html` | List page, search and filters, table, footer |
-| `detail.html`, `detail/_panel.html` | Detail page |
-| `form.html`, `form/_fields.html`, `form/_field.html` | Create and edit forms |
-| `page.html` | Base for custom pages (`{% block body %}`) |
-| `error.html` | Error pages |
-| `login.html` | Sign-in page rendered by `admin.render_login()`; see [Auth](auth.md#the-sign-in-page) |
-| `_macros.html` | Component re-exports, cells, row menu, filter popovers, bulk bar |
-| `_palette.html` | Command palette results |
+| `hxadmin/layout.html` | Shell: sidebar, top bar, toasts, confirmation dialog |
+| `hxadmin/dashboard.html` | Dashboard cards |
+| `hxadmin/list.html`, `hxadmin/list/_toolbar.html`, `hxadmin/list/_table.html`, `hxadmin/list/_pagination.html` | List page, search and filters, table, footer |
+| `hxadmin/detail.html`, `hxadmin/detail/_panel.html` | Detail page |
+| `hxadmin/form.html`, `hxadmin/form/_fields.html`, `hxadmin/form/_field.html` | Create and edit forms |
+| `hxadmin/page.html` | Base for custom pages (`{% block body %}`) |
+| `hxadmin/error.html` | Error pages |
+| `hxadmin/login.html` | Sign-in page rendered by `admin.render_login()`; see [Auth](auth.md#the-sign-in-page) |
+| `hxadmin/_macros.html` | Component re-exports, cells, row menu, filter popovers, bulk bar |
+| `hxadmin/_palette.html` | Command palette results |
 
 Custom templates can use the Tailwind classes compiled into `hxadmin.css`. For anything else, add your own stylesheet in `{% block head %}`.
 
-`components/<name>.html` (`button.html`, `badge.html`, `card.html`, `menu.html`, `dialog.html`, `feedback.html`, `misc.html`, `date.html`, `icon.html`) each override independently, the same way: a file of that name in `templates_dir` replaces just that component everywhere, because the loader tries your directory first.
+`hxadmin/components/<name>.html` (`button.html`, `badge.html`, `card.html`, `menu.html`, `dialog.html`, `feedback.html`, `misc.html`, `date.html`, `icon.html`) each override independently, the same way: a file at that path in `templates_dir` replaces just that component everywhere, because the loader tries your directory first.
+
+### Extending a built-in
+
+An override usually changes one block and keeps the rest. Every built-in is also reachable as `hxadmin-builtin/<path>`, a name your directory cannot replace, so an override can extend the template it replaces:
+
+```jinja
+{# templates/admin/hxadmin/dashboard.html #}
+{% extends "hxadmin-builtin/dashboard.html" %}
+{% block content %}
+<p class="mb-4 text-sm text-fg-muted">Numbers refresh every night.</p>
+{{ super() }}
+{% endblock %}
+```
+
+Built-ins refer to each other by their `hxadmin/` names, so the original dashboard still picks up your other overrides, such as a custom `hxadmin/layout.html`.
 
 ## Components
 
-`templates/components/*.html` hold one Jinja macro per shared UI piece. `_macros.html` re-exports all of them, so `{% import "_macros.html" as m with context %}` gives you `m.button(...)`, `m.card(...)` and the rest in your own templates — including custom page bodies (see [Custom pages](pages.md)).
+`hxadmin/components/*.html` hold one Jinja macro per shared UI piece. `hxadmin/_macros.html` re-exports all of them, so `{% import "hxadmin/_macros.html" as m with context %}` gives you `m.button(...)`, `m.card(...)` and the rest in your own templates — including custom page bodies (see [Custom pages](pages.md)).
 
 | Macro | Renders |
 |---|---|
@@ -46,7 +61,7 @@ Custom templates can use the Tailwind classes compiled into `hxadmin.css`. For a
 
 Each component file documents its full signature at the top. Every macro takes `class` (appended to its own classes) and, except `date_input`, `attrs` / `**kwargs` (extra HTML or Alpine attributes, `_` becoming `-`).
 
-`_macros.html` also renders the admin-specific pieces, which need the request context: `cell(view, field, value, link=True)` formats one value the way lists and the detail page do (`link=False` renders relations as muted text instead of links), and `row_menu`, `filter_button`, `bulk_bar` and `export_menu` render the list's row menu, filter pills, floating selection bar and export menu.
+`hxadmin/_macros.html` also renders the admin-specific pieces, which need the request context: `cell(view, field, value, link=True)` formats one value the way lists and the detail page do (`link=False` renders relations as muted text instead of links), and `row_menu`, `filter_button`, `bulk_bar` and `export_menu` render the list's row menu, filter pills, floating selection bar and export menu.
 
 To open the shared confirm dialog from your own markup, dispatch a `confirm` event with a `message` and either a `submit` callback or an `action` URL; `title` and `danger: true` (a red Confirm button) are optional. With `action`, Confirm submits a plain form POST to that URL, which suits any POST route of the admin: a row action, a delete, or a [custom page](pages.md#pages-that-write) route. For example, a button running the `raise_priority` row action of a `TaskView` on task 3:
 

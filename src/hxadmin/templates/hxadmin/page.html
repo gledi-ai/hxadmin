@@ -1,4 +1,4 @@
-{% extends "layout.html" %}
+{% extends "hxadmin/layout.html" %}
 {% block title %}{{ admin_page.title ~ ' · ' if admin_page.title }}{{ admin.title }}{% endblock %}
 {% block breadcrumb %}<a href="{{ admin.url(request, '/') }}" class="hover:underline">Dashboard</a>{% endblock %}
 {% block content %}

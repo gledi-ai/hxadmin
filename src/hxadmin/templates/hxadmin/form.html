@@ -1,5 +1,5 @@
-{% extends "layout.html" %}
-{% import "_macros.html" as m with context %}
+{% extends "hxadmin/layout.html" %}
+{% import "hxadmin/_macros.html" as m with context %}
 {% block title %}{{ 'New ' ~ view.name|lower if obj is none else 'Edit ' ~ view.display(obj) }} · {{ admin.title }}{% endblock %}
 {% block breadcrumb %}<a href="{{ admin.url(request, '/') }}" class="hover:underline">Dashboard</a> / <a href="{{ admin.url(request, '/' ~ view.identity ~ '/') }}" class="hover:underline">{{ view.name_plural }}</a>{% if obj is not none %} / {% if view.can_view %}<a href="{{ admin.url(request, '/' ~ view.identity ~ '/' ~ view.pk_of(obj)) }}" class="hover:underline">{{ view.display(obj) }}</a>{% else %}{{ view.display(obj) }}{% endif %}{% endif %}{% endblock %}
 {% block content %}
@@ -10,6 +10,6 @@
   {% endif %}
 </div>
 <div class="hx-form">
-  {% include "form/_fields.html" %}
+  {% include "hxadmin/form/_fields.html" %}
 </div>
 {% endblock %}

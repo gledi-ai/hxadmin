@@ -49,7 +49,7 @@ Each field shows its label (with a red `*` when required), the input, the help t
 Date, datetime and time fields use a vendored [Air Datepicker](https://air-datepicker.com), themed with the admin tokens in light and dark. The visible input shows `mm/dd/yyyy` (plus `hh:mm`), while a hidden input carries the submitted ISO value: `YYYY-MM-DD`, `YYYY-MM-DDTHH:MM` or `HH:MM`. Clearing the input with its `×` clears the value. Use it in your own templates through the `date_input` macro:
 
 ```jinja
-{% import "_macros.html" as m with context %}
+{% import "hxadmin/_macros.html" as m with context %}
 {{ m.date_input("published_at", "2026-09-23T14:30", kind="datetime") }}
 ```
 

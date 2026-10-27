@@ -29,12 +29,12 @@ async def tasks_by_status(
     return Page("stats_status.html", {"status": status, "tasks": tasks})
 ```
 
-The templates go in the directory passed as `HxAdmin(templates_dir=...)`, and extend `page.html`, filling `{% block body %}`:
+The templates go in the directory passed as `HxAdmin(templates_dir=...)`, and extend `hxadmin/page.html`, filling `{% block body %}`:
 
 ```jinja
 {# stats.html #}
-{% extends "page.html" %}
-{% import "_macros.html" as m with context %}
+{% extends "hxadmin/page.html" %}
+{% import "hxadmin/_macros.html" as m with context %}
 {% block body %}
 <div class="grid grid-cols-[repeat(auto-fill,minmax(14rem,1fr))] gap-4">
   {% for status, count in counts.items() %}
@@ -46,7 +46,7 @@ The templates go in the directory passed as `HxAdmin(templates_dir=...)`, and ex
 
 ```jinja
 {# stats_status.html #}
-{% extends "page.html" %}
+{% extends "hxadmin/page.html" %}
 {% block body %}
 <ul class="divide-y divide-border rounded-lg border border-border bg-surface">
   {% for task in tasks %}
@@ -99,8 +99,8 @@ async def archive_done(
 
 ```jinja
 {# maintenance.html #}
-{% extends "page.html" %}
-{% import "_macros.html" as m with context %}
+{% extends "hxadmin/page.html" %}
+{% import "hxadmin/_macros.html" as m with context %}
 {% block body %}
 <form method="post" class="flex items-center gap-4">
   <p class="text-sm">{{ done }} done task(s) not archived yet.</p>

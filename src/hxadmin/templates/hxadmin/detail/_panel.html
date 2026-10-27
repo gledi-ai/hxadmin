@@ -1,4 +1,4 @@
-{% import "_macros.html" as m with context %}
+{% import "hxadmin/_macros.html" as m with context %}
 {% set row_actions = view.permitted_actions(request, bulk=False) %}
 {% set inline_actions = row_actions|length <= 2 and not (row_actions|selectattr('confirm')|list) %}
 {% set menu_actions = [] if inline_actions else row_actions %}

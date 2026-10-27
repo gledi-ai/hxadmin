@@ -185,7 +185,7 @@ async def logout(request: Request) -> RedirectResponse:
 | `action` | the current path | Where the form posts |
 | `status_code` | `200` | `401` suits a failed attempt |
 
-`verify_password` is the one from the HTTP Basic example above. Clearing the session before setting `user_id` drops anything an attacker planted in it before sign-in. To change the page, put your own `login.html` in `templates_dir`; it receives the arguments above plus `admin`, `request` and `admin_root` (the admin's URL prefix, for `{{ admin_root }}/static/hxadmin.css`).
+`verify_password` is the one from the HTTP Basic example above. Clearing the session before setting `user_id` drops anything an attacker planted in it before sign-in. To change the page, put your own `hxadmin/login.html` in `templates_dir` (it can extend `hxadmin-builtin/login.html`, see [Templates](templates.md#extending-a-built-in)); it receives the arguments above plus `admin`, `request` and `admin_root` (the admin's URL prefix, for `{{ admin_root }}/static/hxadmin.css`).
 
 Both demo apps (`make demo`, `make demo-tables`) sign in this way.
 

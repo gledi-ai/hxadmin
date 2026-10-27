@@ -1,5 +1,5 @@
-{% extends "layout.html" %}
-{% import "_macros.html" as m with context %}
+{% extends "hxadmin/layout.html" %}
+{% import "hxadmin/_macros.html" as m with context %}
 {% block breadcrumb %}<a href="{{ admin.url(request, '/') }}" class="hover:underline">Dashboard</a>{% endblock %}
 {% set hints = {
   403: "You don't have permission to view this page.",

@@ -98,7 +98,7 @@ def rendered(
 ) -> tuple[dict[str, list[Element]], dict[str, str], str]:
     body = "".join(f'<section data-case="{name}">{src}</section>' for name, src in CASES.items())
     (tmp_path / "components_demo.html").write_text(
-        '{% extends "page.html" %}{% import "_macros.html" as m with context %}'
+        '{% extends "hxadmin/page.html" %}{% import "hxadmin/_macros.html" as m with context %}'
         "{% block body %}" + body + "{% endblock %}"
     )
     app = factory.app()
@@ -343,7 +343,7 @@ def test_layout_defines_the_popover_component(
 )
 def test_invalid_arguments_raise(factory: AppFactory, source: str, message: str) -> None:
     admin = HxAdmin(factory.app(), session=factory.get_session, auth=allow_all)
-    template = admin.templates.from_string('{% import "_macros.html" as m %}' + source)
+    template = admin.templates.from_string('{% import "hxadmin/_macros.html" as m %}' + source)
     with pytest.raises(ValueError, match=message):
         template.render()
 
@@ -361,7 +361,7 @@ def test_html_attrs_rules() -> None:
 
 def test_phase_5_leftovers_are_gone() -> None:
     macros = (
-        Path(__file__).parent.parent / "src" / "hxadmin" / "templates" / "_macros.html"
+        Path(__file__).parent.parent / "src" / "hxadmin" / "templates" / "hxadmin" / "_macros.html"
     ).read_text()
     assert not hasattr(filter_module, "filter_chips")
     assert "macro edit_link" not in macros

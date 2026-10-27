@@ -13,6 +13,7 @@ from jinja2 import (
     Environment,
     FileSystemLoader,
     PackageLoader,
+    PrefixLoader,
     select_autoescape,
 )
 from sqlalchemy import Select, select
@@ -108,9 +109,11 @@ class HxAdmin:
         app.mount(self.prefix, self.subapp, name="hxadmin")
 
     def _make_environment(self, templates_dir: str | Path | None) -> Environment:
-        loaders: list[BaseLoader] = [PackageLoader("hxadmin", "templates")]
+        builtin = PrefixLoader({"hxadmin-builtin": PackageLoader("hxadmin", "templates/hxadmin")})
+        loaders: list[BaseLoader] = [builtin]
         if templates_dir is not None:
-            loaders.insert(0, FileSystemLoader(str(templates_dir)))
+            loaders.append(FileSystemLoader(str(templates_dir)))
+        loaders.append(PackageLoader("hxadmin", "templates"))
         env = Environment(loader=ChoiceLoader(loaders), autoescape=select_autoescape(["html"]))
         env.filters["json_pretty"] = json_pretty
         env_globals = cast(dict[str, Any], env.globals)
@@ -177,7 +180,7 @@ class HxAdmin:
         else:
             response = self.render(
                 request,
-                "error.html",
+                "hxadmin/error.html",
                 {"status_code": exc.status_code, "detail": exc.detail},
                 status_code=exc.status_code,
             )
@@ -193,7 +196,7 @@ class HxAdmin:
                 headers={"HX-Trigger": hx_trigger(Toast(detail, "error")), "HX-Reswap": "none"},
             )
         return self.render(
-            request, "error.html", {"status_code": 500, "detail": detail}, status_code=500
+            request, "hxadmin/error.html", {"status_code": 500, "detail": detail}, status_code=500
         )
 
     def register[V: ModelView[Any]](self, view_cls: type[V]) -> type[V]:
@@ -382,7 +385,7 @@ class HxAdmin:
         action: str | None = None,
         status_code: int = 200,
     ) -> HTMLResponse:
-        """Render the sign-in page (`login.html`) from your own login route.
+        """Render the sign-in page (`hxadmin/login.html`) from your own login route.
 
         The form posts `username` and `password` to `action`, which defaults to the
         current path. Pass `error` (with the submitted `username`) to show a failed
@@ -402,5 +405,5 @@ class HxAdmin:
             "username_label": username_label,
             "note": note,
         }
-        html = self.templates.get_template("login.html").render(context)
+        html = self.templates.get_template("hxadmin/login.html").render(context)
         return HTMLResponse(html, status_code=status_code)

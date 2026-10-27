@@ -32,7 +32,7 @@
     {{ m.button("Save and add another", type="submit", name="_then", value="another") }}
     {{ m.icon_button("x", "Close", size="sm", attrs={"@click": "open = false"}) }}
 -#}
-{% from "components/icon.html" import icon as _icon %}
+{% from "hxadmin/components/icon.html" import icon as _icon %}
 {% set _base = "inline-flex shrink-0 items-center justify-center whitespace-nowrap rounded-md text-sm font-medium transition-colors select-none disabled:pointer-events-none disabled:opacity-50 aria-disabled:pointer-events-none aria-disabled:opacity-50" %}
 {% set _variants = {
   "primary": "bg-accent text-accent-fg shadow-sm hover:bg-accent/90",

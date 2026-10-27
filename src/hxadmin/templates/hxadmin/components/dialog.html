@@ -34,7 +34,7 @@
       {% endcall %}
     </div>
 -#}
-{% from "components/button.html" import icon_button as _icon_button %}
+{% from "hxadmin/components/button.html" import icon_button as _icon_button %}
 {% set _sizes = {"sm": "max-w-sm", "md": "max-w-md", "lg": "max-w-lg"} %}
 
 {% macro dialog(id, title, description=None, open="open", close="open = false", size="md", dismissible=True, title_expr=None, title_class="", class="", attrs=None) -%}

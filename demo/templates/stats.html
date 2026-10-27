@@ -1,5 +1,5 @@
-{% extends "page.html" %}
-{% import "_macros.html" as m with context %}
+{% extends "hxadmin/page.html" %}
+{% import "hxadmin/_macros.html" as m with context %}
 {% block body %}
 <div class="grid grid-cols-[repeat(auto-fill,minmax(14rem,1fr))] gap-4">
   {% for status, count in counts.items() %}

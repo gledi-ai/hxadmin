@@ -16,7 +16,7 @@
   Example:
     {{ m.date_input("published_at", "2026-09-23T14:30", kind="datetime") }}
 -#}
-{% from "components/icon.html" import icon as _icon %}
+{% from "hxadmin/components/icon.html" import icon as _icon %}
 {% macro date_input(name, value=None, kind="date", id=None, required=False, error=False, readonly=False, form=None, class="", value_class="") -%}
 {%- set id = id or ("f-" ~ name) -%}
 

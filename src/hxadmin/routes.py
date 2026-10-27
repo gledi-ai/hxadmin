@@ -236,11 +236,11 @@ def build_router(admin: "HxAdmin") -> APIRouter:
             context = await _detail_context(request, session, view, detail_pk)
             if context is None:
                 return admin.redirect(request, list_url, toast=result.toast)
-            response: Response = admin.render(request, "detail/_panel.html", context)
+            response: Response = admin.render(request, "hxadmin/detail/_panel.html", context)
         else:
             current = QueryParams(urlsplit(request.headers.get("HX-Current-URL", "")).query)
             context = await _list_context(request, session, view, current)
-            response = admin.render(request, "list/_table.html", context)
+            response = admin.render(request, "hxadmin/list/_table.html", context)
         if result.toast is not None:
             response.headers["HX-Trigger"] = hx_trigger(result.toast)
         return response
@@ -251,7 +251,7 @@ def build_router(admin: "HxAdmin") -> APIRouter:
         session: Annotated[AsyncSession, Depends(admin.current_session)],
     ) -> HTMLResponse:
         groups = await build_dashboard(admin, request, session)
-        return admin.render(request, "dashboard.html", {"dashboard": groups})
+        return admin.render(request, "hxadmin/dashboard.html", {"dashboard": groups})
 
     @router.get("/_palette", name="palette", response_class=HTMLResponse)
     async def palette(
@@ -291,7 +291,9 @@ def build_router(admin: "HxAdmin") -> APIRouter:
                     for row, label in zip(rows, labels, strict=True)
                 ]
                 records.append((view, hits))
-        return admin.render(request, "_palette.html", {"q": q, "go_to": go_to, "records": records})
+        return admin.render(
+            request, "hxadmin/_palette.html", {"q": q, "go_to": go_to, "records": records}
+        )
 
     @router.get("/{identity}/", name="list", response_class=HTMLResponse)
     async def list_view(
@@ -302,7 +304,9 @@ def build_router(admin: "HxAdmin") -> APIRouter:
         view = _view(admin, request, identity)
         htmx = _is_htmx(request)
         context = await _list_context(request, session, view, panel=not htmx)
-        return admin.render(request, "list/_table.html" if htmx else "list.html", context)
+        return admin.render(
+            request, "hxadmin/list/_table.html" if htmx else "hxadmin/list.html", context
+        )
 
     async def _object(
         request: Request,
@@ -337,7 +341,7 @@ def build_router(admin: "HxAdmin") -> APIRouter:
             cancel_url = admin.url(request, f"/{view.identity}/{pk}") if view.can_view else list_url
         return admin.render(
             request,
-            "form/_fields.html" if _is_htmx(request) else "form.html",
+            "hxadmin/form/_fields.html" if _is_htmx(request) else "hxadmin/form.html",
             {
                 "view": view,
                 "obj": obj,
@@ -473,7 +477,7 @@ def build_router(admin: "HxAdmin") -> APIRouter:
         if target is None:
             stmt = select(field.target).where(with_parent(obj, getattr(view.model, rel)))
             rows = (await session.scalars(stmt.limit(100))).all()
-            return admin.render(request, "detail/_related_plain.html", {"rows": rows})
+            return admin.render(request, "hxadmin/detail/_related_plain.html", {"rows": rows})
         if not target.is_accessible(request):
             raise HTTPException(status_code=403)
         stmt = target.get_query(request).where(with_parent(obj, getattr(view.model, rel)))
@@ -481,7 +485,7 @@ def build_router(admin: "HxAdmin") -> APIRouter:
         result = await run_list(session, target, stmt, params)
         return admin.render(
             request,
-            "list/_table.html",
+            "hxadmin/list/_table.html",
             {"view": target, "result": result, "base_url": base_url, "push_url": False},
         )
 
@@ -513,7 +517,7 @@ def build_router(admin: "HxAdmin") -> APIRouter:
         else:
             rows = (await session.scalars(stmt.limit(LOOKUP_LIMIT))).all()
         options = [(pk_string_for(relation.target, row), admin.display(row)) for row in rows]
-        return admin.render(request, "form/_options.html", {"options": options, "q": q})
+        return admin.render(request, "hxadmin/form/_options.html", {"options": options, "q": q})
 
     @router.get("/{identity}/_export/{fmt}", name="export")
     async def export(
@@ -656,7 +660,9 @@ def build_router(admin: "HxAdmin") -> APIRouter:
         if context is None:
             raise HTTPException(status_code=404)
         return admin.render(
-            request, "detail/_panel.html" if _is_htmx(request) else "detail.html", context
+            request,
+            "hxadmin/detail/_panel.html" if _is_htmx(request) else "hxadmin/detail.html",
+            context,
         )
 
     return router
