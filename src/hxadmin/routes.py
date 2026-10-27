@@ -3,7 +3,7 @@ from collections.abc import Sequence
 from typing import TYPE_CHECKING, Annotated, Any, cast
 from urllib.parse import urlencode, urlsplit
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
 from sqlalchemy import Select, inspect, select
 from sqlalchemy.exc import DataError, IntegrityError
@@ -62,9 +62,9 @@ def _is_htmx(request: Request) -> bool:
 def _view(admin: "HxAdmin", request: Request, identity: str) -> ModelView[Any]:
     view = admin.views.get(identity)
     if view is None:
-        raise HTTPException(status_code=404)
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
     if not view.is_accessible(request):
-        raise HTTPException(status_code=403)
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN)
     return view
 
 
@@ -182,11 +182,13 @@ def build_router(admin: "HxAdmin") -> APIRouter:
     def _declared(view: ModelView[Any], name: str, request: Request, *, bulk: bool) -> Action:
         declared = view.actions.get(name)
         if declared is None or declared.bulk is not bulk:
-            raise HTTPException(status_code=404)
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
         if declared.method != request.method:
-            raise HTTPException(status_code=405, headers={"Allow": declared.method})
+            raise HTTPException(
+                status_code=status.HTTP_405_METHOD_NOT_ALLOWED, headers={"Allow": declared.method}
+            )
         if not view.is_action_allowed(request, name):
-            raise HTTPException(status_code=403)
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN)
         return declared
 
     async def _action_input(request: Request) -> FormData | QueryParams:
@@ -317,7 +319,7 @@ def build_router(admin: "HxAdmin") -> APIRouter:
     ) -> Any:
         obj = await fetch_one(session, view, view.get_query(request), pk, relations=relations)
         if obj is None:
-            raise HTTPException(status_code=404)
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
         return obj
 
     def _render_form(
@@ -329,7 +331,7 @@ def build_router(admin: "HxAdmin") -> APIRouter:
         errors: FormErrors,
         *,
         created: bool,
-        status_code: int = 200,
+        status_code: int = status.HTTP_200_OK,
     ) -> HTMLResponse:
         list_url = admin.url(request, f"/{view.identity}/")
         if created:
@@ -426,14 +428,14 @@ def build_router(admin: "HxAdmin") -> APIRouter:
             shown,
             errors,
             created=created,
-            status_code=422,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
         )
 
     @router.get("/{identity}/new", name="create", response_class=HTMLResponse)
     async def create_form(request: Request, identity: str) -> HTMLResponse:
         view = _view(admin, request, identity)
         if not view.can_create:
-            raise HTTPException(status_code=403)
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN)
         fields = view.writable_fields
         values = initial_values(admin, view, None, fields)
         return _render_form(request, view, None, fields, values, FormErrors(), created=True)
@@ -446,7 +448,7 @@ def build_router(admin: "HxAdmin") -> APIRouter:
     ) -> Response:
         view = _view(admin, request, identity)
         if not view.can_create:
-            raise HTTPException(status_code=403)
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN)
         return await _save(
             request,
             session,
@@ -467,10 +469,10 @@ def build_router(admin: "HxAdmin") -> APIRouter:
     ) -> HTMLResponse:
         view = _view(admin, request, identity)
         if not view.can_view:
-            raise HTTPException(status_code=403)
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN)
         field = next((f for f in view.detail_fields if f.name == rel), None)
         if not isinstance(field, RelationField) or not field.multiple:
-            raise HTTPException(status_code=404)
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
         obj = await _object(request, session, view, pk)
         base_url = admin.url(request, f"/{view.identity}/_related/{pk}/{rel}")
         target = admin.view_for(field.target)
@@ -479,7 +481,7 @@ def build_router(admin: "HxAdmin") -> APIRouter:
             rows = (await session.scalars(stmt.limit(100))).all()
             return admin.render(request, "hxadmin/detail/_related_plain.html", {"rows": rows})
         if not target.is_accessible(request):
-            raise HTTPException(status_code=403)
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN)
         stmt = target.get_query(request).where(with_parent(obj, getattr(view.model, rel)))
         params = parse_list_params(request, target)
         result = await run_list(session, target, stmt, params)
@@ -498,10 +500,10 @@ def build_router(admin: "HxAdmin") -> APIRouter:
     ) -> HTMLResponse:
         view = _view(admin, request, identity)
         if not (view.can_create or view.can_edit):
-            raise HTTPException(status_code=403)
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN)
         relation = next((f for f in view.writable_fields if f.name == field), None)
         if not isinstance(relation, RelationField):
-            raise HTTPException(status_code=404)
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
         q = request.query_params.get("q", "").strip()[:200]
         pk_columns = cast(Mapper[Any], inspect(relation.target)).primary_key
         target = admin.view_for(relation.target)
@@ -509,7 +511,7 @@ def build_router(admin: "HxAdmin") -> APIRouter:
             stmt = select(relation.target)
         else:
             if not target.is_accessible(request):
-                raise HTTPException(status_code=403)
+                raise HTTPException(status_code=status.HTTP_403_FORBIDDEN)
             stmt = apply_search(target.get_query(request), target, q)
         stmt = stmt.order_by(*pk_columns)
         if q and (target is None or not target.searchable):
@@ -528,7 +530,7 @@ def build_router(admin: "HxAdmin") -> APIRouter:
     ) -> Response:
         view = _view(admin, request, identity)
         if fmt not in view.export_formats:
-            raise HTTPException(status_code=404)
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
         stmt = view.get_query(request)
         pks = list(dict.fromkeys(request.query_params.getlist("pks")))
         if pks:
@@ -596,7 +598,7 @@ def build_router(admin: "HxAdmin") -> APIRouter:
     ) -> HTMLResponse:
         view = _view(admin, request, identity)
         if not view.can_edit:
-            raise HTTPException(status_code=403)
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN)
         fields = view.edit_fields
         obj = await _object(request, session, view, pk, form_relations(fields))
         values = initial_values(admin, view, obj, fields)
@@ -611,7 +613,7 @@ def build_router(admin: "HxAdmin") -> APIRouter:
     ) -> Response:
         view = _view(admin, request, identity)
         if not view.can_edit:
-            raise HTTPException(status_code=403)
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN)
         fields = view.edit_fields
         obj = await _object(request, session, view, pk, form_relations(fields))
         return await _save(request, session, view, obj, fields, view.edit_schema, created=False)
@@ -625,7 +627,7 @@ def build_router(admin: "HxAdmin") -> APIRouter:
     ) -> Response:
         view = _view(admin, request, identity)
         if not view.can_delete:
-            raise HTTPException(status_code=403)
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN)
         obj = await _object(request, session, view, pk)
         label = await session.run_sync(lambda _: view.display(obj))
         try:
@@ -636,7 +638,7 @@ def build_router(admin: "HxAdmin") -> APIRouter:
             await _rollback(request, session)
             logger.warning("Delete rejected by a database constraint: %s", exc.orig)
             raise HTTPException(
-                status_code=409,
+                status_code=status.HTTP_409_CONFLICT,
                 detail=f"Couldn't delete {view.name} “{label}”: other records still refer to it.",
             ) from None
         except Exception:
@@ -655,10 +657,10 @@ def build_router(admin: "HxAdmin") -> APIRouter:
     ) -> HTMLResponse:
         view = _view(admin, request, identity)
         if not view.can_view:
-            raise HTTPException(status_code=403)
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN)
         context = await _detail_context(request, session, view, pk)
         if context is None:
-            raise HTTPException(status_code=404)
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
         return admin.render(
             request,
             "hxadmin/detail/_panel.html" if _is_htmx(request) else "hxadmin/detail.html",

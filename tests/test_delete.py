@@ -2,7 +2,7 @@ import logging
 from collections.abc import Callable
 
 import pytest
-from fastapi import FastAPI
+from fastapi import FastAPI, status
 from fastapi.testclient import TestClient
 from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.requests import Request
@@ -18,9 +18,9 @@ type MakeClient = Callable[[FastAPI], TestClient]
 def test_delete_redirects_to_list(factory: AppFactory, make_client: MakeClient) -> None:
     with make_client(build(factory)) as client:
         response = client.post("/admin/vote/2;1/delete", follow_redirects=False)
-        assert response.status_code == 303
+        assert response.status_code == status.HTTP_303_SEE_OTHER
         assert response.headers["location"] == "/admin/vote/"
-        assert client.get("/admin/vote/2;1").status_code == 404
+        assert client.get("/admin/vote/2;1").status_code == status.HTTP_404_NOT_FOUND
         listing = client.get("/admin/vote/").text
     assert "No votes yet" in listing
 
@@ -29,8 +29,8 @@ def test_delete_post_with_tags(factory: AppFactory, make_client: MakeClient) -> 
     with make_client(build(factory)) as client:
         client.post("/admin/vote/2;1/delete", follow_redirects=False)
         response = client.post("/admin/post/1/delete", follow_redirects=False)
-        assert response.status_code == 303
-        assert client.get("/admin/post/1").status_code == 404
+        assert response.status_code == status.HTTP_303_SEE_OTHER
+        assert client.get("/admin/post/1").status_code == status.HTTP_404_NOT_FOUND
         tags = client.get("/admin/tag/1").text
     assert "Tag" in tags
 
@@ -40,11 +40,11 @@ def test_delete_referenced_row_is_409(factory: AppFactory, make_client: MakeClie
         full = client.post("/admin/user/1/delete")
         partial = client.post("/admin/user/1/delete", headers={"HX-Request": "true"})
         detail = client.get("/admin/user/1")
-    assert full.status_code == 409
+    assert full.status_code == status.HTTP_409_CONFLICT
     assert "409" in full.text
     assert "<html" in full.text
-    assert partial.status_code == 409
-    assert detail.status_code == 200
+    assert partial.status_code == status.HTTP_409_CONFLICT
+    assert detail.status_code == status.HTTP_200_OK
     assert "ada@x.io" in detail.text
 
 
@@ -67,13 +67,13 @@ def test_delete_htmx_sends_hx_redirect(factory: AppFactory, make_client: MakeCli
         response = client.post(
             "/admin/vote/2;1/delete", headers={"HX-Request": "true"}, follow_redirects=False
         )
-    assert response.status_code == 200
+    assert response.status_code == status.HTTP_200_OK
     assert response.headers["HX-Redirect"] == "/admin/vote/"
 
 
 def test_delete_not_found(factory: AppFactory, make_client: MakeClient) -> None:
     with make_client(build(factory)) as client:
-        assert client.post("/admin/post/999/delete").status_code == 404
+        assert client.post("/admin/post/999/delete").status_code == status.HTTP_404_NOT_FOUND
 
 
 def test_delete_can_delete_false_403(factory: AppFactory, make_client: MakeClient) -> None:
@@ -86,7 +86,7 @@ def test_delete_can_delete_false_403(factory: AppFactory, make_client: MakeClien
         can_delete = False
 
     with make_client(app) as client:
-        assert client.post("/admin/post/1/delete").status_code == 403
+        assert client.post("/admin/post/1/delete").status_code == status.HTTP_403_FORBIDDEN
         listing = client.get("/admin/post/").text
         detail = client.get("/admin/post/1").text
     assert "/admin/post/1/delete" not in listing

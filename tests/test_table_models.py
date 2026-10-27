@@ -1,7 +1,7 @@
 import re
 from collections.abc import Callable
 
-from fastapi import FastAPI
+from fastapi import FastAPI, status
 from fastapi.testclient import TestClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -49,7 +49,7 @@ def customers(html: str) -> list[str]:
 def test_table_model_lists_rows(factory: AppFactory, make_client: MakeClient) -> None:
     with make_client(build(factory)) as client:
         response = client.get("/admin/invoice/")
-    assert response.status_code == 200
+    assert response.status_code == status.HTTP_200_OK
     assert customers(response.text) == ["acme", "globex", "acme west"]
 
 
@@ -81,7 +81,7 @@ def test_table_model_create(factory: AppFactory, make_client: MakeClient) -> Non
             follow_redirects=False,
         )
         listing = client.get("/admin/invoice/").text
-    assert response.status_code == 303
+    assert response.status_code == status.HTTP_303_SEE_OTHER
     assert customers(listing) == ["acme", "globex", "acme west", "initech"]
 
 
@@ -93,7 +93,7 @@ def test_table_model_edit(factory: AppFactory, make_client: MakeClient) -> None:
             follow_redirects=False,
         )
         listing = client.get("/admin/invoice/").text
-    assert response.status_code == 303
+    assert response.status_code == status.HTTP_303_SEE_OTHER
     assert customers(listing) == ["acme", "globex corp", "acme west"]
 
 
@@ -101,7 +101,7 @@ def test_table_model_delete(factory: AppFactory, make_client: MakeClient) -> Non
     with make_client(build(factory)) as client:
         response = client.post("/admin/invoice/1/delete", follow_redirects=False)
         listing = client.get("/admin/invoice/").text
-    assert response.status_code == 303
+    assert response.status_code == status.HTTP_303_SEE_OTHER
     assert customers(listing) == ["globex", "acme west"]
 
 
@@ -109,7 +109,7 @@ def test_mapper_primary_key_is_not_editable(factory: AppFactory, make_client: Ma
     with make_client(build(factory)) as client:
         detail = client.get("/admin/rate/eur")
         edit_form = client.get("/admin/rate/eur/edit").text
-    assert detail.status_code == 200
+    assert detail.status_code == status.HTTP_200_OK
     assert 'name="value"' in edit_form
     assert 'name="code"' not in edit_form
 
@@ -122,8 +122,8 @@ def test_mapper_primary_key_create(factory: AppFactory, make_client: MakeClient)
         )
         detail = client.get("/admin/rate/usd")
     assert 'name="code"' in create_form
-    assert response.status_code == 303
-    assert detail.status_code == 200
+    assert response.status_code == status.HTTP_303_SEE_OTHER
+    assert detail.status_code == status.HTTP_200_OK
 
 
 def test_mapper_primary_key_edit(factory: AppFactory, make_client: MakeClient) -> None:
@@ -132,7 +132,7 @@ def test_mapper_primary_key_edit(factory: AppFactory, make_client: MakeClient) -
             "/admin/rate/eur/edit", data={"value": "111"}, follow_redirects=False
         )
         detail = client.get("/admin/rate/eur").text
-    assert response.status_code == 303
+    assert response.status_code == status.HTTP_303_SEE_OTHER
     assert ">111<" in detail
 
 
@@ -140,8 +140,8 @@ def test_mapper_primary_key_delete(factory: AppFactory, make_client: MakeClient)
     with make_client(build(factory)) as client:
         response = client.post("/admin/rate/gbp/delete", follow_redirects=False)
         gone = client.get("/admin/rate/gbp")
-    assert response.status_code == 303
-    assert gone.status_code == 404
+    assert response.status_code == status.HTTP_303_SEE_OTHER
+    assert gone.status_code == status.HTTP_404_NOT_FOUND
 
 
 def test_first_text_column_takes_the_remaining_width(

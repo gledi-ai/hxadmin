@@ -4,7 +4,7 @@ from collections.abc import Callable
 from typing import Any
 
 import pytest
-from fastapi import FastAPI
+from fastapi import FastAPI, status
 from fastapi.testclient import TestClient
 from sqlalchemy import Select, event, select
 from starlette.requests import Request
@@ -135,7 +135,7 @@ def test_broken_view_does_not_break_the_dashboard(
 
     with caplog.at_level(logging.ERROR, logger="hxadmin"), make_client(app) as client:
         response = client.get("/admin/")
-    assert response.status_code == 200
+    assert response.status_code == status.HTTP_200_OK
     assert card_count(response.text, "/admin/user/") == "2"
     assert re.search(r'href="/admin/post/".*?tabular-nums">—</div>', response.text, re.S)
     assert "Broken" in caplog.text

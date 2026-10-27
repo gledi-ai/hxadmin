@@ -2,7 +2,7 @@ import re
 from collections.abc import Callable
 
 import pytest
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, status
 from fastapi.testclient import TestClient
 
 from hxadmin import HxAdmin
@@ -10,11 +10,11 @@ from tests.conftest import AppFactory
 
 
 def deny() -> None:
-    raise HTTPException(status_code=401)
+    raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED)
 
 
 def forbid() -> None:
-    raise HTTPException(status_code=403, detail="nope")
+    raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="nope")
 
 
 def test_unauthenticated_redirects_to_login(
@@ -24,7 +24,7 @@ def test_unauthenticated_redirects_to_login(
     HxAdmin(app, session=factory.get_session, auth=deny, login_url="/login")
     with make_client(app) as client:
         response = client.get("/admin/", follow_redirects=False)
-    assert response.status_code == 303
+    assert response.status_code == status.HTTP_303_SEE_OTHER
     assert response.headers["location"] == "/login"
 
 
@@ -35,7 +35,7 @@ def test_htmx_request_gets_hx_redirect(
     HxAdmin(app, session=factory.get_session, auth=deny, login_url="/login")
     with make_client(app) as client:
         response = client.get("/admin/", headers={"HX-Request": "true"}, follow_redirects=False)
-    assert response.status_code == 200
+    assert response.status_code == status.HTTP_200_OK
     assert response.headers["hx-redirect"] == "/login"
 
 
@@ -46,7 +46,7 @@ def test_without_login_url_status_is_kept(
     HxAdmin(app, session=factory.get_session, auth=forbid)
     with make_client(app) as client:
         response = client.get("/admin/")
-    assert response.status_code == 403
+    assert response.status_code == status.HTTP_403_FORBIDDEN
     assert "nope" in response.text
     assert "<html" in response.text
 
@@ -101,7 +101,7 @@ def test_user_panel_renders_when_the_auth_value_has_a_label(
     HxAdmin(app, session=factory.get_session, auth=lambda: returned)
     with make_client(app) as client:
         response = client.get("/admin/")
-    assert response.status_code == 200
+    assert response.status_code == status.HTTP_200_OK
     assert ("data-user-panel" in response.text) is (label is not None)
     if label is not None:
         assert f">{label}<" in response.text

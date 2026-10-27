@@ -2,7 +2,7 @@
 
 import hmac
 
-from fastapi import HTTPException
+from fastapi import HTTPException, status
 from starlette.requests import Request
 
 DEMO_EMAIL = "admin@example.com"
@@ -18,5 +18,5 @@ def authenticate(email: str, password: str) -> bool:
 
 def current_user(request: Request) -> dict[str, str]:
     if request.session.get("user") != DEMO_EMAIL:
-        raise HTTPException(401)
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED)
     return DEMO_USER

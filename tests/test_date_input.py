@@ -3,7 +3,7 @@ import decimal
 import uuid
 from collections.abc import Callable
 
-from fastapi import FastAPI
+from fastapi import FastAPI, status
 from fastapi.testclient import TestClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -92,7 +92,7 @@ def test_form_pages_include_the_vendored_picker_assets(
 def test_create_round_trips_iso_date_values(factory: AppFactory, make_client: MakeClient) -> None:
     with make_client(build(factory)) as client:
         response = client.post("/admin/reading/new", data=CREATE_DATA, follow_redirects=False)
-        assert response.status_code == 303
+        assert response.status_code == status.HTTP_303_SEE_OTHER
         detail = client.get(response.headers["location"]).text
     assert "2026-09-23" in detail
     assert "14:30" in detail
@@ -103,7 +103,7 @@ def test_clearing_the_date_submits_empty(factory: AppFactory, make_client: MakeC
         response = client.post(
             "/admin/reading/new", data={**CREATE_DATA, "day": ""}, follow_redirects=False
         )
-    assert response.status_code == 422
+    assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
 
 
 def test_theme_overrides_load_after_the_picker_stylesheet(

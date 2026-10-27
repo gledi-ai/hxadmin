@@ -4,7 +4,7 @@ from collections.abc import Callable, Sequence
 from typing import Any
 
 import pytest
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, status
 from fastapi.testclient import TestClient
 from httpx2 import Response as HttpxResponse
 from sqlalchemy import Select
@@ -66,7 +66,7 @@ class UserView(ModelView[User]):
     @action("forbid")
     async def forbid(self, request: Request, session: AsyncSession, obj: User) -> ActionResult:
         obj.active = False
-        raise HTTPException(status_code=403, detail="not you")
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="not you")
 
     @action("away")
     async def away(self, request: Request, session: AsyncSession, obj: User) -> ActionResult:
@@ -105,7 +105,7 @@ def test_row_action_from_detail_rerenders_panel_with_toast(
             "/admin/user/2/action/activate", data={"_from": "detail"}, headers=HX
         )
         active = is_active(client, 2)
-    assert response.status_code == 200
+    assert response.status_code == status.HTTP_200_OK
     assert toast_of(response) == {
         "target": "body",
         "message": "Activated bob@x.io",
@@ -128,7 +128,7 @@ def test_row_action_from_list_rerenders_current_list(
                 "HX-Current-URL": "http://testserver/admin/user/?q=bob&sort=email&dir=desc",
             },
         )
-    assert response.status_code == 200
+    assert response.status_code == status.HTTP_200_OK
     assert 'id="list-state"' in response.text
     assert 'name="dir" value="desc"' in response.text
     assert "bob@x.io" in response.text
@@ -142,7 +142,7 @@ def test_row_action_without_htmx_redirects_with_flash(
     with make_client(build(factory)) as client:
         response = client.post("/admin/user/2/action/activate", follow_redirects=False)
         page = client.get("/admin/user/2")
-    assert response.status_code == 303
+    assert response.status_code == status.HTTP_303_SEE_OTHER
     assert response.headers["location"] == "/admin/user/2"
     assert FLASH_COOKIE in response.headers["set-cookie"]
     assert "Activated bob@x.io" in page.text
@@ -154,7 +154,7 @@ def test_bulk_action_updates_selected_rows(factory: AppFactory, make_client: Mak
             "/admin/user/action/deactivate", data={"pks": ["1", "2", "2"]}, headers=HX
         )
         still_active = is_active(client, 1)
-    assert response.status_code == 200
+    assert response.status_code == status.HTTP_200_OK
     assert toast_of(response)["message"] == "Deactivated 2"
     assert 'id="list-state"' in response.text
     assert not still_active
@@ -181,24 +181,24 @@ def test_bulk_action_without_matching_rows_warns(
         native = client.post(
             "/admin/user/action/deactivate", data={"pks": pks}, follow_redirects=False
         )
-    assert hx.status_code == 400
+    assert hx.status_code == status.HTTP_400_BAD_REQUEST
     assert hx.headers["HX-Reswap"] == "none"
     assert toast_of(hx) == {"target": "body", "message": "No rows selected.", "level": "warning"}
-    assert native.status_code == 303
+    assert native.status_code == status.HTTP_303_SEE_OTHER
     assert native.headers["location"] == "/admin/user/"
 
 
 def test_get_bulk_action_reads_query_string(factory: AppFactory, make_client: MakeClient) -> None:
     with make_client(build(factory)) as client:
         response = client.get("/admin/user/action/export?pks=2&pks=1")
-    assert response.status_code == 200
+    assert response.status_code == status.HTTP_200_OK
     assert response.text == "bob@x.io,ada@x.io"
 
 
 def test_get_row_action_returns_raw_response(factory: AppFactory, make_client: MakeClient) -> None:
     with make_client(build(factory)) as client:
         response = client.get("/admin/user/1/action/download")
-    assert response.status_code == 200
+    assert response.status_code == status.HTTP_200_OK
     assert response.text == "ada@x.io"
     assert response.headers["content-disposition"] == "attachment"
 
@@ -211,14 +211,14 @@ def test_action_exception_rolls_back_and_toasts_error(
             hx = client.post("/admin/user/1/action/explode", headers=HX)
         native = client.post("/admin/user/1/action/explode", follow_redirects=False)
         active = is_active(client, 1)
-    assert hx.status_code == 500
+    assert hx.status_code == status.HTTP_500_INTERNAL_SERVER_ERROR
     assert hx.headers["HX-Reswap"] == "none"
     assert toast_of(hx) == {"target": "body", "message": "Explode failed.", "level": "error"}
     assert "boom" not in hx.text
     assert any(
         r.exc_info is not None and isinstance(r.exc_info[1], RuntimeError) for r in caplog.records
     )
-    assert native.status_code == 303
+    assert native.status_code == status.HTTP_303_SEE_OTHER
     assert native.headers["location"] == "/admin/user/1"
     assert active
 
@@ -229,7 +229,7 @@ def test_http_exception_in_action_propagates_after_rollback(
     with make_client(build(factory)) as client:
         response = client.post("/admin/user/1/action/forbid")
         active = is_active(client, 1)
-    assert response.status_code == 403
+    assert response.status_code == status.HTTP_403_FORBIDDEN
     assert "not you" in response.text
     assert active
 
@@ -237,7 +237,7 @@ def test_http_exception_in_action_propagates_after_rollback(
 def test_non_action_result_is_an_error(factory: AppFactory, make_client: MakeClient) -> None:
     with make_client(build(factory)) as client:
         response = client.post("/admin/user/1/action/wrong", headers=HX)
-    assert response.status_code == 500
+    assert response.status_code == status.HTTP_500_INTERNAL_SERVER_ERROR
     assert toast_of(response)["message"] == "Wrong failed."
 
 
@@ -245,9 +245,9 @@ def test_redirect_result(factory: AppFactory, make_client: MakeClient) -> None:
     with make_client(build(factory)) as client:
         hx = client.post("/admin/user/1/action/away", headers=HX)
         native = client.post("/admin/user/1/action/away", follow_redirects=False)
-    assert hx.status_code == 200
+    assert hx.status_code == status.HTTP_200_OK
     assert hx.headers["HX-Redirect"] == "/elsewhere"
-    assert native.status_code == 303
+    assert native.status_code == status.HTTP_303_SEE_OTHER
     assert native.headers["location"] == "/elsewhere"
 
 
@@ -257,7 +257,7 @@ def test_row_action_that_deletes_its_object_redirects_to_list(
     with make_client(build(factory)) as client:
         response = client.post("/admin/user/3/action/purge", data={"_from": "detail"}, headers=HX)
         listing = client.get("/admin/user/")
-    assert response.status_code == 200
+    assert response.status_code == status.HTTP_200_OK
     assert response.headers["HX-Redirect"] == "/admin/user/"
     assert "Purged" in listing.text
     assert "cy@x.io" not in listing.text
@@ -290,8 +290,11 @@ def test_inaccessible_view_rejects_actions(factory: AppFactory, make_client: Mak
             return False
 
     with make_client(build(factory, Locked)) as client:
-        assert client.post("/admin/user/2/action/activate").status_code == 403
-        assert client.post("/admin/user/action/deactivate", data={"pks": ["1"]}).status_code == 403
+        assert client.post("/admin/user/2/action/activate").status_code == status.HTTP_403_FORBIDDEN
+        assert (
+            client.post("/admin/user/action/deactivate", data={"pks": ["1"]}).status_code
+            == status.HTTP_403_FORBIDDEN
+        )
 
 
 def test_view_without_detail_rerenders_list(factory: AppFactory, make_client: MakeClient) -> None:
@@ -310,7 +313,7 @@ def test_view_without_detail_rerenders_list(factory: AppFactory, make_client: Ma
 
 def test_actions_follow_auth_redirect(factory: AppFactory, make_client: MakeClient) -> None:
     def deny() -> None:
-        raise HTTPException(status_code=401)
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED)
 
     app = factory.app(seed=seed_users)
     admin = HxAdmin(app, session=factory.get_session, auth=deny, login_url="/login")
@@ -318,7 +321,7 @@ def test_actions_follow_auth_redirect(factory: AppFactory, make_client: MakeClie
     with make_client(app) as client:
         native = client.post("/admin/user/2/action/activate", follow_redirects=False)
         hx = client.post("/admin/user/action/deactivate", data={"pks": ["1"]}, headers=HX)
-    assert native.status_code == 303
+    assert native.status_code == status.HTTP_303_SEE_OTHER
     assert native.headers["location"] == "/login"
     assert hx.headers["HX-Redirect"] == "/login"
 
@@ -334,9 +337,9 @@ def test_rerender_after_commit_with_expire_on_commit(
             data={"pks": ["1"]},
             headers={**HX, "HX-Current-URL": "http://testserver/admin/user/"},
         )
-    assert detail.status_code == 200
+    assert detail.status_code == status.HTTP_200_OK
     assert "<dl" in detail.text
-    assert listing.status_code == 200
+    assert listing.status_code == status.HTTP_200_OK
     assert "ada@x.io" in listing.text
 
 
@@ -347,14 +350,14 @@ def test_htmx_http_errors_toast_without_swapping_an_error_page(
         stale = client.post("/admin/user/99/action/activate", headers=HX)
         denied = client.post("/admin/user/1/action/forbid", headers=HX)
         native = client.post("/admin/user/99/action/activate")
-    assert stale.status_code == 404
+    assert stale.status_code == status.HTTP_404_NOT_FOUND
     assert stale.headers["HX-Reswap"] == "none"
     assert toast_of(stale)["level"] == "error"
     assert "<html" not in stale.text
-    assert denied.status_code == 403
+    assert denied.status_code == status.HTTP_403_FORBIDDEN
     assert denied.headers["HX-Reswap"] == "none"
     assert toast_of(denied)["message"] == "not you"
-    assert native.status_code == 404
+    assert native.status_code == status.HTTP_404_NOT_FOUND
     assert "<html" in native.text
 
 
@@ -368,16 +371,16 @@ def test_handler_denial_does_not_redirect_to_login(
         htmx = client.post("/admin/user/1/action/forbid", headers=HX)
         native = client.post("/admin/user/1/action/forbid", follow_redirects=False)
     assert "HX-Redirect" not in htmx.headers
-    assert htmx.status_code == 403
+    assert htmx.status_code == status.HTTP_403_FORBIDDEN
     assert toast_of(htmx)["message"] == "not you"
-    assert native.status_code == 403
+    assert native.status_code == status.HTTP_403_FORBIDDEN
     assert "location" not in native.headers
 
 
 def test_wrong_action_method_reports_allow(factory: AppFactory, make_client: MakeClient) -> None:
     with make_client(build(factory)) as client:
         response = client.get("/admin/user/1/action/activate")
-    assert response.status_code == 405
+    assert response.status_code == status.HTTP_405_METHOD_NOT_ALLOWED
     assert response.headers["allow"] == "POST"
 
 

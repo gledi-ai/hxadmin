@@ -2,7 +2,7 @@ import json
 from collections.abc import Callable
 from urllib.parse import unquote
 
-from fastapi import FastAPI
+from fastapi import FastAPI, status
 from fastapi.testclient import TestClient
 from httpx2 import Response as HttpxResponse
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
@@ -84,7 +84,7 @@ def test_form_error_on_a_field_rerenders_the_form(
     with make_client(guarded(factory)) as client:
         response = client.post("/admin/post/new", data={**POST_DATA, "title": "bad"})
         listing = client.get("/admin/post/").text
-    assert response.status_code == 422
+    assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
     assert '<p class="mt-1 flex items-center gap-1 text-xs text-danger">' in response.text
     assert "Titles cannot be &#39;bad&#39;.</p>" in response.text
     assert 'role="alert"' not in response.text
@@ -103,10 +103,10 @@ def test_form_error_without_a_known_field_is_form_level(
             headers={"HX-Request": "true"},
         )
         detail = client.get("/admin/post/1").text
-    assert worse.status_code == 422
+    assert worse.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
     assert 'role="alert"' in worse.text
     assert "Not today." in worse.text
-    assert elsewhere.status_code == 422
+    assert elsewhere.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
     assert "<html" not in elsewhere.text
     assert "Nope." in elsewhere.text
     assert "Hello" in detail
@@ -133,9 +133,9 @@ def test_toast_label_may_lazy_load(factory: AppFactory, make_client: MakeClient)
     with make_client(app) as client:
         created = client.post("/admin/post/new", data={"title": "New"}, follow_redirects=False)
         deleted = client.post("/admin/post/2/delete", follow_redirects=False)
-    assert created.status_code == 303
+    assert created.status_code == status.HTTP_303_SEE_OTHER
     assert flash_of(created)["message"] == "Post “New by ada@x.io” created."
-    assert deleted.status_code == 303
+    assert deleted.status_code == status.HTTP_303_SEE_OTHER
     assert flash_of(deleted)["message"] == "Post “New by ada@x.io” deleted."
 
 

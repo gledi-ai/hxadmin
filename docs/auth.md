@@ -22,7 +22,7 @@ FastAPI resolves a dependency once per request, so when your `auth` (or a custom
 
 `auth` runs on every admin request. Its return value is available as `request.state.hxadmin_user` and as `user` in templates. The user panel at the bottom of the sidebar shows `user.name` (an attribute or a mapping key) when it is set, otherwise `str(user)`, with initials derived from it. Any return value works: `None` or a bool (an `auth` that only answers "allowed") shows a generic avatar with no name.
 
-To deny access, raise `HTTPException(401)` or `HTTPException(403)`. With `login_url` set, these send the browser to the login page (303, or `HX-Redirect` for htmx requests). Without it, they render an error page, keeping the exception's headers.
+To deny access, raise `HTTPException(status.HTTP_401_UNAUTHORIZED)` or `HTTPException(status.HTTP_403_FORBIDDEN)` (`status` is `fastapi.status`). With `login_url` set, these send the browser to the login page (303, or `HX-Redirect` for htmx requests). Without it, they render an error page, keeping the exception's headers.
 
 ### Example: HTTP Basic against the users table
 
@@ -35,7 +35,7 @@ import hmac
 import os
 from typing import Annotated
 
-from fastapi import Depends, HTTPException
+from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -69,7 +69,11 @@ async def current_admin_user(
         or user.password_hash is None
         or not verify_password(credentials.password, user.password_hash)
     ):
-        raise HTTPException(401, "Wrong e-mail or password.", headers={"WWW-Authenticate": "Basic"})
+        raise HTTPException(
+            status.HTTP_401_UNAUTHORIZED,
+            "Wrong e-mail or password.",
+            headers={"WWW-Authenticate": "Basic"},
+        )
     return user
 ```
 
@@ -108,7 +112,7 @@ When your application already signs users in with a cookie session, `auth` reads
 import os
 from typing import Annotated
 
-from fastapi import Depends, HTTPException
+from fastapi import Depends, HTTPException, status
 from starlette.middleware.sessions import SessionMiddleware
 from starlette.requests import Request
 
@@ -121,7 +125,7 @@ async def current_admin_user(
     user_id = request.session.get("user_id")
     user = await session.get(User, user_id) if user_id is not None else None
     if user is None or not user.active:
-        raise HTTPException(401)
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED)
     return user
 
 
@@ -137,6 +141,7 @@ The admin is mounted inside `app`, so middleware added to `app` runs for admin r
 If your app has no login page of its own, `admin.render_login()` renders one in the admin's style (light and dark, `logo_url` and `title`, no sidebar). Its form posts `username` and `password` to the current path:
 
 ```python
+from fastapi import status
 from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlalchemy import select
 
@@ -161,17 +166,20 @@ async def login(
         or not verify_password(password, user.password_hash)
     ):
         return admin.render_login(
-            request, error="Wrong e-mail or password.", username=email, status_code=401
+            request,
+            error="Wrong e-mail or password.",
+            username=email,
+            status_code=status.HTTP_401_UNAUTHORIZED,
         )
     request.session.clear()
     request.session["user_id"] = user.id
-    return RedirectResponse("/admin/", status_code=303)
+    return RedirectResponse("/admin/", status_code=status.HTTP_303_SEE_OTHER)
 
 
 @app.get("/logout")
 async def logout(request: Request) -> RedirectResponse:
     request.session.clear()
-    return RedirectResponse("/login", status_code=303)
+    return RedirectResponse("/login", status_code=status.HTTP_303_SEE_OTHER)
 ```
 
 `render_login` takes, all optional and keyword-only:

@@ -3,7 +3,7 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import ClassVar
 
-from fastapi import FastAPI
+from fastapi import FastAPI, status
 from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from starlette.middleware.sessions import SessionMiddleware
@@ -57,7 +57,7 @@ LOGIN_NOTE = f"Demo account: {DEMO_EMAIL}, password {DEMO_PASSWORD!r}."
 @app.get("/login", response_model=None)
 async def login_form(request: Request) -> HTMLResponse | RedirectResponse:
     if "user" in request.session:
-        return RedirectResponse("/admin/", status_code=303)
+        return RedirectResponse("/admin/", status_code=status.HTTP_303_SEE_OTHER)
     return admin.render_login(request, note=LOGIN_NOTE)
 
 
@@ -71,17 +71,17 @@ async def login(request: Request) -> HTMLResponse | RedirectResponse:
             error="Wrong e-mail or password.",
             username=email,
             note=LOGIN_NOTE,
-            status_code=401,
+            status_code=status.HTTP_401_UNAUTHORIZED,
         )
     request.session.clear()
     request.session["user"] = email
-    return RedirectResponse("/admin/", status_code=303)
+    return RedirectResponse("/admin/", status_code=status.HTTP_303_SEE_OTHER)
 
 
 @app.get("/logout")
 async def logout(request: Request) -> RedirectResponse:
     request.session.clear()
-    return RedirectResponse("/login", status_code=303)
+    return RedirectResponse("/login", status_code=status.HTTP_303_SEE_OTHER)
 
 
 @admin.register

@@ -30,7 +30,7 @@ class UserView(ModelView[User]):
     export_formats = ("csv", "xlsx")
 ```
 
-`session` yields an `AsyncSession`; `auth` returns the current user or raises `HTTPException(401)`. Open `/admin/`.
+`session` yields an `AsyncSession`; `auth` returns the current user or raises `HTTPException(status.HTTP_401_UNAUTHORIZED)`. Open `/admin/`.
 
 Documentation: [gledi-ai.github.io/hxadmin](https://gledi-ai.github.io/hxadmin/) (build locally with `nox -s docs`). Try everything in the demo: `uv run python -m demo`, then open http://127.0.0.1:8001/admin/. For projects built on plain Core `Table`s instead of ORM models, see `uv run python -m demo_tables` (http://127.0.0.1:8002/admin/).
 

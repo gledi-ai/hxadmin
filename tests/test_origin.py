@@ -4,7 +4,7 @@ from collections.abc import Callable
 from pathlib import Path
 
 import pytest
-from fastapi import FastAPI
+from fastapi import FastAPI, status
 from fastapi.testclient import TestClient
 from starlette.requests import Request
 
@@ -100,11 +100,11 @@ def test_cross_site_writes_are_blocked_and_change_nothing(
         groups = client.get("/admin/group/").text
         vote = client.get("/admin/vote/2;1")
     for response in (created, edited, deleted):
-        assert response.status_code == 403
+        assert response.status_code == status.HTTP_403_FORBIDDEN
         assert "Cross-origin request blocked." in response.text
         assert "<html" in response.text
     assert "Evil" not in groups
-    assert vote.status_code == 200
+    assert vote.status_code == status.HTTP_200_OK
 
 
 def test_same_origin_writes_pass(factory: AppFactory, make_client: MakeClient) -> None:
@@ -122,15 +122,15 @@ def test_same_origin_writes_pass(factory: AppFactory, make_client: MakeClient) -
             follow_redirects=False,
         )
         groups = client.get("/admin/group/").text
-    assert browser.status_code == 303
-    assert legacy.status_code == 303
+    assert browser.status_code == status.HTTP_303_SEE_OTHER
+    assert legacy.status_code == status.HTTP_303_SEE_OTHER
     assert "Browser" in groups
     assert "Legacy" in groups
 
 
 def test_cross_site_reads_pass(factory: AppFactory, make_client: MakeClient) -> None:
     with make_client(build(factory)) as client:
-        assert client.get("/admin/group/", headers=EVIL).status_code == 200
+        assert client.get("/admin/group/", headers=EVIL).status_code == status.HTTP_200_OK
 
 
 def test_blocked_htmx_request_gets_an_error_toast(
@@ -138,7 +138,7 @@ def test_blocked_htmx_request_gets_an_error_toast(
 ) -> None:
     with make_client(build(factory)) as client:
         response = client.post("/admin/vote/2;1/delete", headers={**EVIL, "HX-Request": "true"})
-    assert response.status_code == 403
+    assert response.status_code == status.HTTP_403_FORBIDDEN
     assert response.headers["HX-Reswap"] == "none"
     toast = json.loads(response.headers["HX-Trigger"])["hxadmin-toast"]
     assert toast["message"] == "Cross-origin request blocked."
@@ -152,8 +152,8 @@ def test_custom_page_writes_are_blocked(
     with make_client(app) as client:
         blocked = client.post("/admin/sync/run", headers=EVIL, follow_redirects=False)
         allowed = client.post("/admin/sync/run", follow_redirects=False)
-    assert blocked.status_code == 403
-    assert allowed.status_code == 303
+    assert blocked.status_code == status.HTTP_403_FORBIDDEN
+    assert allowed.status_code == status.HTTP_303_SEE_OTHER
 
 
 def test_trusted_origin_may_write(factory: AppFactory, make_client: MakeClient) -> None:
@@ -170,8 +170,8 @@ def test_trusted_origin_may_write(factory: AppFactory, make_client: MakeClient) 
             headers={"Origin": "https://ops.example", "Sec-Fetch-Site": "cross-site"},
         )
         other = client.post("/admin/missing/new", headers=EVIL)
-    assert trusted.status_code == 404
-    assert other.status_code == 403
+    assert trusted.status_code == status.HTTP_404_NOT_FOUND
+    assert other.status_code == status.HTTP_403_FORBIDDEN
 
 
 def test_blocked_requests_are_logged(

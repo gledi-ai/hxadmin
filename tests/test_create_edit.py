@@ -3,7 +3,7 @@ import re
 from collections.abc import AsyncIterator, Callable
 
 import pytest
-from fastapi import FastAPI
+from fastapi import FastAPI, status
 from fastapi.testclient import TestClient
 from sqlalchemy import Select, select
 from sqlalchemy.exc import DataError
@@ -60,7 +60,7 @@ def test_create_form_full_page(factory: AppFactory, make_client: MakeClient) -> 
     with make_client(build(factory)) as client:
         response = client.get("/admin/post/new")
     html = response.text
-    assert response.status_code == 200
+    assert response.status_code == status.HTTP_200_OK
     assert "<html" in html
     assert "<form" in html
     assert 'hx-post="/admin/post/new"' in html
@@ -83,7 +83,7 @@ def test_create_form_partial(factory: AppFactory, make_client: MakeClient) -> No
 def test_create_success_redirects_to_detail(factory: AppFactory, make_client: MakeClient) -> None:
     with make_client(build(factory)) as client:
         response = client.post("/admin/post/new", data=POST_DATA, follow_redirects=False)
-        assert response.status_code == 303
+        assert response.status_code == status.HTTP_303_SEE_OTHER
         assert response.headers["location"] == "/admin/post/2"
         detail = client.get("/admin/post/2").text
         listing = client.get("/admin/post/").text
@@ -102,7 +102,7 @@ def test_create_htmx_success_sends_hx_redirect(
             headers={"HX-Request": "true"},
             follow_redirects=False,
         )
-    assert response.status_code == 200
+    assert response.status_code == status.HTTP_200_OK
     assert response.headers["HX-Redirect"] == "/admin/post/2"
 
 
@@ -111,7 +111,7 @@ def test_create_save_and_add_another(factory: AppFactory, make_client: MakeClien
         response = client.post(
             "/admin/post/new", data={**POST_DATA, "_then": "another"}, follow_redirects=False
         )
-    assert response.status_code == 303
+    assert response.status_code == status.HTTP_303_SEE_OTHER
     assert response.headers["location"] == "/admin/post/new"
 
 
@@ -125,12 +125,12 @@ def test_create_validation_errors_rerender_422(
             data={"title": "", "status": "nope"},
             headers={"HX-Request": "true"},
         )
-    assert full.status_code == 422
+    assert full.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
     assert "This field is required." in full.text
     assert 'aria-invalid="true"' in full.text
     assert "<form" in full.text
     assert "<html" in full.text
-    assert partial.status_code == 422
+    assert partial.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
     assert "<html" not in partial.text
 
 
@@ -140,7 +140,7 @@ def test_create_unknown_relation_pk_is_field_error(
     with make_client(build(factory)) as client:
         response = client.post("/admin/post/new", data={**POST_DATA, "author": "999"})
     html = response.text
-    assert response.status_code == 422
+    assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
     assert "Unknown selection." in html
     assert html.index("Author") < html.index("Unknown selection.")
 
@@ -165,10 +165,10 @@ def test_create_relation_pk_outside_target_scope_is_unknown(
             saved = client.post("/admin/post/new", data={**POST_DATA, "author": "2"})
             invalid = client.post("/admin/post/new", data={**POST_DATA, "title": "", "author": "2"})
             listing = client.get("/admin/post/").text
-        assert saved.status_code == 422
+        assert saved.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
         assert "Unknown selection." in saved.text
         assert "bob@x.io" not in saved.text
-        assert invalid.status_code == 422
+        assert invalid.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
         assert "bob@x.io" not in invalid.text
         assert "Showing 1\u20131 of 1" in listing
 
@@ -184,7 +184,7 @@ def test_create_relation_pk_inside_target_scope_is_saved(
 
     with make_client(build(factory, user_view=ActiveUsers)) as client:
         response = client.post("/admin/post/new", data=POST_DATA, follow_redirects=False)
-    assert response.status_code == 303
+    assert response.status_code == status.HTTP_303_SEE_OTHER
 
 
 def test_create_integrity_error_is_form_error(factory: AppFactory, make_client: MakeClient) -> None:
@@ -193,8 +193,8 @@ def test_create_integrity_error_is_form_error(factory: AppFactory, make_client: 
         first = client.post("/admin/user/new", data=data, follow_redirects=False)
         second = client.post("/admin/user/new", data=data, follow_redirects=False)
         listing = client.get("/admin/user/").text
-    assert first.status_code == 303
-    assert second.status_code == 422
+    assert first.status_code == status.HTTP_303_SEE_OTHER
+    assert second.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
     assert 'role="alert"' in second.text
     assert "Showing 1\u20133 of 3" in listing
 
@@ -203,7 +203,7 @@ def test_edit_form_prefills(factory: AppFactory, make_client: MakeClient) -> Non
     with make_client(build(factory)) as client:
         response = client.get("/admin/post/1/edit")
     html = response.text
-    assert response.status_code == 200
+    assert response.status_code == status.HTTP_200_OK
     assert 'value="Hello"' in html
     assert "#1" in html
     assert '{"label": "ada@x.io", "pk": "1"}' in html
@@ -240,7 +240,7 @@ def test_edit_success(factory: AppFactory, make_client: MakeClient) -> None:
     data = {"title": "Renamed", "status": "published", "score": "0", "author": "2", "tags": []}
     with make_client(build(factory)) as client:
         response = client.post("/admin/post/1/edit", data=data, follow_redirects=False)
-        assert response.status_code == 303
+        assert response.status_code == status.HTTP_303_SEE_OTHER
         assert response.headers["location"] == "/admin/post/1"
         detail = client.get("/admin/post/1").text
         related = client.get("/admin/post/_related/1/tags").text
@@ -255,7 +255,7 @@ def test_edit_htmx_success_sends_hx_redirect(factory: AppFactory, make_client: M
         response = client.post(
             "/admin/post/1/edit", data=data, headers={"HX-Request": "true"}, follow_redirects=False
         )
-    assert response.status_code == 200
+    assert response.status_code == status.HTTP_200_OK
     assert response.headers["HX-Redirect"] == "/admin/post/1"
 
 
@@ -265,13 +265,13 @@ def test_edit_validation_errors_rerender_422(factory: AppFactory, make_client: M
         full = client.post("/admin/post/1/edit", data=data)
         partial = client.post("/admin/post/1/edit", data=data, headers={"HX-Request": "true"})
         detail = client.get("/admin/post/1").text
-    assert full.status_code == 422
+    assert full.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
     assert "This field is required." in full.text
     assert 'aria-invalid="true"' in full.text
     assert 'hx-post="/admin/post/1/edit"' in full.text
     assert '{"label": "ada@x.io", "pk": "1"}' in full.text
     assert "<html" in full.text
-    assert partial.status_code == 422
+    assert partial.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
     assert "<html" not in partial.text
     assert partial.text.lstrip().startswith("<form")
     assert "Hello" in detail
@@ -281,7 +281,7 @@ def test_edit_integrity_error_is_form_error(factory: AppFactory, make_client: Ma
     with make_client(build(factory)) as client:
         response = client.post("/admin/user/2/edit", data={"email": "ada@x.io", "active": ""})
         detail = client.get("/admin/user/2").text
-    assert response.status_code == 422
+    assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
     assert 'role="alert"' in response.text
     assert 'hx-post="/admin/user/2/edit"' in response.text
     assert "bob@x.io" in detail
@@ -302,7 +302,7 @@ def test_edit_can_view_false_redirects_to_list(
     data = {"title": "Renamed", "status": "draft", "score": "0", "author": "1"}
     with make_client(app) as client:
         response = client.post("/admin/post/1/edit", data=data, follow_redirects=False)
-    assert response.status_code == 303
+    assert response.status_code == status.HTTP_303_SEE_OTHER
     assert response.headers["location"] == "/admin/post/"
 
 
@@ -337,8 +337,10 @@ def test_can_create_false_403(factory: AppFactory, make_client: MakeClient) -> N
         can_create = False
 
     with make_client(app) as client:
-        assert client.get("/admin/post/new").status_code == 403
-        assert client.post("/admin/post/new", data=POST_DATA).status_code == 403
+        assert client.get("/admin/post/new").status_code == status.HTTP_403_FORBIDDEN
+        assert (
+            client.post("/admin/post/new", data=POST_DATA).status_code == status.HTTP_403_FORBIDDEN
+        )
         listing = client.get("/admin/post/").text
     assert "/admin/post/new" not in listing
 
@@ -353,8 +355,11 @@ def test_can_edit_false_403(factory: AppFactory, make_client: MakeClient) -> Non
         can_edit = False
 
     with make_client(app) as client:
-        assert client.get("/admin/post/1/edit").status_code == 403
-        assert client.post("/admin/post/1/edit", data=POST_DATA).status_code == 403
+        assert client.get("/admin/post/1/edit").status_code == status.HTTP_403_FORBIDDEN
+        assert (
+            client.post("/admin/post/1/edit", data=POST_DATA).status_code
+            == status.HTTP_403_FORBIDDEN
+        )
         detail = client.get("/admin/post/1").text
     assert "/admin/post/1/edit" not in detail
 
@@ -362,7 +367,7 @@ def test_can_edit_false_403(factory: AppFactory, make_client: MakeClient) -> Non
 def test_edit_composite_pk(factory: AppFactory, make_client: MakeClient) -> None:
     with make_client(build(factory)) as client:
         form = client.get("/admin/vote/2;1/edit")
-        assert form.status_code == 200
+        assert form.status_code == status.HTTP_200_OK
         assert "#2;1" in form.text
         assert 'id="f-user_id"' not in form.text
         assert 'id="f-post_id"' not in form.text
@@ -371,7 +376,7 @@ def test_edit_composite_pk(factory: AppFactory, make_client: MakeClient) -> None
             data={"value": "9", "user": "2", "post": "1"},
             follow_redirects=False,
         )
-        assert response.status_code == 303
+        assert response.status_code == status.HTTP_303_SEE_OTHER
         assert response.headers["location"] == "/admin/vote/2;1"
         detail = client.get("/admin/vote/2;1").text
     assert ">9<" in detail
@@ -379,7 +384,7 @@ def test_edit_composite_pk(factory: AppFactory, make_client: MakeClient) -> None
 
 def test_edit_not_found(factory: AppFactory, make_client: MakeClient) -> None:
     with make_client(build(factory)) as client:
-        assert client.get("/admin/post/999/edit").status_code == 404
+        assert client.get("/admin/post/999/edit").status_code == status.HTTP_404_NOT_FOUND
 
 
 def test_edit_unknown_relation_with_conflicting_column_is_422(
@@ -390,7 +395,7 @@ def test_edit_unknown_relation_with_conflicting_column_is_422(
             "/admin/user/1/edit", data={"email": "bob@x.io", "active": "on", "group": "999"}
         )
         detail = client.get("/admin/user/1").text
-    assert response.status_code == 422
+    assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
     assert "Unknown selection." in response.text
     assert "ada@x.io" in detail
 
@@ -403,9 +408,9 @@ def test_edit_ignores_identifying_relations(factory: AppFactory, make_client: Ma
         response = client.post(
             "/admin/vote/2;1/edit", data={"value": "7", "user": "1"}, follow_redirects=False
         )
-        assert response.status_code == 303
+        assert response.status_code == status.HTTP_303_SEE_OTHER
         assert response.headers["location"] == "/admin/vote/2;1"
-        assert client.get("/admin/vote/1;1").status_code == 404
+        assert client.get("/admin/vote/1;1").status_code == status.HTTP_404_NOT_FOUND
         assert ">7<" in client.get("/admin/vote/2;1").text
 
 
@@ -415,7 +420,7 @@ def test_edit_empty_non_nullable_value_is_required_error(
     with make_client(build(factory)) as client:
         response = client.post("/admin/vote/2;1/edit", data={"value": ""})
         detail = client.get("/admin/vote/2;1").text
-    assert response.status_code == 422
+    assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
     assert "This field is required." in response.text
     assert ">5<" in detail
 
@@ -427,7 +432,7 @@ def test_create_empty_defaulted_column_uses_model_default(
         response = client.post(
             "/admin/post/new", data={**POST_DATA, "score": ""}, follow_redirects=False
         )
-        assert response.status_code == 303
+        assert response.status_code == status.HTTP_303_SEE_OTHER
         detail = client.get("/admin/post/2/edit").text
     assert 'name="score" value="0.0"' in detail
 
@@ -548,7 +553,7 @@ def test_create_rejects_string_longer_than_column(
 ) -> None:
     with make_client(build_accounts(factory)) as client:
         response = client.post("/admin/account/new", data={"handle": "ninechars"})
-    assert response.status_code == 422
+    assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
     assert "at most 8 characters" in response.text
 
 
@@ -565,7 +570,7 @@ def test_create_rejects_integer_outside_column_range(
 ) -> None:
     with make_client(build_accounts(factory)) as client:
         response = client.post("/admin/account/new", data={"handle": "ok", column: str(value)})
-    assert response.status_code == 422
+    assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
     assert f"less than or equal to {limit}" in response.text
 
 
@@ -575,7 +580,7 @@ def test_create_accepts_integers_within_column_range(
     data = {"handle": "ok", "small": "-32768", "medium": "2147483647", "big": str(2**31)}
     with make_client(build_accounts(factory)) as client:
         response = client.post("/admin/account/new", data=data, follow_redirects=False)
-    assert response.status_code == 303
+    assert response.status_code == status.HTTP_303_SEE_OTHER
 
 
 def test_database_rejecting_a_value_is_a_form_error(
@@ -595,7 +600,7 @@ def test_database_rejecting_a_value_is_a_form_error(
 
     with make_client(app) as client, caplog.at_level(logging.WARNING, logger="hxadmin"):
         response = client.post("/admin/post/new", data=POST_DATA)
-    assert response.status_code == 422
+    assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
     assert "the database rejected a value" in response.text
     assert "varchar(8)" not in response.text
     assert "varchar(8)" in caplog.text
@@ -607,7 +612,7 @@ def test_integrity_error_hides_the_database_message(
     data = {"email": "ada@x.io", "active": "on"}
     with make_client(build(factory)) as client, caplog.at_level(logging.WARNING, logger="hxadmin"):
         response = client.post("/admin/user/new", data=data)
-    assert response.status_code == 422
+    assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
     assert "conflicts with existing data" in response.text
     assert "UNIQUE constraint failed" not in response.text
     assert "UNIQUE constraint failed" in caplog.text

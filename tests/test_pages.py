@@ -4,7 +4,7 @@ from pathlib import Path
 from typing import Annotated, Any, cast
 
 import pytest
-from fastapi import Depends, FastAPI, HTTPException
+from fastapi import Depends, FastAPI, HTTPException, status
 from fastapi.responses import JSONResponse, RedirectResponse
 from fastapi.testclient import TestClient
 from sqlalchemy import func, select
@@ -56,7 +56,7 @@ def build(factory: AppFactory, tmp_path: Path) -> tuple[FastAPI, HxAdmin]:
 
     @admin.route("/sync/run", methods=("POST",))
     async def run(request: Request) -> RedirectResponse:
-        return RedirectResponse(admin.url(request, "/sync"), status_code=303)
+        return RedirectResponse(admin.url(request, "/sync"), status_code=status.HTTP_303_SEE_OTHER)
 
     @admin.page("/reports/monthly", title="Monthly")
     async def monthly() -> Page:
@@ -72,7 +72,7 @@ def test_page_renders_in_admin_shell(
     with make_client(app) as client:
         response = client.get("/admin/sync")
     html = response.text
-    assert response.status_code == 200
+    assert response.status_code == status.HTTP_200_OK
     assert "<title>Sync management · HxAdmin</title>" in html
     assert h1_texts(html) == ["Sync management"]
     assert "users: 2 path: /admin/sync who: admin@example.com" in html
@@ -87,10 +87,10 @@ def test_route_takes_path_and_query_params(
     with make_client(app) as client:
         ok = client.get("/admin/jobs/7?q=x")
         bad = client.get("/admin/jobs/abc")
-    assert ok.status_code == 200
+    assert ok.status_code == status.HTTP_200_OK
     assert "job 7 q=x" in ok.text
     assert "<title>Job · HxAdmin</title>" in ok.text
-    assert bad.status_code == 422
+    assert bad.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
 
 
 def test_pages_are_in_nav_and_routes_are_not(factory: AppFactory, tmp_path: Path) -> None:
@@ -118,9 +118,9 @@ def test_non_page_results_pass_through(
         run = client.post("/admin/sync/run", follow_redirects=False)
         wrong_method = client.get("/admin/sync/run")
     assert stats.json() == {"ok": True}
-    assert run.status_code == 303
+    assert run.status_code == status.HTTP_303_SEE_OTHER
     assert run.headers["location"] == "/admin/sync"
-    assert wrong_method.status_code == 405
+    assert wrong_method.status_code == status.HTTP_405_METHOD_NOT_ALLOWED
 
 
 def test_page_beats_model_routes(
@@ -129,13 +129,13 @@ def test_page_beats_model_routes(
     app, _ = build(factory, tmp_path)
     with make_client(app) as client:
         response = client.get("/admin/reports/monthly")
-    assert response.status_code == 200
+    assert response.status_code == status.HTTP_200_OK
     assert h1_texts(response.text) == ["Monthly"]
 
 
 def test_pages_require_auth(factory: AppFactory, make_client: MakeClient) -> None:
     def deny() -> None:
-        raise HTTPException(status_code=401)
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED)
 
     app = factory.app()
     admin = HxAdmin(app, session=factory.get_session, auth=deny, login_url="/login")
@@ -147,7 +147,7 @@ def test_pages_require_auth(factory: AppFactory, make_client: MakeClient) -> Non
     with make_client(app) as client:
         native = client.get("/admin/sync", follow_redirects=False)
         hx = client.get("/admin/sync", headers={"HX-Request": "true"})
-    assert native.status_code == 303
+    assert native.status_code == status.HTTP_303_SEE_OTHER
     assert native.headers["location"] == "/login"
     assert hx.headers["HX-Redirect"] == "/login"
 
@@ -204,7 +204,7 @@ def test_json_able_results_are_serialised(factory: AppFactory, make_client: Make
 
     with make_client(app) as client:
         response = client.get("/admin/api/info")
-    assert response.status_code == 200
+    assert response.status_code == status.HTTP_200_OK
     assert response.json() == {"ok": True, "n": 2}
 
 
@@ -227,7 +227,7 @@ def test_methods_split_across_registrations(factory: AppFactory, make_client: Ma
         delete = client.delete("/admin/sync/job")
     assert get.json() == {"method": "GET"}
     assert post.json() == {"method": "POST"}
-    assert delete.status_code == 405
+    assert delete.status_code == status.HTTP_405_METHOD_NOT_ALLOWED
     assert set(delete.headers["allow"].split(", ")) == {"GET", "HEAD", "POST"}
 
 
@@ -278,11 +278,11 @@ def test_htmx_error_toast_stringifies_a_non_str_detail(
 
     @admin.page("/broken", title="Broken")
     async def broken() -> Page:
-        raise HTTPException(status_code=400, detail={"field": "bad"})
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail={"field": "bad"})
 
     with make_client(app) as client:
         response = client.get("/admin/broken", headers={"HX-Request": "true"})
-    assert response.status_code == 400
+    assert response.status_code == status.HTTP_400_BAD_REQUEST
     assert response.headers["HX-Reswap"] == "none"
     toast = json.loads(response.headers["HX-Trigger"])["hxadmin-toast"]
     assert toast["message"] == "{'field': 'bad'}"

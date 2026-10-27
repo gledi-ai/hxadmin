@@ -1,7 +1,7 @@
 import re
 from collections.abc import Callable, Sequence
 
-from fastapi import FastAPI
+from fastapi import FastAPI, status
 from fastapi.testclient import TestClient
 from sqlalchemy import Select, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -233,7 +233,7 @@ def test_action_rerender_keeps_filters(factory: AppFactory, make_client: MakeCli
             data={"pks": ["1"], "_from": "list"},
             headers={**HX, "HX-Current-URL": "http://testserver/admin/post/?f.status=published"},
         )
-    assert response.status_code == 200
+    assert response.status_code == status.HTTP_200_OK
     assert "Showing 1\N{EN DASH}2 of 2" in response.text
     assert 'id="filter-status-summary" hx-swap-oob="true"' in response.text
     assert "published" in response.text

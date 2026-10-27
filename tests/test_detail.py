@@ -2,7 +2,7 @@ import re
 from collections.abc import Callable
 from typing import ClassVar
 
-from fastapi import FastAPI
+from fastapi import FastAPI, status
 from fastapi.testclient import TestClient
 from sqlalchemy import Select, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -101,10 +101,12 @@ def test_composite_pk_detail(
 
 def test_not_found(factory: AppFactory, make_client: Callable[[FastAPI], TestClient]) -> None:
     with make_client(build(factory)) as client:
-        assert client.get("/admin/post/999").status_code == 404
-        assert client.get("/admin/post/abc").status_code == 404
-        assert client.get("/admin/vote/1").status_code == 404
-        assert client.get("/admin/post/99999999999999999999").status_code == 404
+        assert client.get("/admin/post/999").status_code == status.HTTP_404_NOT_FOUND
+        assert client.get("/admin/post/abc").status_code == status.HTTP_404_NOT_FOUND
+        assert client.get("/admin/vote/1").status_code == status.HTTP_404_NOT_FOUND
+        assert (
+            client.get("/admin/post/99999999999999999999").status_code == status.HTTP_404_NOT_FOUND
+        )
 
 
 def test_can_view_false_is_403(
@@ -119,7 +121,7 @@ def test_can_view_false_is_403(
         can_view = False
 
     with make_client(app) as client:
-        assert client.get("/admin/user/1").status_code == 403
+        assert client.get("/admin/user/1").status_code == status.HTTP_403_FORBIDDEN
 
 
 def test_related_registered_renders_table(
@@ -198,16 +200,16 @@ def test_related_403_when_target_not_accessible(
             return False
 
     with make_client(app) as client:
-        assert client.get("/admin/group/_related/1/users").status_code == 403
+        assert client.get("/admin/group/_related/1/users").status_code == status.HTTP_403_FORBIDDEN
 
 
 def test_related_rejects_non_collection(
     factory: AppFactory, make_client: Callable[[FastAPI], TestClient]
 ) -> None:
     with make_client(build(factory)) as client:
-        assert client.get("/admin/post/_related/1/author").status_code == 404
-        assert client.get("/admin/post/_related/1/title").status_code == 404
-        assert client.get("/admin/post/_related/999/tags").status_code == 404
+        assert client.get("/admin/post/_related/1/author").status_code == status.HTTP_404_NOT_FOUND
+        assert client.get("/admin/post/_related/1/title").status_code == status.HTTP_404_NOT_FOUND
+        assert client.get("/admin/post/_related/999/tags").status_code == status.HTTP_404_NOT_FOUND
 
 
 def test_related_403_when_parent_can_view_false(
@@ -226,7 +228,7 @@ def test_related_403_when_parent_can_view_false(
         model = User
 
     with make_client(app) as client:
-        assert client.get("/admin/group/_related/1/users").status_code == 403
+        assert client.get("/admin/group/_related/1/users").status_code == status.HTTP_403_FORBIDDEN
 
 
 def test_fk_column_hidden_by_default_when_relation_is_also_shown(
@@ -305,7 +307,7 @@ def test_related_404_when_relation_excluded_from_detail_columns(
         model = User
 
     with make_client(app) as client:
-        assert client.get("/admin/group/_related/1/users").status_code == 404
+        assert client.get("/admin/group/_related/1/users").status_code == status.HTTP_404_NOT_FOUND
 
 
 def test_header_stacks_and_fields_group_on_small_screens(

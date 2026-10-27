@@ -3,7 +3,7 @@ from html.parser import HTMLParser
 from pathlib import Path
 
 import pytest
-from fastapi import FastAPI
+from fastapi import FastAPI, status
 from fastapi.testclient import TestClient
 
 from hxadmin import HxAdmin, Page
@@ -110,7 +110,7 @@ def rendered(
 
     with make_client(app) as client:
         response = client.get("/admin/components")
-    assert response.status_code == 200
+    assert response.status_code == status.HTTP_200_OK
     parser = _Collector()
     parser.feed(response.text)
     return parser.found, parser.text, response.text

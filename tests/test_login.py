@@ -2,7 +2,7 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
-from fastapi import FastAPI
+from fastapi import FastAPI, status
 from fastapi.testclient import TestClient
 from starlette.requests import Request
 from starlette.responses import HTMLResponse
@@ -30,7 +30,7 @@ def test_login_page_is_a_standalone_form(factory: AppFactory, make_client: MakeC
     with make_client(app) as client:
         response = client.get("/login")
     html = response.text
-    assert response.status_code == 200
+    assert response.status_code == status.HTTP_200_OK
     assert 'href="/admin/static/hxadmin.css"' in html
     assert "<title>Sign in · Shop admin</title>" in html
     assert "<aside" not in html
@@ -58,13 +58,13 @@ def test_login_error_keeps_the_username(factory: AppFactory, make_client: MakeCl
             error="Wrong e-mail or password.",
             username="ada@example.com",
             username_label="Username",
-            status_code=401,
+            status_code=status.HTTP_401_UNAUTHORIZED,
         )
 
     with make_client(app) as client:
         response = client.post("/sign-in")
     html = response.text
-    assert response.status_code == 401
+    assert response.status_code == status.HTTP_401_UNAUTHORIZED
     assert 'action="/sign-in"' in tag(html, "<form")
     assert 'role="alert"' in html
     assert "Wrong e-mail or password." in html

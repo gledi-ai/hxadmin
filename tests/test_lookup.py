@@ -1,6 +1,6 @@
 from collections.abc import Callable
 
-from fastapi import FastAPI
+from fastapi import FastAPI, status
 from fastapi.testclient import TestClient
 from sqlalchemy import Select, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -49,7 +49,7 @@ def test_lookup_registered_target_searches_searchable(
     with make_client(build(factory)) as client:
         response = client.get("/admin/post/_lookup/author?q=ada")
     html = response.text
-    assert response.status_code == 200
+    assert response.status_code == status.HTTP_200_OK
     assert 'pick("1", "ada@x.io")' in html
     assert "bob" not in html
     assert "<html" not in html
@@ -141,22 +141,22 @@ def test_lookup_respects_target_get_query_and_is_accessible(
     assert "ada@x.io" in html
     assert "bob" not in html
     with make_client(build(factory, user_view=Locked)) as client:
-        assert client.get("/admin/post/_lookup/author?q=").status_code == 403
+        assert client.get("/admin/post/_lookup/author?q=").status_code == status.HTTP_403_FORBIDDEN
 
 
 def test_lookup_unknown_or_non_relation_field_404(
     factory: AppFactory, make_client: MakeClient
 ) -> None:
     with make_client(build(factory)) as client:
-        assert client.get("/admin/post/_lookup/title").status_code == 404
-        assert client.get("/admin/post/_lookup/nope").status_code == 404
+        assert client.get("/admin/post/_lookup/title").status_code == status.HTTP_404_NOT_FOUND
+        assert client.get("/admin/post/_lookup/nope").status_code == status.HTTP_404_NOT_FOUND
 
 
 def test_lookup_requires_create_or_edit(factory: AppFactory, make_client: MakeClient) -> None:
     with make_client(build(factory, editable=False)) as client:
-        assert client.get("/admin/post/_lookup/author").status_code == 403
+        assert client.get("/admin/post/_lookup/author").status_code == status.HTTP_403_FORBIDDEN
 
 
 def test_lookup_excluded_form_field_404(factory: AppFactory, make_client: MakeClient) -> None:
     with make_client(build(factory, exclude=("author",))) as client:
-        assert client.get("/admin/post/_lookup/author").status_code == 404
+        assert client.get("/admin/post/_lookup/author").status_code == status.HTTP_404_NOT_FOUND

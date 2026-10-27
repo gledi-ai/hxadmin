@@ -30,4 +30,4 @@ class TaskView(ModelView[Task]):
     export_formats = ("csv",)
 ```
 
-`current_admin_user` is your own FastAPI dependency that returns the signed-in user or raises `HTTPException(401)`. [Getting started](getting-started.md) builds this app step by step, models included, and [Auth and sessions](auth.md) shows a complete `auth`.
+`current_admin_user` is your own FastAPI dependency that returns the signed-in user or raises `HTTPException(status.HTTP_401_UNAUTHORIZED)`. [Getting started](getting-started.md) builds this app step by step, models included, and [Auth and sessions](auth.md) shows a complete `auth`.

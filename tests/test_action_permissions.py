@@ -1,6 +1,6 @@
 from collections.abc import Callable
 
-from fastapi import FastAPI
+from fastapi import FastAPI, status
 from fastapi.testclient import TestClient
 from starlette.requests import Request
 
@@ -22,12 +22,12 @@ def test_disallowed_actions_answer_403(factory: AppFactory, make_client: MakeCli
         native = client.post("/admin/user/2/action/activate", follow_redirects=False)
         allowed = client.get("/admin/user/2/action/download")
         still_inactive = not is_active(client, 2)
-    assert row.status_code == 403
+    assert row.status_code == status.HTTP_403_FORBIDDEN
     assert row.headers["HX-Reswap"] == "none"
     assert toast_of(row)["level"] == "error"
-    assert bulk.status_code == 403
-    assert native.status_code == 403
-    assert allowed.status_code == 200
+    assert bulk.status_code == status.HTTP_403_FORBIDDEN
+    assert native.status_code == status.HTTP_403_FORBIDDEN
+    assert allowed.status_code == status.HTTP_200_OK
     assert still_inactive
 
 

@@ -97,7 +97,7 @@ A row action that deletes its object should return a redirect, since there is no
 
 ## Errors
 
-Any exception rolls back and shows a "<label> failed." toast; the traceback goes to the `hxadmin` logger. `HTTPException` is the exception: it propagates, so `raise HTTPException(409, "Already archived.")` shows its detail as an error toast over htmx and as the error page otherwise. To tell the user something without failing, return a message with `level="warning"` or `"error"` instead; the changes made so far are still committed.
+Any exception rolls back and shows a "<label> failed." toast; the traceback goes to the `hxadmin` logger. `HTTPException` is the exception: it propagates, so `raise HTTPException(status.HTTP_409_CONFLICT, "Already archived.")` shows its detail as an error toast over htmx and as the error page otherwise. To tell the user something without failing, return a message with `level="warning"` or `"error"` instead; the changes made so far are still committed.
 
 ## Downloads and GET actions
 

@@ -5,7 +5,7 @@ from collections.abc import Awaitable, Callable, Mapping, Sequence
 from pathlib import Path
 from typing import Any, cast
 
-from fastapi import Depends, FastAPI
+from fastapi import Depends, FastAPI, status
 from fastapi.staticfiles import StaticFiles
 from jinja2 import (
     BaseLoader,
@@ -58,7 +58,7 @@ def _method_not_allowed(allowed: Sequence[str]) -> Callable[[], Awaitable[Respon
     allow = ", ".join(m.upper() for m in allowed)
 
     async def not_allowed() -> Response:
-        return Response(status_code=405, headers={"Allow": allow})
+        return Response(status_code=status.HTTP_405_METHOD_NOT_ALLOWED, headers={"Allow": allow})
 
     return not_allowed
 
@@ -143,7 +143,9 @@ class HxAdmin:
                     request.headers.get("origin"),
                     request.headers.get("sec-fetch-site"),
                 )
-                raise StarletteHTTPException(403, "Cross-origin request blocked.")
+                raise StarletteHTTPException(
+                    status.HTTP_403_FORBIDDEN, "Cross-origin request blocked."
+                )
             return user
 
         async def current_session(
@@ -165,10 +167,16 @@ class HxAdmin:
             raise exc
         htmx = request.headers.get("HX-Request") == "true"
         authenticated = hasattr(request.state, "hxadmin_user")
-        if exc.status_code in (401, 403) and self.login_url is not None and not authenticated:
+        if (
+            exc.status_code in (status.HTTP_401_UNAUTHORIZED, status.HTTP_403_FORBIDDEN)
+            and self.login_url is not None
+            and not authenticated
+        ):
             if htmx:
-                return Response(status_code=200, headers={"HX-Redirect": self.login_url})
-            return RedirectResponse(self.login_url, status_code=303)
+                return Response(
+                    status_code=status.HTTP_200_OK, headers={"HX-Redirect": self.login_url}
+                )
+            return RedirectResponse(self.login_url, status_code=status.HTTP_303_SEE_OTHER)
         if htmx:
             # FastAPI's HTTPException subclass allows a non-str detail.
             detail: Any = exc.detail
@@ -192,11 +200,14 @@ class HxAdmin:
         detail = "Something went wrong."
         if request.headers.get("HX-Request") == "true":
             return Response(
-                status_code=500,
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 headers={"HX-Trigger": hx_trigger(Toast(detail, "error")), "HX-Reswap": "none"},
             )
         return self.render(
-            request, "hxadmin/error.html", {"status_code": 500, "detail": detail}, status_code=500
+            request,
+            "hxadmin/error.html",
+            {"status_code": status.HTTP_500_INTERNAL_SERVER_ERROR, "detail": detail},
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
         )
 
     def register[V: ModelView[Any]](self, view_cls: type[V]) -> type[V]:
@@ -333,9 +344,11 @@ class HxAdmin:
         A `toast` rides along in a short-lived cookie and is shown on the next full page.
         """
         if request.headers.get("HX-Request") == "true":
-            response: Response = Response(status_code=200, headers={"HX-Redirect": url})
+            response: Response = Response(
+                status_code=status.HTTP_200_OK, headers={"HX-Redirect": url}
+            )
         else:
-            response = RedirectResponse(url, status_code=303)
+            response = RedirectResponse(url, status_code=status.HTTP_303_SEE_OTHER)
         if toast is not None:
             response.set_cookie(
                 FLASH_COOKIE,
@@ -353,7 +366,7 @@ class HxAdmin:
         template: str,
         context: Mapping[str, Any] | None = None,
         *,
-        status_code: int = 200,
+        status_code: int = status.HTTP_200_OK,
     ) -> HTMLResponse:
         consume = request.headers.get("HX-Request") != "true" and FLASH_COOKIE in request.cookies
         flash = read_flash(request) if consume else None
@@ -383,7 +396,7 @@ class HxAdmin:
         username_label: str = "E-mail",
         note: str | None = None,
         action: str | None = None,
-        status_code: int = 200,
+        status_code: int = status.HTTP_200_OK,
     ) -> HTMLResponse:
         """Render the sign-in page (`hxadmin/login.html`) from your own login route.
 

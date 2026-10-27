@@ -5,7 +5,7 @@ import hmac
 import os
 from typing import Annotated
 
-from fastapi import Depends, HTTPException
+from fastapi import Depends, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.requests import Request
@@ -41,5 +41,5 @@ async def current_user(
     user_id = request.session.get("user_id")
     user = await session.get(User, user_id) if user_id is not None else None
     if user is None:
-        raise HTTPException(401)
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED)
     return user

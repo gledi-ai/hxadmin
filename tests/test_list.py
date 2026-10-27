@@ -1,7 +1,7 @@
 import re
 from collections.abc import Callable
 
-from fastapi import FastAPI
+from fastapi import FastAPI, status
 from fastapi.testclient import TestClient
 from sqlalchemy import Select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -191,7 +191,7 @@ def test_unknown_identity_is_404(
     factory: AppFactory, make_client: Callable[[FastAPI], TestClient]
 ) -> None:
     with make_client(build(factory)) as client:
-        assert client.get("/admin/nope/").status_code == 404
+        assert client.get("/admin/nope/").status_code == status.HTTP_404_NOT_FOUND
 
 
 def test_inaccessible_view_is_403(
@@ -208,7 +208,7 @@ def test_inaccessible_view_is_403(
             return False
 
     with make_client(app) as client:
-        assert client.get("/admin/user/").status_code == 403
+        assert client.get("/admin/user/").status_code == status.HTTP_403_FORBIDDEN
 
 
 def test_no_detail_links_when_can_view_false(
@@ -268,7 +268,7 @@ def test_error_page_explains_the_status(
 ) -> None:
     with make_client(build(factory)) as client:
         response = client.get("/admin/nope/")
-    assert response.status_code == 404
+    assert response.status_code == status.HTTP_404_NOT_FOUND
     assert ">Error 404</p>" in response.text
     assert '<h1 class="mt-1 text-2xl font-semibold">Not Found</h1>' in response.text
     assert "doesn&#39;t exist or has been moved." in response.text

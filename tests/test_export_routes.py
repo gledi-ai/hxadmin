@@ -1,7 +1,7 @@
 import re
 from collections.abc import Callable
 
-from fastapi import FastAPI
+from fastapi import FastAPI, status
 from fastapi.testclient import TestClient
 from sqlalchemy import Select
 from starlette.requests import Request
@@ -49,7 +49,7 @@ def test_csv_exports_the_list_as_shown_across_pages(
         response = client.get(
             "/admin/post/_export/csv?f.status=published&sort=title&dir=desc&page=2&size=1"
         )
-    assert response.status_code == 200
+    assert response.status_code == status.HTTP_200_OK
     assert response.headers["content-type"] == "text/csv; charset=utf-8"
     assert re.fullmatch(
         r'attachment; filename="post-\d{8}-\d{6}\.csv"', response.headers["content-disposition"]
@@ -89,12 +89,12 @@ def test_export_routing_errors(factory: AppFactory, make_client: MakeClient) -> 
             return False
 
     with make_client(build(factory)) as client:
-        assert client.get("/admin/post/_export/xlsx").status_code == 404
-        assert client.get("/admin/post/_export/pdf").status_code == 404
-        assert client.get("/admin/nope/_export/csv").status_code == 404
-        assert client.get("/admin/user/_export/csv").status_code == 404
+        assert client.get("/admin/post/_export/xlsx").status_code == status.HTTP_404_NOT_FOUND
+        assert client.get("/admin/post/_export/pdf").status_code == status.HTTP_404_NOT_FOUND
+        assert client.get("/admin/nope/_export/csv").status_code == status.HTTP_404_NOT_FOUND
+        assert client.get("/admin/user/_export/csv").status_code == status.HTTP_404_NOT_FOUND
     with make_client(build(AppFactory(), LockedPostView)) as client:
-        assert client.get("/admin/post/_export/csv").status_code == 403
+        assert client.get("/admin/post/_export/csv").status_code == status.HTTP_403_FORBIDDEN
 
 
 def test_export_over_the_row_limit_returns_to_the_list(
@@ -109,11 +109,11 @@ def test_export_over_the_row_limit_returns_to_the_list(
         )
         page = client.get(over.headers["location"])
         within = client.get("/admin/post/_export/csv?f.status=published")
-    assert over.status_code == 303
+    assert over.status_code == status.HTTP_303_SEE_OTHER
     assert over.headers["location"] == "/admin/post/?f.status=draft&f.status=published"
     assert FLASH_COOKIE in over.headers["set-cookie"]
     assert "Export is limited to 2 rows; narrow the search or filters." in page.text
-    assert within.status_code == 200
+    assert within.status_code == status.HTTP_200_OK
 
 
 def test_xlsx_export(factory: AppFactory, make_client: MakeClient) -> None:

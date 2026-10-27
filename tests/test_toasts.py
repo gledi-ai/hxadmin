@@ -2,7 +2,7 @@ import json
 from collections.abc import Callable
 
 import pytest
-from fastapi import FastAPI
+from fastapi import FastAPI, status
 from fastapi.testclient import TestClient
 from starlette.requests import Request
 from starlette.responses import Response
@@ -65,14 +65,14 @@ def test_redirect_with_toast_sets_flash_cookie(factory: AppFactory) -> None:
         _request([(b"hx-request", b"true")]), "/admin/user/", toast=Toast("Saved")
     )
     plain = admin.redirect(_request(), "/admin/user/")
-    assert native.status_code == 303
+    assert native.status_code == status.HTTP_303_SEE_OTHER
     cookie = native.headers["set-cookie"]
     assert cookie.startswith(f"{FLASH_COOKIE}=")
     assert "Path=/admin/" in cookie
     assert "HttpOnly" in cookie
     assert "SameSite=lax" in cookie
     assert "Max-Age=60" in cookie
-    assert htmx.status_code == 200
+    assert htmx.status_code == status.HTTP_200_OK
     assert htmx.headers["HX-Redirect"] == "/admin/user/"
     assert htmx.headers["set-cookie"].startswith(f"{FLASH_COOKIE}=")
     assert "set-cookie" not in plain.headers
@@ -95,7 +95,7 @@ def test_flash_toast_rendered_once_and_cleared(
     with make_client(_flash_app(factory)) as client:
         first = client.get("/admin/_flash")
         second = client.get("/admin/")
-    assert first.status_code == 200
+    assert first.status_code == status.HTTP_200_OK
     assert "Saved \\u003c3" in first.text
     assert "Saved <3" not in first.text
     assert "Max-Age=0" in first.headers["set-cookie"]
@@ -120,7 +120,7 @@ def test_malformed_flash_cookie_still_renders_and_is_cleared(
     HxAdmin(app, session=factory.get_session, auth=allow_all)
     with make_client(app) as client:
         response = client.get("/admin/", headers={"cookie": f"{FLASH_COOKIE}=garbage"})
-    assert response.status_code == 200
+    assert response.status_code == status.HTTP_200_OK
     assert 'x-data="toasts([])"' in response.text
     assert "Max-Age=0" in response.headers["set-cookie"]
 

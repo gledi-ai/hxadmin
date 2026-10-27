@@ -1,7 +1,7 @@
 from collections.abc import Callable
 from pathlib import Path
 
-from fastapi import FastAPI
+from fastapi import FastAPI, status
 from fastapi.testclient import TestClient
 
 from hxadmin import HxAdmin
@@ -20,13 +20,13 @@ def test_static_assets_are_served(
         plugins = [
             client.get(f"/admin/static/vendor/alpine-{name}.min.js") for name in ("anchor", "focus")
         ]
-    assert css.status_code == 200
+    assert css.status_code == status.HTTP_200_OK
     assert "--color-surface" in css.text
     assert "--color-accent-soft" in css.text
     assert ".dark" in css.text
-    assert htmx.status_code == 200
-    assert alpine.status_code == 200
-    assert [p.status_code for p in plugins] == [200, 200]
+    assert htmx.status_code == status.HTTP_200_OK
+    assert alpine.status_code == status.HTTP_200_OK
+    assert [p.status_code for p in plugins] == [status.HTTP_200_OK] * 2
 
 
 def test_static_is_not_auth_guarded(
@@ -35,12 +35,12 @@ def test_static_is_not_auth_guarded(
     from fastapi import HTTPException
 
     def deny() -> None:
-        raise HTTPException(status_code=401)
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED)
 
     app = factory.app()
     HxAdmin(app, session=factory.get_session, auth=deny, login_url="/login")
     with make_client(app) as client:
-        assert client.get("/admin/static/hxadmin.css").status_code == 200
+        assert client.get("/admin/static/hxadmin.css").status_code == status.HTTP_200_OK
 
 
 def test_checkboxes_are_drawn_with_theme_tokens() -> None:

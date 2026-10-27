@@ -2,7 +2,7 @@ import types
 from collections.abc import Callable
 from urllib.parse import quote
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, status
 from fastapi.testclient import TestClient
 from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.requests import Request
@@ -16,7 +16,7 @@ type MakeClient = Callable[[FastAPI], TestClient]
 
 
 def deny() -> None:
-    raise HTTPException(status_code=401)
+    raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED)
 
 
 def build(factory: AppFactory) -> FastAPI:
@@ -161,7 +161,7 @@ def test_palette_requires_auth(factory: AppFactory, make_client: MakeClient) -> 
     HxAdmin(app, session=factory.get_session, auth=deny, login_url="/login")
     with make_client(app) as client:
         response = client.get("/admin/_palette", follow_redirects=False)
-    assert response.status_code == 303
+    assert response.status_code == status.HTTP_303_SEE_OTHER
     assert response.headers["location"] == "/login"
 
 
