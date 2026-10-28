@@ -205,6 +205,32 @@ def test_related_403_when_target_not_accessible(
     assert "/admin/group/_related/1/users" not in detail
 
 
+def test_relation_to_an_inaccessible_view_is_plain_text(
+    factory: AppFactory, make_client: Callable[[FastAPI], TestClient]
+) -> None:
+    app = factory.app(seed=seed)
+    admin = HxAdmin(app, session=factory.get_session, auth=allow_all)
+
+    @admin.register
+    class PostView(ModelView[Post]):
+        model = Post
+        list_columns = ("title", "author")
+
+    @admin.register
+    class UserView(ModelView[User]):
+        model = User
+
+        def is_accessible(self, request: Request) -> bool:
+            return False
+
+    with make_client(app) as client:
+        detail = client.get("/admin/post/1").text
+        listing = client.get("/admin/post/").text
+    assert "ada@x.io" in detail
+    assert 'href="/admin/user/1"' not in detail
+    assert 'href="/admin/user/1"' not in listing
+
+
 def test_related_rejects_non_collection(
     factory: AppFactory, make_client: Callable[[FastAPI], TestClient]
 ) -> None:

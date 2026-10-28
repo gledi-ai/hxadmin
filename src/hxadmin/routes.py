@@ -169,9 +169,7 @@ def build_router(admin: "HxAdmin") -> APIRouter:
         collections = [
             (f, admin.url(request, f"/{view.identity}/_related/{pk}/{f.name}"))
             for f in view.detail_fields
-            if isinstance(f, RelationField)
-            and f.multiple
-            and admin.relation_scope(request, f.target) is not None
+            if isinstance(f, RelationField) and f.multiple and admin.can_reach(request, f.target)
         ]
         return {
             "view": view,

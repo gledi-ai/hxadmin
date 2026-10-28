@@ -45,7 +45,7 @@ Keys are column names; inner keys are the enum's `.value` strings, or `"true"` /
 
 ## Detail page
 
-The detail page at `/{prefix}/{identity}/{pk}` shows a back link to the list, the row's `display` as the title with up to two enum badges, and the actions on the right: the row actions as buttons when there are at most two and none needs confirmation (otherwise they move into the `⋯` menu), Edit, and a `⋯` menu holding Delete. The body is a card holding a description list, two columns wide from the `md` breakpoint with each label above its value: the columns first, then the to-one relations in their own group. Long text and JSON span both columns. Values use the same cell formatting as the list; relations link to the related row when its model has a view with `can_view`. When `detail_columns` is empty, foreign-key columns whose relation is also shown are hidden. To-many relations appear as tabs below, each loading its list when first shown, through the related view's `get_query`. A relation whose view is not accessible to the current user gets no tab; one whose model has no view shows up to 100 rows as plain text.
+The detail page at `/{prefix}/{identity}/{pk}` shows a back link to the list, the row's `display` as the title with up to two enum badges, and the actions on the right: the row actions as buttons when there are at most two and none needs confirmation (otherwise they move into the `⋯` menu), Edit, and a `⋯` menu holding Delete. The body is a card holding a description list, two columns wide from the `md` breakpoint with each label above its value: the columns first, then the to-one relations in their own group. Long text and JSON span both columns. Values use the same cell formatting as the list; relations link to the related row when its model has a view with `can_view` that the current user can access. When `detail_columns` is empty, foreign-key columns whose relation is also shown are hidden. To-many relations appear as tabs below, each loading its list when first shown, through the related view's `get_query`. A relation whose view is not accessible to the current user gets no tab; one whose model has no view shows up to 100 rows as plain text.
 
 ## Hooks
 
@@ -110,7 +110,7 @@ class UserView(ModelView[User]):
         return request.state.hxadmin_user.is_superuser
 ```
 
-`is_accessible` is enforced: every route of the view answers 403 for other users, and relations pointing at `User` from other views are locked (see [Lists and filters](lists.md#filters) and [Forms](forms.md)). `is_visible` only hides the view from the sidebar, dashboard and palette; its URLs keep working. Use `is_visible` for views that are reachable through links but too noisy for the sidebar, and `is_accessible` for anything that is a permission.
+`is_accessible` is enforced: every route of the view answers 403 for other users, and relations pointing at `User` from other views are locked (see [Lists and filters](lists.md#filters) and [Forms](forms.md)): detail pages show them as plain text instead of links and leave out their tabs. `is_visible` only hides the view from the sidebar, dashboard and palette; its URLs keep working. Use `is_visible` for views that are reachable through links but too noisy for the sidebar, and `is_accessible` for anything that is a permission.
 
 ### Async and relations
 
