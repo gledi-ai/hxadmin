@@ -1,6 +1,8 @@
 [project]
 site_name = "hxadmin"
 site_url = "https://gledi-ai.github.io/hxadmin/"
+repo_url = "https://github.com/gledi-ai/hxadmin"
+repo_name = "gledi-ai/hxadmin"
 site_description = "Admin interface for FastAPI and SQLAlchemy 2.0+, built with Tailwind CSS and htmx"
 docs_dir = "docs"
 site_dir = "site"
