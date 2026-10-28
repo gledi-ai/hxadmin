@@ -2,6 +2,22 @@
 
 All notable changes to this project are documented in this file.
 
+## [0.2.1] - 2026-10-28
+
+### Bug fixes
+
+- An empty text field on a new row now gets the column's default
+- A delete refused because other rows refer to it shows an error toast instead of an error page
+- Hide a detail page's tab for a relation whose view the user cannot access
+- Show a relation as plain text on the detail page when its view is not accessible
+
+### Documentation
+
+- Say the Log out button sits at the bottom of the sidebar
+- Show the GitHub repository and latest release in the docs header
+- Correct the docs where they no longer match the code
+- Document the ModelView helpers and resolved attributes templates use
+
 ## [0.2.0] - 2026-10-27
 
 ### Features
