@@ -132,3 +132,31 @@ class TaskView(ModelView[Task]):
 ```
 
 `format_` and `display` are plain synchronous methods, so they cannot run queries themselves.
+
+## Helpers
+
+A registered view also has methods and attributes that hxadmin's templates use. They are useful in [template overrides](templates.md) and [custom pages](pages.md); `admin.view_for(Model)` returns the view registered for a model, or `None`.
+
+| Method | Returns |
+|---|---|
+| `pk_of(obj)` | The row's primary key as it appears in URLs (composite keys `;`-joined) |
+| `pk_clauses(pk)` | `where` clauses matching a URL primary key, for `select(...).where(*view.pk_clauses(pk))` |
+| `cell(obj, name)` | The value shown for a field: `format_<name>(obj)` when defined, else the attribute |
+| `badge_tone(name, raw)` | The `badges` tone of one value (`"neutral"` when none is declared) |
+| `permitted_actions(request, *, bulk)` | The row or bulk actions the current user may run, in declaration order; each has `name`, `label`, `bulk`, `confirm` and `method` |
+| `action_handler(name)` | The bound handler method of an action |
+
+These attributes are resolved once at registration and should be treated as read-only:
+
+| Attribute | Holds |
+|---|---|
+| `fields` | Every column and relationship of the model, by name |
+| `pk_names` | Names of the primary key columns |
+| `list_fields`, `detail_fields`, `export_fields` | The fields of the list, detail page and export, in order |
+| `writable_fields`, `edit_fields` | The fields of the create form, and of the edit form (without primary keys) |
+| `link_name`, `stretch_name` | The list's primary column (see [Table](lists.md#table)) and the column that takes the remaining width, or `None` |
+| `sort_names` | The columns the list can sort by |
+| `formatted` | Names of the fields with a `format_<name>` method |
+| `filters` | The list's filters, in `list_filters` order |
+| `actions`, `row_actions`, `bulk_actions` | Declared actions: all of them by name, then the row and bulk ones in declaration order |
+| `create_schema`, `edit_schema` | The pydantic models validating the create and edit forms |
