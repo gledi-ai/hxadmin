@@ -200,7 +200,9 @@ def test_related_403_when_target_not_accessible(
             return False
 
     with make_client(app) as client:
+        detail = client.get("/admin/group/1").text
         assert client.get("/admin/group/_related/1/users").status_code == status.HTTP_403_FORBIDDEN
+    assert "/admin/group/_related/1/users" not in detail
 
 
 def test_related_rejects_non_collection(
