@@ -7,7 +7,7 @@ admin = HxAdmin(
     auth=current_admin_user,  # dependency returning the user, or raising HTTPException
     prefix="/admin",
     login_url="/login",  # optional
-    logout_url="/logout",  # optional; shown in the top bar
+    logout_url="/logout",  # optional; Log out button at the bottom of the sidebar
     trusted_origins=(),  # optional; other origins allowed to send writes
 )
 ```
