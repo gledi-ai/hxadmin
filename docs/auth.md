@@ -22,7 +22,7 @@ FastAPI resolves a dependency once per request, so when your `auth` (or a custom
 
 `auth` runs on every admin request. Its return value is available as `request.state.hxadmin_user` and as `user` in templates. The user panel at the bottom of the sidebar shows `user.name` (an attribute or a mapping key) when it is set, otherwise `str(user)`, with initials derived from it. Any return value works: `None` or a bool (an `auth` that only answers "allowed") shows a generic avatar with no name.
 
-To deny access, raise `HTTPException(status.HTTP_401_UNAUTHORIZED)` or `HTTPException(status.HTTP_403_FORBIDDEN)` (`status` is `fastapi.status`). With `login_url` set, these send the browser to the login page (303, or `HX-Redirect` for htmx requests). Without it, they render an error page, keeping the exception's headers.
+To deny access, raise `HTTPException(status.HTTP_401_UNAUTHORIZED)` or `HTTPException(status.HTTP_403_FORBIDDEN)` (`status` is `fastapi.status`). With `login_url` set, a 401 or 403 raised by `auth` sends the browser to the login page (a 303, or `HX-Redirect` for htmx requests). Once `auth` has returned a user, later 401s and 403s (`is_accessible`, custom pages, the cross-site check) render the error page instead, as do all of them without `login_url`, keeping the exception's headers.
 
 ### Example: HTTP Basic against the users table
 
@@ -113,8 +113,12 @@ import os
 from typing import Annotated
 
 from fastapi import Depends, HTTPException, status
+from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.middleware.sessions import SessionMiddleware
 from starlette.requests import Request
+
+from myapp.db import get_session
+from myapp.models import User
 
 app.add_middleware(SessionMiddleware, secret_key=os.environ["SESSION_SECRET"], https_only=True)
 
@@ -138,7 +142,7 @@ The admin is mounted inside `app`, so middleware added to `app` runs for admin r
 
 ### The sign-in page
 
-If your app has no login page of its own, `admin.render_login()` renders one in the admin's style (light and dark, `logo_url` and `title`, no sidebar). Its form posts `username` and `password` to the current path:
+If your app has no login page of its own, `admin.render_login()` renders one in the admin's style (light and dark, `logo_url` and `title`, no sidebar). Its form posts `username` and `password` to the current path. Continuing the module above, with `verify_password` from the HTTP Basic example:
 
 ```python
 from fastapi import status

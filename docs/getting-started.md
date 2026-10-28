@@ -11,7 +11,7 @@ hxadmin needs Python 3.13+, FastAPI and SQLAlchemy 2.0+ with an async driver (`a
 
 ## The models in these docs
 
-The examples throughout these docs use the same three models, a small task tracker. They are the repository's demo models plus a few columns (`active`, `is_superuser`, `password_hash`, `archived`) and a `PasswordReset` table that later examples need:
+The examples throughout these docs use the same three models, a small task tracker. They are the repository's demo models plus a few columns (`active`, `is_superuser`, `archived`) and a `PasswordReset` table that later examples need:
 
 ```python
 # myapp/models.py
@@ -180,7 +180,7 @@ The URL is used as given, so it must be served by your app (for example with Fas
 The repository ships a small todo app that exercises every feature:
 
 ```bash
-uv run python -m demos.orm
+make demo  # or: uv run --group demo python -m demos.orm
 ```
 
 Then open <http://127.0.0.1:8001/admin/>. The demo creates and seeds `demos/orm/demo.db` on first start. Sign in as `ada@example.com` with the password `demo`. `make demo/tables` runs a second demo built on plain Core `Table`s (<http://127.0.0.1:8002/admin/>, `admin@example.com` / `demo`).

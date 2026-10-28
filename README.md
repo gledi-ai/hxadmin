@@ -24,21 +24,21 @@ admin = HxAdmin(app, session=get_session, auth=current_admin_user, title="My adm
 @admin.register
 class UserView(ModelView[User]):
     model = User
-    list_columns = ("email", "name", "group")
+    list_columns = ("email", "name", "active")
     searchable = ("email", "name")
-    list_filters = ("active", "group")
-    export_formats = ("csv", "xlsx")
+    list_filters = ("active",)
+    export_formats = ("csv",)
 ```
 
 `session` yields an `AsyncSession`; `auth` returns the current user or raises `HTTPException(status.HTTP_401_UNAUTHORIZED)`. Open `/admin/`.
 
-Documentation: [gledi-ai.github.io/hxadmin](https://gledi-ai.github.io/hxadmin/) (build locally with `nox -s docs`). Try everything in the demo: `uv run python -m demos.orm`, then open http://127.0.0.1:8001/admin/. For projects built on plain Core `Table`s instead of ORM models, see `uv run python -m demos.tables` (http://127.0.0.1:8002/admin/).
+Documentation: [gledi-ai.github.io/hxadmin](https://gledi-ai.github.io/hxadmin/) (build locally with `nox -s docs`). Try everything in the demo: `make demo`, then open http://127.0.0.1:8001/admin/ and sign in as `ada@example.com` / `demo`. For projects built on plain Core `Table`s instead of ORM models, see `make demo/tables` (http://127.0.0.1:8002/admin/, `admin@example.com` / `demo`).
 
 ## Development
 
 ```bash
-uv sync            # installs the dev group (lint + test + ipython)
-prek install       # git hooks: ruff, pyrefly, uv-lock
+uv sync            # installs the dev group (lint + test + demo + ipython)
+prek install       # git hooks: ruff, pyrefly, zizmor, uv-lock, Conventional Commits
 nox                # lint + tests on every supported Python
 nox -s tests-3.14  # single Python version
 nox -s tests_lowest  # tests against the lowest supported dependency versions

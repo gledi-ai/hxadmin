@@ -60,13 +60,13 @@ The templates go in the directory passed as `HxAdmin(templates_dir=...)`, and ex
 {% endblock %}
 ```
 
-The repository's demo has this exact pair of pages (`demos/orm/app.py`, `demos/orm/templates/`).
+The repository's demo has these two pages (`demos/orm/app.py`, `demos/orm/templates/`).
 
 Handlers are ordinary `async` FastAPI endpoints (`Depends`, path and query parameters, `methods=("POST",)`), guarded by `auth`. A path parameter with a type, like `status: TaskStatus`, is validated by FastAPI: `/stats/nope` answers 422. Return `Page(template, context)` to render inside the admin shell, or any `Response` or JSON-able value.
 
 Templates also get `admin`, `request`, `user`, `nav` and `admin_page` (also as `page` unless your context sets its own). Build links with `admin.url(request, path)`, which adds the admin's prefix, rather than hard-coding `/admin`.
 
-`admin.page` adds a sidebar entry under `category`; `admin.route` does not, and it may take path parameters. A page path may not start with a registered view identity or `static`: `/task/report` would raise at registration, because `/task/...` belongs to `TaskView`.
+`admin.page` adds a sidebar entry under `category` and cannot take path parameters; `admin.route` adds no entry and may take them, though not as its first segment. A page path may not start with a registered view identity or `static`: `/task/report` would raise at registration, because `/task/...` belongs to `TaskView`. The check runs both ways, so registering a view whose identity a page path already starts with raises too.
 
 ## Pages that write
 

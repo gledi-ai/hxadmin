@@ -15,8 +15,8 @@ The built-in templates live under `hxadmin/`. A file at the same path in your di
 | `hxadmin/layout.html` | Shell: sidebar, top bar, toasts, confirmation dialog |
 | `hxadmin/dashboard.html` | Dashboard cards |
 | `hxadmin/list.html`, `hxadmin/list/_toolbar.html`, `hxadmin/list/_table.html`, `hxadmin/list/_pagination.html` | List page, search and filters, table, footer |
-| `hxadmin/detail.html`, `hxadmin/detail/_panel.html` | Detail page |
-| `hxadmin/form.html`, `hxadmin/form/_fields.html`, `hxadmin/form/_field.html` | Create and edit forms |
+| `hxadmin/detail.html`, `hxadmin/detail/_panel.html`, `hxadmin/detail/_related_plain.html` | Detail page; a to-many tab whose model has no view |
+| `hxadmin/form.html`, `hxadmin/form/_fields.html`, `hxadmin/form/_field.html`, `hxadmin/form/_options.html` | Create and edit forms; relation picker search results |
 | `hxadmin/page.html` | Base for custom pages (`{% block body %}`) |
 | `hxadmin/error.html` | Error pages |
 | `hxadmin/login.html` | Sign-in page rendered by `admin.render_login()`; see [Auth](auth.md#the-sign-in-page) |
@@ -59,7 +59,7 @@ Built-ins refer to each other by their `hxadmin/` names, so the original dashboa
 | `tooltip`, `kbd` | A hover/focus tooltip; a keyboard-key badge |
 | `date_input` | A themed date, datetime or time picker submitting ISO values; see [Forms](forms.md#dates-and-times) |
 
-Each component file documents its full signature at the top. Every macro takes `class` (appended to its own classes) and, except `date_input`, `attrs` / `**kwargs` (extra HTML or Alpine attributes, `_` becoming `-`).
+Each component file documents its full signature at the top. Most macros take `class` (appended to their own classes) and `attrs` / `**kwargs` (extra HTML or Alpine attributes, `_` becoming `-`). `tooltip`, `kbd`, `dialog_footer`, `icon` and `date_input` take only `class`; `menu_separator` and `menu_label` take neither.
 
 `hxadmin/_macros.html` also renders the admin-specific pieces, which need the request context: `cell(view, field, value, link=True)` formats one value the way lists and the detail page do (`link=False` renders relations as muted text instead of links), and `row_menu`, `filter_button`, `bulk_bar` and `export_menu` render the list's row menu, filter pills, floating selection bar and export menu.
 
@@ -78,7 +78,7 @@ Row actions live at `/{identity}/{pk}/action/{name}` and bulk actions at `/{iden
 
 ## Tokens
 
-Templates use only semantic tokens; raw palette colours (`gray-500`, `blue-600`, ...) exist solely inside `@theme` in `static/src/hxadmin.css`.
+Templates use only semantic tokens, never raw palette colours (`gray-500`, `blue-600`, ...). Their values are set in `@theme` in `static/src/hxadmin.css`.
 
 | Group | Tokens |
 |---|---|
@@ -90,7 +90,7 @@ Templates use only semantic tokens; raw palette colours (`gray-500`, `blue-600`,
 | Radius | `radius-sm` / `radius-md` / `radius-lg` |
 | Shadows | `shadow-sm` (cards), `shadow-md` (popovers), `shadow-lg` (dialogs, floating bar) |
 
-Each token is defined once in `@theme` and overridden under `.dark`, so a template never branches on theme itself.
+Each token is defined once in `@theme`, and the colours are overridden under `.dark`, so a template never branches on theme itself.
 
 ## Shell
 
@@ -104,4 +104,4 @@ The top bar holds the breadcrumbs (the parent pages only, since the page title n
 
 ## Theme
 
-The theme button in the top bar cycles light → dark → system; its icon shows the current theme and its tooltip names the next. The choice is stored in `localStorage` under `hxadmin-theme` and applied before paint, so there is no flash.
+The theme button in the top bar cycles light → dark → system; its icon shows the current theme and its tooltip names the next. The choice is stored in `localStorage` under `hxadmin-theme` and applied before paint, so there is no flash. Until a choice is made the admin is light; choose system to follow the OS setting.

@@ -48,6 +48,8 @@ class UserView(ModelView[User]):
         return ActionResult.message(f"Reset link sent to {email}.", level="info")
 ```
 
+`@action(name, *, label=None, bulk=False, confirm=None, method="POST")` marks a method as an action. `name` (letters, digits, `_` and `-`) is part of the action's URL and must be unique within the view; `label` defaults to the name capitalised, so `reset_password` shows as "Reset password". Handlers must be `async def`; anything else raises at registration.
+
 `send_password_reset` and the `/reset` page that redeems the token are your application's; hxadmin has no mail or password-reset support of its own.
 
 ## How changes are saved
@@ -83,7 +85,7 @@ Return one of:
 
 Returning anything else counts as a failure. The toast shows in the bottom-right corner with an icon per level. Toasts pause while hovered, and error toasts stay until dismissed.
 
-A row action that deletes its object should return a redirect, since there is no detail page left to show; if it returns a message, hxadmin falls back to the list:
+A row action that deletes its object should return a redirect, since there is no detail page left to show; if a POST action returns a message, hxadmin falls back to the list:
 
 ```python
     @action("purge", label="Delete with tasks", confirm="Delete this user and all their tasks?")
@@ -120,7 +122,7 @@ class UserView(ModelView[User]):
 
 A GET action runs from a plain link, so it must not change data: another site could trigger it (see [Cross-site requests](auth.md#cross-site-requests)). Use POST for anything with side effects.
 
-Handlers get objects without eager-loaded relationships, and async SQLAlchemy cannot lazy-load them: `await session.refresh(obj, ["tasks"])` loads one before you touch it, as above.
+Handlers get objects without eager-loaded relationships (unless your `get_query` adds loader options), and async SQLAlchemy cannot lazy-load them: `await session.refresh(obj, ["tasks"])` loads one before you touch it, as above.
 
 ## Permissions
 
