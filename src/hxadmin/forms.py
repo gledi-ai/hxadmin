@@ -139,8 +139,6 @@ def _column_raw(field_: Field, form: FormData, *, created: bool) -> Any:
         return value
     if field_.nullable:
         return None
-    if field_.kind in _STRING_KINDS:
-        return value
     return _OMITTED if created and not is_required(field_) else value
 
 

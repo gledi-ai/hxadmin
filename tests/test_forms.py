@@ -100,7 +100,6 @@ def test_parse_form_normalises_empty_checkbox_and_multi() -> None:
     raw = parse_form(view.writable_fields, form, created=True)
     assert raw == {
         "title": " Hi ",
-        "body": "",
         "status": "draft",
         "published_at": None,
         "author": "1",
@@ -116,6 +115,13 @@ def test_parse_form_empty_defaulted_column_is_omitted_on_create_and_kept_on_edit
     edited = parse_form(fields, form, created=False)
     assert edited["score"] == ""
     assert edited["status"] == ""
+
+
+def test_parse_form_empty_defaulted_string_is_omitted_on_create_and_kept_on_edit() -> None:
+    fields = (Field("code", "str", required=False),)
+    form = FormData([("code", "")])
+    assert "code" not in parse_form(fields, form, created=True)
+    assert parse_form(fields, form, created=False) == {"code": ""}
 
 
 def test_validate_reports_empty_non_nullable_column_as_required() -> None:

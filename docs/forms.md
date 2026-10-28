@@ -40,7 +40,7 @@ Without it, `password_hash` would be an ordinary text input that stores whatever
 
 `widget` changes the HTML input only: `widget="email"` gets the browser's email keyboard and its own check, but the server still accepts any string. Validate on the server in `on_save` (below) or with a database constraint.
 
-Strings arrive stripped of surrounding whitespace. An empty input for a non-nullable column that is not text is left to the model default on create and reported as required on edit: on the docs models, leaving `priority` empty on a new task gives it the default `3`. `DateTime(timezone=True)` columns receive naive values from the datetime picker.
+Strings arrive stripped of surrounding whitespace. A non-nullable column without a default is required. With a default, an empty input is left to the default on create (leaving `priority` empty on a new task gives it `3`); on edit it is reported as required, except on a text column, where it saves an empty string. `DateTime(timezone=True)` columns receive naive values from the datetime picker.
 
 Each field shows its label (with a red `*` when required), the input, the help text and then the error. The Cancel / Save footer sticks to the bottom of the viewport on long forms; the edit page title carries the row's `#pk`.
 
