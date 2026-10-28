@@ -80,13 +80,14 @@
 {%- endmacro %}
 
 {% macro delete_menu_item(view, obj) -%}
+{%- set url = admin.url(request, '/' ~ view.identity ~ '/' ~ view.pk_of(obj) ~ '/delete') -%}
 {%- set payload = {
     "title": "Delete " ~ view.name|lower ~ "?",
     "message": "Delete " ~ view.display(obj) ~ "? This cannot be undone.",
     "danger": true,
-    "action": admin.url(request, '/' ~ view.identity ~ '/' ~ view.pk_of(obj) ~ '/delete'),
 } -%}
-{{ menu_item("Delete", icon="trash-2", tone="danger", attrs={"@click": "close(true); $dispatch('confirm', " ~ (payload|tojson|forceescape) ~ ")"}) }}
+{%- set submit = "htmx.ajax('POST', " ~ url|tojson|forceescape ~ ", {swap: 'none'})" -%}
+{{ menu_item("Delete", icon="trash-2", tone="danger", attrs={"@click": "close(true); $dispatch('confirm', Object.assign(" ~ payload|tojson|forceescape ~ ", {submit: () => " ~ submit ~ "}))"}) }}
 {%- endmacro %}
 
 {% macro bulk_bar(view) -%}

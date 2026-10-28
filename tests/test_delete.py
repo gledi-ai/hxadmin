@@ -124,6 +124,17 @@ def test_delete_button_dispatches_confirm(factory: AppFactory, make_client: Make
     assert "@confirm.window" in detail
 
 
+def test_delete_confirms_over_htmx_so_a_refusal_is_a_toast(
+    factory: AppFactory, make_client: MakeClient
+) -> None:
+    with make_client(build(factory)) as client:
+        detail = client.get("/admin/post/1").text
+        listing = client.get("/admin/post/").text
+    submit = "htmx.ajax(&#39;POST&#39;, &#34;/admin/post/1/delete&#34;, {swap: &#39;none&#39;})"
+    assert submit in detail
+    assert submit in listing
+
+
 def test_delete_returns_to_the_list_as_shown(factory: AppFactory, make_client: MakeClient) -> None:
     shown = "http://testserver/admin/vote/?f.value.min=2&sort=value&page=1"
     with make_client(build(factory)) as client:
