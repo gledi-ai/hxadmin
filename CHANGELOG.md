@@ -2,6 +2,12 @@
 
 All notable changes to this project are documented in this file.
 
+## [0.3.1] - 2026-11-23
+
+### Features
+
+- Add configurable icons to custom actions
+
 ## [0.3.0] - 2026-11-23
 
 ### Features
