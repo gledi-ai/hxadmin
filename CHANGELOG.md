@@ -2,6 +2,15 @@
 
 All notable changes to this project are documented in this file.
 
+## [0.3.2] - 2026-11-23
+
+### Features
+
+- Add split export button and distinct format icons
+- Move bulk actions into the list toolbar
+- Expand the default page size options
+- Support related record links in list columns
+
 ## [0.3.1] - 2026-11-23
 
 ### Features
