@@ -16,6 +16,7 @@
   </div>
   {% endif %}
   {% if view.export_formats %}
-  <div class="ml-auto flex">{{ m.export_control(view.export_formats, base_url ~ '_export/', params.qs(page=none, size=none)) }}</div>
+  <div class="ml-auto flex" x-show="count === 0">{{ m.export_control(view.export_formats, base_url ~ '_export/', params.qs(page=none, size=none)) }}</div>
   {% endif %}
+  {{ m.bulk_bar(view) }}
 </form>

@@ -68,8 +68,9 @@ def test_list_renders_selection_bulk_bar_and_row_actions(
     with make_client(build(factory)) as client:
         html = client.get("/admin/user/").text
         partial = client.get("/admin/user/", headers={"HX-Request": "true"}).text
-    assert 'x-data="bulk()"' in tag(html, 'id="list"')
-    assert '<form id="bulk" x-show="count"' in html
+    assert html.index('x-data="bulk()"') < html.index('id="list-filters"')
+    assert '<form id="bulk"></form>' in html
+    assert 'x-show="count > 0"' in tag(html, 'id="list-bulk-actions"')
     assert 'hx-post="/admin/user/action/deactivate"' in html
     assert f"{icon('zap', 'size-4 shrink-0')}Deactivate</button>" in html
     assert 'hx-target="#list"' in html
@@ -85,7 +86,8 @@ def test_list_renders_selection_bulk_bar_and_row_actions(
     assert 'href="/admin/user/1/action/download?_from=list"' in html
     assert 'hx-include="#list-state"' in html
     assert 'name="pks" value="1" form="bulk"' in partial
-    assert '<form id="bulk"' in partial
+    assert '<form id="bulk"></form>' in partial
+    assert 'hx-swap-oob="true"' in tag(partial, 'id="list-bulk-actions"')
 
 
 def test_related_tables_and_views_without_actions_have_no_selection(

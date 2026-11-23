@@ -158,10 +158,13 @@ def test_export_split_button_and_format_icons(factory: AppFactory, make_client: 
     with make_client(build(factory)) as client:
         html = client.get("/admin/post/").text
     toolbar = html[html.index('id="list-export-control"') :]
-    bulk = html[html.index('id="bulk"') :]
-    for context, control in (("list", toolbar), ("bulk", bulk)):
+    bulk = html[html.index('id="list-bulk-actions"') :]
+    for context, control, label in (
+        ("list", toolbar, "Export all matching"),
+        ("bulk", bulk, "Export selected"),
+    ):
         trigger_id = f'id="{context}-export-trigger"'
-        primary = tag(control, 'aria-label="Export CSV"')
+        primary = tag(control, f'aria-label="{label} as CSV"')
         assert "rounded-r-none" in classes_of(primary)
         trigger = tag(control, trigger_id)
         assert 'aria-label="Export formats"' in trigger
@@ -171,9 +174,11 @@ def test_export_split_button_and_format_icons(factory: AppFactory, make_client: 
         assert [visible_text(item) for item in items] == ["CSV", "XLSX"]
         for item, icon_name in zip(items, ("file-text", "table"), strict=True):
             assert str(icon(icon_name, "size-4 shrink-0 text-fg-muted")) in item
-    assert 'formmethod="get" formaction="/admin/post/_export/csv"' in tag(
-        bulk, 'aria-label="Export CSV"'
-    )
+    selected = tag(bulk, 'aria-label="Export selected as CSV"')
+    assert 'form="bulk"' in selected
+    assert 'formmethod="get" formaction="/admin/post/_export/csv"' in selected
+    menu = bulk[bulk.index('id="bulk-export"') :]
+    assert 'form="bulk"' in tag(menu, 'formaction="/admin/post/_export/xlsx"')
 
 
 @pytest.mark.parametrize("fmt", ["csv", "xlsx"])
@@ -185,10 +190,13 @@ def test_single_export_format_downloads_directly(
 
     with make_client(build(factory, SingleExportPostView)) as client:
         html = client.get("/admin/post/").text
-    primary = f'aria-label="Export {fmt.upper()}"'
-    toolbar, bulk = html.split('id="bulk"', 1)
-    assert f'href="/admin/post/_export/{fmt}?' in tag(toolbar, primary)
-    assert f'formaction="/admin/post/_export/{fmt}"' in tag(bulk, primary)
+    toolbar, bulk = html.split('id="list-bulk-actions"', 1)
+    assert f'href="/admin/post/_export/{fmt}?' in tag(
+        toolbar, f'aria-label="Export all matching as {fmt.upper()}"'
+    )
+    selected = tag(bulk, f'aria-label="Export selected as {fmt.upper()}"')
+    assert 'form="bulk"' in selected
+    assert f'formaction="/admin/post/_export/{fmt}"' in selected
     assert 'id="list-export-trigger"' not in toolbar
     assert 'id="bulk-export-trigger"' not in bulk
 
@@ -262,15 +270,22 @@ def test_table_header_sticks_inside_its_scrolling_card(
     assert any(c.startswith("max-h-") for c in classes_of(card))
 
 
-def test_mobile_list_has_select_all_and_room_for_the_bulk_bar(
+def test_mobile_list_has_select_all_and_toolbar_switches_export_scope(
     factory: AppFactory, make_client: MakeClient
 ) -> None:
     with make_client(build(factory)) as client:
         html = client.get("/admin/post/").text
     assert 'data-select-all="mobile"' in html
     assert "input[id^=pk-mobile-]:not(:disabled)" in html
-    bound = tag(html, 'id="list"').replace("&#39;", "'")
-    assert re.search(r":class=\"count > 0 && 'pb-\d+'\"", bound)
+    start = html.index('id="list-filters"')
+    toolbar = html[start : html.index("</form>", start)]
+    assert 'x-show="count === 0"' in toolbar
+    assert 'aria-label="Export all matching as CSV"' in toolbar
+    bulk = tag(toolbar, 'id="list-bulk-actions"')
+    assert 'x-show="count > 0"' in bulk
+    assert {"max-sm:order-last", "max-sm:basis-full"} <= classes_of(bulk)
+    assert 'aria-label="Export selected as CSV"' in toolbar
+    assert ">Clear selection</button>" in toolbar
 
 
 def test_mobile_toolbar_puts_export_beside_search_and_filters_below(

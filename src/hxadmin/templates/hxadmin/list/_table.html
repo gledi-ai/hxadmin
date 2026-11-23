@@ -12,6 +12,7 @@
 {{ m.filter_reset(params.filters, oob=True) }}
 {{ m.list_count(result.total, oob=True) }}
 {{ m.export_control(view.export_formats, base_url ~ '_export/', params.qs(page=none, size=none), oob=True) }}
+{{ m.bulk_bar(view, oob=True) }}
 {% endif %}
 {% if push_url %}
 <div id="list-state">
@@ -20,6 +21,7 @@
   <input type="hidden" name="size" value="{{ params.size }}">
 </div>
 {% endif %}
+{% if selectable and result.total %}<form id="bulk"></form>{% endif %}
 {% if result.total == 0 %}
 {% set filtered = params.q or params.filters %}
 {% if filtered %}
@@ -106,5 +108,4 @@
   </table>
 {% endcall %}
 {% include "hxadmin/list/_pagination.html" %}
-{% if selectable %}{{ m.bulk_bar(view) }}{% endif %}
 {% endif %}

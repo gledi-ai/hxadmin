@@ -90,17 +90,17 @@
 {{ menu_item("Delete", icon="trash-2", tone="danger", attrs={"@click": "close(true); $dispatch('confirm', Object.assign(" ~ payload|tojson|forceescape ~ ", {submit: () => " ~ submit ~ "}))"}) }}
 {%- endmacro %}
 
-{% macro bulk_bar(view) -%}
+{% macro bulk_bar(view, oob=False) -%}
 {%- set bulk_actions = view.permitted_actions(request, bulk=True) -%}
-{%- if bulk_actions or view.export_formats %}
-<form id="bulk" x-show="count" x-cloak
-      class="fixed inset-x-0 bottom-6 z-40 mx-auto flex w-fit max-w-[calc(100vw-2rem)] flex-wrap items-center gap-2 rounded-lg border border-border bg-popover px-3 py-2 text-sm text-fg shadow-lg">
-  <span class="mr-1 font-medium" x-text="count + ' selected'"></span>
+<div id="list-bulk-actions"{% if oob %} hx-swap-oob="true"{% endif %} x-show="count > 0" x-cloak
+     class="ml-auto flex max-w-full flex-wrap items-center gap-2 text-sm max-sm:order-last max-sm:basis-full">
+  {%- if bulk_actions or view.export_formats %}
+  <span class="mr-1 font-medium" role="status" x-text="count + ' selected'"></span>
   {%- for action in bulk_actions %}{{ action_button(view, action, none, 'list', button_classes('secondary', 'sm')) }}{% endfor %}
   {{ export_control(view.export_formats, admin.url(request, '/' ~ view.identity ~ '/_export/')) }}
-  {{ icon_button('x', 'Clear selection', 'ghost', 'sm', attrs={'@click': "document.querySelectorAll('input[form=bulk][name=pks]:checked').forEach(function (c) { c.checked = false; c.dispatchEvent(new Event('change', {bubbles: true})); })"}) }}
-</form>
-{%- endif -%}
+  {{ button('Clear selection', 'ghost', 'sm', attrs={'@click': "document.querySelectorAll('input[form=bulk][name=pks]:checked').forEach(function (c) { c.checked = false; c.dispatchEvent(new Event('change', {bubbles: true})); })"}) }}
+  {%- endif %}
+</div>
 {%- endmacro %}
 
 
@@ -224,12 +224,13 @@
 {% set _export_icons = {'csv': 'file-text', 'xlsx': 'table'} %}
 
 {% macro _export_item(fmt, url, query, primary=False, split=False) -%}
-{%- set attrs = {'formmethod': 'get', 'formaction': url} if query is none else {} -%}
+{%- set attrs = {'form': 'bulk', 'formmethod': 'get', 'formaction': url} if query is none else {} -%}
 {%- set href = none if query is none else url ~ '?' ~ query -%}
 {%- set type = 'submit' if query is none else 'button' -%}
 {%- if primary -%}
-  {%- set attrs = dict(attrs, **{'aria-label': 'Export ' ~ fmt|upper}) -%}
-  {{ button('Export', size='sm', icon='download', href=href, type=type, attrs=attrs,
+  {%- set label = 'Export selected' if query is none else 'Export all matching' -%}
+  {%- set attrs = dict(attrs, **{'aria-label': label ~ ' as ' ~ fmt|upper}) -%}
+  {{ button(label, size='sm', icon='download', href=href, type=type, attrs=attrs,
             class='rounded-r-none' if split else '') }}
 {%- else -%}
   {{ menu_item(fmt|upper, icon=_export_icons[fmt], href=href, type=type, attrs=attrs) }}
@@ -247,7 +248,7 @@
     {%- call menu('bulk-export' if bulk else 'list-export', icon('chevron-down'),
                   label='Export formats',
                   trigger_class=button_classes('secondary', 'sm', square=True) ~ ' rounded-l-none border-l-0',
-                  placement='top-end' if bulk else 'bottom-end') -%}
+                  placement='bottom-end') -%}
       {%- for fmt in formats -%}
         {{ _export_item(fmt, url ~ fmt, query) }}
       {%- endfor -%}
