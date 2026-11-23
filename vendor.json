@@ -1,6 +1,6 @@
 {
   "htmx.org": {
-    "version": "4.0.0",
+    "version": "4.0.2",
     "files": {
       "dist/htmx.min.js": "htmx.min.js"
     }
@@ -43,13 +43,13 @@
     ]
   },
   "lucide-static": {
-    "version": "1.62.0",
+    "version": "1.78.0",
     "files": {
       "icons/*.svg": "lucide.json",
       "LICENSE": "lucide.LICENSE"
     }
   },
   "tailwindcss": {
-    "version": "4.3.3"
+    "version": "4.3.5"
   }
 }
