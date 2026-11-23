@@ -14,12 +14,12 @@ hooks = [
 
 [[repos]]
 repo = "https://github.com/astral-sh/uv-pre-commit"
-rev = "0.13.6"
+rev = "0.13.9"
 hooks = [{ id = "uv-lock" }]
 
 [[repos]]
 repo = "https://github.com/compilerla/conventional-pre-commit"
-rev = "v4.4.0"
+rev = "v4.5.0"
 hooks = [
   { id = "conventional-pre-commit", stages = ["commit-msg"], args = ["--strict"] },
 ]
