@@ -115,7 +115,6 @@ class TaskView(ModelView[Task]):
     searchable = ("title",)
     default_sort = ("due_date", "asc")
     page_size = 5
-    page_size_options = (5, 25, 100)
     list_filters = ("status", "priority", "due_date", "title", "project", "assignee")
     export_formats = ("csv", "xlsx")
     badges: ClassVar[Mapping[str, Mapping[str, BadgeTone]]] = {

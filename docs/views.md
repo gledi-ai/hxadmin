@@ -22,7 +22,7 @@ class TaskView(ModelView[Task]):
 | `searchable` | `()` | Columns searched by `?q=` (case-insensitive substring) |
 | `sortable` | every column in `list_columns` | Columns with sortable headers |
 | `default_sort` | `None` | `("column", "asc" \| "desc")` |
-| `page_size` / `page_size_options` | `25` / `(25, 50, 100)` | Pagination |
+| `page_size` / `page_size_options` | `25` / `(5, 10, 25, 50, 100)` | Pagination |
 | `list_filters` | `()` | Filter panel; see [Lists and filters](lists.md) |
 | `form_fields` / `form_exclude` | derived / `()` | See [Forms](forms.md) |
 | `export_formats` / `export_columns` / `export_max_rows` | `()` / list columns / `10_000` | See [Export](export.md) |

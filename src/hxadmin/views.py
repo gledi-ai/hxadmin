@@ -36,7 +36,7 @@ class ModelView[T]:
     sortable: ClassVar[tuple[str, ...]] = ()
     default_sort: ClassVar[tuple[str, SortDir] | None] = None
     page_size: ClassVar[int] = 25
-    page_size_options: ClassVar[tuple[int, ...]] = (25, 50, 100)
+    page_size_options: ClassVar[tuple[int, ...]] = (5, 10, 25, 50, 100)
     can_view: ClassVar[bool] = True
     form_fields: ClassVar[tuple[str | Field, ...]] = ()
     form_exclude: ClassVar[tuple[str, ...]] = ()
