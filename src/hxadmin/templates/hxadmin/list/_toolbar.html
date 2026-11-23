@@ -15,5 +15,7 @@
     {{ m.filter_reset(params.filters) }}
   </div>
   {% endif %}
-  <span class="ml-auto">{{ m.export_menu(view, base_url, params) }}</span>
+  {% if view.export_formats %}
+  <div class="ml-auto flex">{{ m.export_control(view.export_formats, base_url ~ '_export/', params.qs(page=none, size=none)) }}</div>
+  {% endif %}
 </form>

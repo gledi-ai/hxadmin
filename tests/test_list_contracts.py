@@ -12,6 +12,7 @@ from starlette.requests import Request
 
 from hxadmin import ActionResult, HxAdmin, ModelView, action
 from hxadmin.export import ExportFormat
+from hxadmin.icons import icon
 from tests.conftest import AppFactory, Post, User, allow_all
 from tests.html import tag, visible_text
 from tests.test_filters import seed
@@ -128,19 +129,17 @@ def test_numeric_columns_are_right_aligned_with_tabular_numbers(
         assert ({"text-right", "tabular-nums"} <= classes_of(cell)) is numeric, name
 
 
-def export_links(html: str) -> list[str]:
-    start = html.index('id="list-export-items"')
-    block = html[start : html.index("</div>", start)]
-    return re.findall(r'href="([^"]+)"', block)
-
-
 def test_export_links_carry_the_current_query(factory: AppFactory, make_client: MakeClient) -> None:
     query = "q=al&f.status=published&sort=score&dir=desc&page=2&size=25"
     with make_client(build(factory)) as client:
         html = client.get(f"/admin/post/?{query}").text
         partial = client.get(f"/admin/post/?{query}", headers=HX).text
-    for links in (export_links(html), export_links(partial)):
+    for response in (html, partial):
+        control = response[response.index('id="list-export-control"') :]
+        control = control[: control.index("</div>")]
+        links = re.findall(r'href="([^"]+)"', control)
         assert [link.split("?")[0] for link in links] == [
+            "/admin/post/_export/csv",
             "/admin/post/_export/csv",
             "/admin/post/_export/xlsx",
         ]
@@ -152,8 +151,46 @@ def test_export_links_carry_the_current_query(factory: AppFactory, make_client: 
             assert "dir=desc" in params
             assert "page=" not in params
             assert "size=" not in params
-    oob = partial[partial.index('id="list-export-items"') - 6 :]
-    assert 'hx-swap-oob="true"' in oob[: oob.index(">")]
+    assert 'hx-swap-oob="true"' in tag(partial, 'id="list-export-control"')
+
+
+def test_export_split_button_and_format_icons(factory: AppFactory, make_client: MakeClient) -> None:
+    with make_client(build(factory)) as client:
+        html = client.get("/admin/post/").text
+    toolbar = html[html.index('id="list-export-control"') :]
+    bulk = html[html.index('id="bulk"') :]
+    for context, control in (("list", toolbar), ("bulk", bulk)):
+        trigger_id = f'id="{context}-export-trigger"'
+        primary = tag(control, 'aria-label="Export CSV"')
+        assert "rounded-r-none" in classes_of(primary)
+        trigger = tag(control, trigger_id)
+        assert 'aria-label="Export formats"' in trigger
+        assert 'aria-haspopup="menu"' in trigger
+        menu = control[control.index(f'id="{context}-export"') :]
+        items = re.findall(r'role="menuitem"[^>]*>(.*?)</(?:a|button)>', menu.split("</div>")[0])
+        assert [visible_text(item) for item in items] == ["CSV", "XLSX"]
+        for item, icon_name in zip(items, ("file-text", "table"), strict=True):
+            assert str(icon(icon_name, "size-4 shrink-0 text-fg-muted")) in item
+    assert 'formmethod="get" formaction="/admin/post/_export/csv"' in tag(
+        bulk, 'aria-label="Export CSV"'
+    )
+
+
+@pytest.mark.parametrize("fmt", ["csv", "xlsx"])
+def test_single_export_format_downloads_directly(
+    factory: AppFactory, make_client: MakeClient, fmt: ExportFormat
+) -> None:
+    class SingleExportPostView(PostView):
+        export_formats: ClassVar[tuple[ExportFormat, ...]] = (fmt,)
+
+    with make_client(build(factory, SingleExportPostView)) as client:
+        html = client.get("/admin/post/").text
+    primary = f'aria-label="Export {fmt.upper()}"'
+    toolbar, bulk = html.split('id="bulk"', 1)
+    assert f'href="/admin/post/_export/{fmt}?' in tag(toolbar, primary)
+    assert f'formaction="/admin/post/_export/{fmt}"' in tag(bulk, primary)
+    assert 'id="list-export-trigger"' not in toolbar
+    assert 'id="bulk-export-trigger"' not in bulk
 
 
 def row_menu(html: str, pk: int) -> str:

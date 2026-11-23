@@ -19,7 +19,9 @@ Listing `"xlsx"` without it installed raises `ImportError` when the view is regi
 
 ## What is exported
 
-The **Export** menu in the list toolbar links to `/{prefix}/{identity}/_export/csv` (and `xlsx`) with the current search, filters and sort, and the export contains every matching row across all pages. With rows checked, the selection bar offers an export of just those rows, which `export_max_rows` does not limit. Rows always come through `get_query`.
+The **Export** button downloads the enabled format directly. When both CSV and XLSX are enabled, **Export** downloads CSV and the chevron opens a menu with both formats.
+
+The list toolbar export includes every row matching the current search and filters, in the current sort order, across all pages. With rows checked, the selection bar exports just those rows, which `export_max_rows` does not limit. Rows always come through `get_query`.
 
 When more rows match the search and filters than `export_max_rows`, no file is produced: the browser returns to the list with a warning toast.
 
