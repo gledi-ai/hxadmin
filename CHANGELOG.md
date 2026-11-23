@@ -2,6 +2,13 @@
 
 All notable changes to this project are documented in this file.
 
+## [0.3.0] - 2026-11-23
+
+### Features
+
+- Support Python 3.15 and add a virtualenv target
+- Print demo credentials at startup
+
 ## [0.2.1] - 2026-10-28
 
 ### Bug fixes
