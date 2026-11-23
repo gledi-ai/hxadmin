@@ -1,6 +1,7 @@
 import re
 from collections.abc import Callable
 
+import pytest
 from fastapi import FastAPI, status
 from fastapi.testclient import TestClient
 from sqlalchemy import Select
@@ -70,6 +71,49 @@ def test_full_page(factory: AppFactory, make_client: Callable[[FastAPI], TestCli
     assert 'href="/admin/user/1"' in html
     assert 'href="/admin/group/1"' not in html
     assert '<span class="text-fg-muted">Group 1</span>' in table_section(html)
+
+
+@pytest.mark.parametrize("accessible", [True, False])
+def test_list_relation_links_use_the_target_view(
+    factory: AppFactory, make_client: Callable[[FastAPI], TestClient], accessible: bool
+) -> None:
+    app = factory.app(seed=seed)
+    admin = HxAdmin(app, session=factory.get_session, auth=allow_all)
+
+    @admin.register
+    class GroupView(ModelView[Group]):
+        model = Group
+
+        def display(self, obj: Group) -> str:
+            return obj.name
+
+        def is_accessible(self, request: Request) -> bool:
+            return accessible
+
+    @admin.register
+    class UserView(ModelView[User]):
+        model = User
+        list_columns = ("id", "group", "active")
+        list_relation_links = ("group",)
+
+    with make_client(app) as client:
+        html = client.get("/admin/user/", headers={"HX-Request": "true"}).text
+    cards, table = html.split("<table", 1)
+    for layout in (cards, table):
+        assert re.search(r'href="/admin/user/1"[^>]*>1</a>', layout)
+        assert ">staff<" in layout
+        assert ('href="/admin/group/1">staff</a>' in layout) is accessible
+
+
+@pytest.mark.parametrize("name", ["email", "group", "posts"])
+def test_list_relation_links_require_a_listed_to_one_relationship(name: str) -> None:
+    class UserView(ModelView[User]):
+        model = User
+        list_columns = ("email", "posts")
+        list_relation_links = (name,)
+
+    with pytest.raises(ValueError, match="must be a to-one relationship in list_columns"):
+        UserView()
 
 
 def test_partial_on_hx_request(

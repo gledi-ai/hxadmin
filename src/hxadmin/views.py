@@ -31,6 +31,7 @@ class ModelView[T]:
     icon: ClassVar[str | None] = None
 
     list_columns: ClassVar[tuple[str, ...]] = ()
+    list_relation_links: ClassVar[tuple[str, ...]] = ()
     detail_columns: ClassVar[tuple[str, ...]] = ()
     searchable: ClassVar[tuple[str, ...]] = ()
     sortable: ClassVar[tuple[str, ...]] = ()
@@ -64,20 +65,32 @@ class ModelView[T]:
             cls.identity = cls.__dict__.get("identity", cls.identity)
 
     def __init__(self) -> None:
+        owner = type(self).__name__
         self.fields = derive_fields(self.model)
         column_fields = [f for f in self.fields.values() if isinstance(f, Field)]
         self.pk_names = tuple(f.name for f in column_fields if f.primary_key)
         self.list_fields = self._resolve(self.list_columns or tuple(f.name for f in column_fields))
+        for name in self.list_relation_links:
+            field = self.fields.get(name)
+            if (
+                not isinstance(field, RelationField)
+                or field.multiple
+                or field not in self.list_fields
+            ):
+                raise ValueError(f"{owner}: {name!r} must be a to-one relationship in list_columns")
+        row_link_fields = tuple(
+            f for f in self.list_fields if f.name not in self.list_relation_links
+        )
         self.stretch_name = next(
             (
                 f.name
-                for f in self.list_fields
+                for f in row_link_fields
                 if f.kind in ("str", "text", "relation")
                 and not (isinstance(f, Field) and f.primary_key)
             ),
             None,
         )
-        self.link_name = self.stretch_name or self.list_fields[0].name
+        self.link_name = self.stretch_name or (row_link_fields[0].name if row_link_fields else None)
         self.detail_fields = self._resolve(self.detail_columns or tuple(self.fields))
         self.sort_names = self.sortable or tuple(
             f.name for f in self.list_fields if isinstance(f, Field)
@@ -106,7 +119,6 @@ class ModelView[T]:
         self.actions, self._action_attrs = self._collect_actions()
         self.row_actions = tuple(a for a in self.actions.values() if not a.bulk)
         self.bulk_actions = tuple(a for a in self.actions.values() if a.bulk)
-        owner = type(self).__name__
         self.filters: tuple[Filter, ...] = resolve_filters(
             owner, self.model, self.fields, self.list_filters
         )

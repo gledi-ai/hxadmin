@@ -18,6 +18,7 @@ class TaskView(ModelView[Task]):
 | Attribute | Default | Meaning |
 |---|---|---|
 | `list_columns` | all columns | Columns and relations shown in the list |
+| `list_relation_links` | `()` | To-one relationships in `list_columns` that link to their related records |
 | `detail_columns` | all columns and relations | Fields on the detail page |
 | `searchable` | `()` | Columns searched by `?q=` (case-insensitive substring) |
 | `sortable` | every column in `list_columns` | Columns with sortable headers |

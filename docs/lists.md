@@ -13,7 +13,11 @@ Invalid values fall back to the defaults, and a page past the end shows the last
 
 ## Table
 
-The header shows the plural name with the row count ("Tasks · 6", updated as you search and filter) and the New button. The table sits in a bordered card that scrolls within the viewport, with a sticky header. Columns size to their content; the primary column takes the remaining width and is the only link, to the detail page (when `can_view`). The primary column is the first text or relation column of `list_columns` that is not the primary key. When there is none, the first column is the link and an empty column takes the remaining width. With `list_columns = ("id", "title", "status")` it is `title`. To make a column the link, list a text column first or reorder them. To-one relations render as plain muted text, to-many relations as their row count, enums and declared bools as badges (see [Badges](views.md#badges)), other bools as a check or cross icon, and missing values as `—`. Numbers are right-aligned with tabular figures. Checked rows are highlighted.
+The header shows the plural name with the row count ("Tasks · 6", updated as you search and filter) and the New button. The table sits in a bordered card that scrolls within the viewport, with a sticky header. The first non-primary-key text or relation column takes the remaining width and links to the current row's detail page when `can_view` is enabled. If no column fits that rule, the first column links to the row and an empty column takes the remaining width. With `list_columns = ("id", "title", "status")`, the row link is `title`.
+
+To make related records clickable, include their to-one relationships in both `list_columns` and `list_relation_links`. For example, set `list_relation_links = ("product", "warehouse")` to link those names to their detail pages. hxadmin uses the related view's `display()` for the label and shows plain text if the related view is unavailable or inaccessible. hxadmin chooses the current row's link from the remaining columns.
+
+To-many relations show a row count. Enums and declared bools appear as [badges](views.md#badges), other bools as a check or cross, and missing values as `—`. Numbers are right-aligned with tabular figures. Checked rows are highlighted.
 
 With no rows, the table is replaced by an empty state: "No tasks yet" (with a "New task" button when `can_create`), or "No tasks match these filters" with a "Reset filters" button when a search or filter is active.
 

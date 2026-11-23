@@ -91,6 +91,9 @@ class WarehouseView(ModelView[Warehouse]):
     icon = "warehouse"
     searchable = ("name", "city")
 
+    def display(self, obj: Warehouse) -> str:
+        return obj.name
+
 
 @admin.register
 class ProductView(ModelView[Product]):
@@ -101,6 +104,9 @@ class ProductView(ModelView[Product]):
     default_sort = ("sku", "asc")
     export_formats = ("csv", "xlsx")
 
+    def display(self, obj: Product) -> str:
+        return obj.name
+
 
 @admin.register
 class StockMoveView(ModelView[StockMove]):
@@ -108,6 +114,8 @@ class StockMoveView(ModelView[StockMove]):
     name = "Stock move"
     category = "Inventory"
     icon = "arrow-left-right"
+    list_columns = ("id", "product", "warehouse", "kind", "quantity", "moved_on")
+    list_relation_links = ("product", "warehouse")
     default_sort = ("moved_on", "desc")
     list_filters = ("kind", "warehouse_id", "moved_on")
     badges: ClassVar[Mapping[str, Mapping[str, BadgeTone]]] = {
