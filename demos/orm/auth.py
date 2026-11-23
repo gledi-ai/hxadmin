@@ -14,6 +14,7 @@ from demos.orm.db import get_session
 from demos.orm.models import User
 
 DEMO_PASSWORD = "demo"  # noqa: S105
+STAFF_EMAIL = "staff@example.com"
 
 
 def hash_password(password: str) -> str:

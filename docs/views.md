@@ -59,6 +59,7 @@ The detail page at `/{prefix}/{identity}/{pk}` shows a back link to the list, th
 | `on_delete(request, session, obj)` | Runs before delete |
 | `is_visible(request)` | Show the view in the sidebar, dashboard and command palette |
 | `is_accessible(request)` | Allow access at all (403 otherwise); an inaccessible view is also left out of the sidebar, dashboard and palette |
+| `is_operation_allowed(request, operation)` | Allow an enabled built-in operation for the current user |
 | `is_action_allowed(request, name)` | Allow one action; see [Actions](actions.md#permissions) |
 
 `request.state.hxadmin_user` is whatever your `auth` dependency returned, so the hooks can decide per user. The examples below assume the `auth` from [Auth and sessions](auth.md#auth), which returns the signed-in `User` row.
@@ -112,6 +113,29 @@ class UserView(ModelView[User]):
 ```
 
 `is_accessible` is enforced: every route of the view answers 403 for other users, and relations pointing at `User` from other views are locked (see [Lists and filters](lists.md#filters) and [Forms](forms.md)): detail pages show them as plain text instead of links and leave out their tabs. `is_visible` only hides the view from the sidebar, dashboard and palette; its URLs keep working. Use `is_visible` for views that are reachable through links but too noisy for the sidebar, and `is_accessible` for anything that is a permission.
+
+### Permissions per operation
+
+Override `is_operation_allowed` to let staff browse tasks while reserving changes and downloads for superusers. The hook is synchronous and defaults to allowing every enabled operation.
+
+```python
+from starlette.requests import Request
+
+from hxadmin import ModelOperation, ModelView
+
+
+@admin.register
+class TaskView(ModelView[Task]):
+    model = Task
+    export_formats = ("csv",)
+
+    def is_operation_allowed(self, request: Request, operation: ModelOperation) -> bool:
+        return operation == "view" or request.state.hxadmin_user.is_superuser
+```
+
+`"view"` controls detail pages and their related tabs. Use `is_accessible` to restrict access to the entire view, including its list, and `get_query` to scope the rows a user can access. `"create"`, `"edit"`, and `"delete"` control the corresponding forms and writes. `"export"` controls both filtered-list and selected-row downloads in every configured format. Custom actions use `is_action_allowed`.
+
+The built-in templates hide controls for denied operations, and direct requests for enabled operations denied by the hook return 403. The `can_*` flags and `export_formats` still control which operations are enabled. Template overrides can use `view.allows_operation(request, "edit")` and `view.permitted_export_formats(request)` to respect both settings.
 
 ### Async and relations
 

@@ -183,4 +183,4 @@ The repository ships a small todo app that exercises every feature:
 make demo  # or: uv run --group demo python -m demos.orm
 ```
 
-Then open <http://127.0.0.1:8001/admin/>. The demo creates and seeds `demos/orm/demo.db` on first start. Sign in as `ada@example.com` with the password `demo`. `make demo/tables` runs a second demo built on plain Core `Table`s (<http://127.0.0.1:8002/admin/>, `admin@example.com` / `demo`).
+Then open <http://127.0.0.1:8001/admin/>. The demo creates and seeds `demos/orm/demo.db` on first start. Sign in as `ada@example.com` for full access or `staff@example.com` for read-only access. Both use the password `demo`. Open Tasks with each account to compare editing, custom actions, and exports. `make demo/tables` runs a second demo built on plain Core `Table`s (<http://127.0.0.1:8002/admin/>, `admin@example.com` / `demo`).

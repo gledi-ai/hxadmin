@@ -10,11 +10,21 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.middleware.sessions import SessionMiddleware
 from starlette.requests import Request
 
-from demos.orm.auth import DEMO_PASSWORD, authenticate, current_user
+from demos.orm.auth import DEMO_PASSWORD, STAFF_EMAIL, authenticate, current_user
 from demos.orm.db import engine, get_session, sessionmaker
 from demos.orm.models import Base, Project, Task, TaskStatus, User
 from demos.orm.seed import seed
-from hxadmin import ActionResult, BadgeTone, Field, FormError, HxAdmin, ModelView, Page, action
+from hxadmin import (
+    ActionResult,
+    BadgeTone,
+    Field,
+    FormError,
+    HxAdmin,
+    ModelOperation,
+    ModelView,
+    Page,
+    action,
+)
 
 
 @asynccontextmanager
@@ -44,7 +54,10 @@ admin = HxAdmin(
     logout_url="/logout",
     templates_dir=Path(__file__).parent / "templates",
 )
-LOGIN_NOTE = f"Demo accounts: ada@, grace@ or linus@example.com, password {DEMO_PASSWORD!r}."
+LOGIN_NOTE = (
+    f"Sign in as ada@example.com for full access or {STAFF_EMAIL} for read-only access. "
+    f"Password for both is {DEMO_PASSWORD!r}."
+)
 
 
 @app.get("/login", response_model=None)
@@ -80,8 +93,16 @@ async def logout(request: Request) -> RedirectResponse:
     return RedirectResponse("/login", status_code=status.HTTP_303_SEE_OTHER)
 
 
+class DemoPermissions:
+    def is_operation_allowed(self, request: Request, operation: ModelOperation) -> bool:
+        return operation == "view" or request.state.hxadmin_user.email != STAFF_EMAIL
+
+    def is_action_allowed(self, request: Request, name: str) -> bool:
+        return self.is_operation_allowed(request, "edit")
+
+
 @admin.register
-class UserView(ModelView[User]):
+class UserView(DemoPermissions, ModelView[User]):
     model = User
     category = "People"
     icon = "users"
@@ -97,7 +118,7 @@ class UserView(ModelView[User]):
 
 
 @admin.register
-class ProjectView(ModelView[Project]):
+class ProjectView(DemoPermissions, ModelView[Project]):
     model = Project
     category = "Work"
     icon = "folder-kanban"
@@ -107,7 +128,7 @@ class ProjectView(ModelView[Project]):
 
 
 @admin.register
-class TaskView(ModelView[Task]):
+class TaskView(DemoPermissions, ModelView[Task]):
     model = Task
     category = "Work"
     icon = "list-checks"

@@ -14,7 +14,7 @@
     <div class="flex max-w-[720px] items-center gap-2">
       {{ m.button('Cancel', 'ghost', href=cancel_url) }}
       <div class="ml-auto flex items-center gap-2">
-        {% if view.can_create %}{{ m.button('Save and add another', 'secondary', type='submit', name='_then', value='another') }}{% endif %}
+        {% if view.allows_operation(request, 'create') %}{{ m.button('Save and add another', 'secondary', type='submit', name='_then', value='another') }}{% endif %}
         {{ m.button('Save', 'primary', type='submit') }}
       </div>
     </div>

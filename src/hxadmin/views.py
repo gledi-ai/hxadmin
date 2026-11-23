@@ -16,6 +16,7 @@ from hxadmin.pk import pk_clauses_for, pk_string_for
 
 type SortDir = Literal["asc", "desc"]
 type BadgeTone = Literal["neutral", "accent", "success", "warning", "danger"]
+type ModelOperation = Literal["view", "create", "edit", "delete", "export"]
 
 _BADGE_TONES: frozenset[str] = frozenset({"neutral", "accent", "success", "warning", "danger"})
 
@@ -243,6 +244,20 @@ class ModelView[T]:
 
     def is_accessible(self, request: Request) -> bool:
         return True
+
+    def is_operation_allowed(self, request: Request, operation: ModelOperation) -> bool:
+        """Whether the current user may use an enabled built-in operation."""
+        return True
+
+    def allows_operation(self, request: Request, operation: ModelOperation) -> bool:
+        """Combine a view's configuration with its per-request permission hook."""
+        enabled = (
+            self.export_formats if operation == "export" else getattr(self, f"can_{operation}")
+        )
+        return bool(enabled) and self.is_operation_allowed(request, operation)
+
+    def permitted_export_formats(self, request: Request) -> tuple[ExportFormat, ...]:
+        return self.export_formats if self.allows_operation(request, "export") else ()
 
     def is_action_allowed(self, request: Request, name: str) -> bool:
         """Whether the current user may run action `name`; disallowed actions are hidden, 403."""

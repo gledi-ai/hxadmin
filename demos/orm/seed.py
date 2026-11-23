@@ -3,7 +3,7 @@ from datetime import date
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from demos.orm.auth import DEMO_PASSWORD, hash_password
+from demos.orm.auth import DEMO_PASSWORD, STAFF_EMAIL, hash_password
 from demos.orm.models import Project, Task, TaskStatus, User
 
 
@@ -12,7 +12,11 @@ def _account(name: str, email: str) -> User:
 
 
 async def seed(session: AsyncSession) -> None:
-    if await session.scalar(select(User.id).limit(1)) is not None:
+    has_users = await session.scalar(select(User.id).limit(1)) is not None
+    if await session.scalar(select(User.id).where(User.email == STAFF_EMAIL)) is None:
+        session.add(_account("Read-only Staff", STAFF_EMAIL))
+    if has_users:
+        await session.commit()
         return
     ada = _account("Ada Lovelace", "ada@example.com")
     linus = _account("Linus Torvalds", "linus@example.com")

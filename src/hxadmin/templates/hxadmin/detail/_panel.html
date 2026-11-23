@@ -2,7 +2,7 @@
 {% set row_actions = view.permitted_actions(request, bulk=False) %}
 {% set inline_actions = row_actions|length <= 2 and not (row_actions|selectattr('confirm')|list) %}
 {% set menu_actions = [] if inline_actions else row_actions %}
-{% set show_menu = menu_actions or view.can_delete %}
+{% set show_menu = menu_actions or view.allows_operation(request, 'delete') %}
 {% set badge_fields = (view.detail_fields|selectattr('kind', 'equalto', 'enum')|list)[:2] %}
 <div class="mb-4 flex flex-col gap-1">
   {% if back_url %}
@@ -19,13 +19,13 @@
       {% if inline_actions %}
       {% for action in row_actions %}{{ m.action_button(view, action, obj, 'detail', m.button_classes('secondary')) }}{% endfor %}
       {% endif %}
-      {% if view.can_edit %}{{ m.button('Edit', 'primary', icon='pencil', href=admin.url(request, '/' ~ view.identity ~ '/' ~ view.pk_of(obj) ~ '/edit')) }}{% endif %}
+      {% if view.allows_operation(request, 'edit') %}{{ m.button('Edit', 'primary', icon='pencil', href=admin.url(request, '/' ~ view.identity ~ '/' ~ view.pk_of(obj) ~ '/edit')) }}{% endif %}
       {% if show_menu %}
       {% set _menu_trigger %}{{ m.icon('ellipsis', 'size-4') }}{% endset %}
       {% call m.menu(view.identity ~ '-detail-actions', _menu_trigger, label="More actions", trigger_class=m.button_classes('secondary', square=True), placement="bottom-end") %}
-      {% for action in menu_actions %}{{ m.action_menu_item(view, action, obj, 'detail', inset=view.can_delete) }}{% endfor %}
-      {% if menu_actions and view.can_delete %}{{ m.menu_separator() }}{% endif %}
-      {% if view.can_delete %}{{ m.delete_menu_item(view, obj) }}{% endif %}
+      {% for action in menu_actions %}{{ m.action_menu_item(view, action, obj, 'detail', inset=view.allows_operation(request, 'delete')) }}{% endfor %}
+      {% if menu_actions and view.allows_operation(request, 'delete') %}{{ m.menu_separator() }}{% endif %}
+      {% if view.allows_operation(request, 'delete') %}{{ m.delete_menu_item(view, obj) }}{% endif %}
       {% endcall %}
       {% endif %}
     </div>

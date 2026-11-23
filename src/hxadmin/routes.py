@@ -235,6 +235,8 @@ def build_router(admin: "HxAdmin") -> APIRouter:
         session.expire_all()
         await refresh_user(request, session)
         if detail_pk is not None:
+            if not view.allows_operation(request, "view"):
+                return admin.redirect(request, list_url, toast=result.toast)
             context = await _detail_context(request, session, view, detail_pk)
             if context is None:
                 return admin.redirect(request, list_url, toast=result.toast)
@@ -287,7 +289,7 @@ def build_router(admin: "HxAdmin") -> APIRouter:
                     (
                         label,
                         admin.url(request, f"/{view.identity}/{view.pk_of(row)}")
-                        if view.can_view
+                        if view.allows_operation(request, "view")
                         else f"{list_url}?{urlencode({'q': q})}",
                     )
                     for row, label in zip(rows, labels, strict=True)
@@ -340,7 +342,11 @@ def build_router(admin: "HxAdmin") -> APIRouter:
         else:
             pk = view.pk_of(obj)
             action_url = admin.url(request, f"/{view.identity}/{pk}/edit")
-            cancel_url = admin.url(request, f"/{view.identity}/{pk}") if view.can_view else list_url
+            cancel_url = (
+                admin.url(request, f"/{view.identity}/{pk}")
+                if view.allows_operation(request, "view")
+                else list_url
+            )
         return admin.render(
             request,
             "hxadmin/form/_fields.html" if _is_htmx(request) else "hxadmin/form.html",
@@ -371,9 +377,9 @@ def build_router(admin: "HxAdmin") -> APIRouter:
         return FormErrors({}, form=exc.message)
 
     def _after_save(request: Request, view: ModelView[Any], pk: str, then: Any) -> str:
-        if then == "another":
+        if then == "another" and view.allows_operation(request, "create"):
             return admin.url(request, f"/{view.identity}/new")
-        if view.can_view:
+        if view.allows_operation(request, "view"):
             return admin.url(request, f"/{view.identity}/{pk}")
         return _list_return_url(request, admin.url(request, f"/{view.identity}/"))
 
@@ -406,6 +412,7 @@ def build_router(admin: "HxAdmin") -> APIRouter:
                 await session.flush()
                 pk = view.pk_of(obj)
                 label = await session.run_sync(lambda _: view.display(obj))
+                url = _after_save(request, view, pk, form.get("_then"))
                 await session.commit()
             except (IntegrityError, DataError, FormError) as exc:
                 await _rollback(request, session)
@@ -417,7 +424,6 @@ def build_router(admin: "HxAdmin") -> APIRouter:
                 raise
             else:
                 done = Toast(f"{view.name} “{label}” {'created' if created else 'saved'}.")
-                url = _after_save(request, view, pk, form.get("_then"))
                 return admin.redirect(request, url, toast=done)
         shown = await relabel(admin, request, session, fields, raw)
         return _render_form(
@@ -434,7 +440,7 @@ def build_router(admin: "HxAdmin") -> APIRouter:
     @router.get("/{identity}/new", name="create", response_class=HTMLResponse)
     async def create_form(request: Request, identity: str) -> HTMLResponse:
         view = _view(admin, request, identity)
-        if not view.can_create:
+        if not view.allows_operation(request, "create"):
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN)
         fields = view.writable_fields
         values = initial_values(admin, view, None, fields)
@@ -447,7 +453,7 @@ def build_router(admin: "HxAdmin") -> APIRouter:
         session: Annotated[AsyncSession, Depends(admin.current_session)],
     ) -> Response:
         view = _view(admin, request, identity)
-        if not view.can_create:
+        if not view.allows_operation(request, "create"):
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN)
         return await _save(
             request,
@@ -468,7 +474,7 @@ def build_router(admin: "HxAdmin") -> APIRouter:
         session: Annotated[AsyncSession, Depends(admin.current_session)],
     ) -> HTMLResponse:
         view = _view(admin, request, identity)
-        if not view.can_view:
+        if not view.allows_operation(request, "view"):
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN)
         field = next((f for f in view.detail_fields if f.name == rel), None)
         if not isinstance(field, RelationField) or not field.multiple:
@@ -499,7 +505,7 @@ def build_router(admin: "HxAdmin") -> APIRouter:
         session: Annotated[AsyncSession, Depends(admin.current_session)],
     ) -> HTMLResponse:
         view = _view(admin, request, identity)
-        if not (view.can_create or view.can_edit):
+        if not (view.allows_operation(request, "create") or view.allows_operation(request, "edit")):
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN)
         relation = next((f for f in view.writable_fields if f.name == field), None)
         if not isinstance(relation, RelationField):
@@ -531,6 +537,8 @@ def build_router(admin: "HxAdmin") -> APIRouter:
         view = _view(admin, request, identity)
         if fmt not in view.export_formats:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
+        if not view.allows_operation(request, "export"):
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN)
         stmt = view.get_query(request)
         pks = list(dict.fromkeys(request.query_params.getlist("pks")))
         if pks:
@@ -586,7 +594,7 @@ def build_router(admin: "HxAdmin") -> APIRouter:
         declared = _declared(view, name, request, bulk=False)
         data = await _action_input(request)
         obj = await _object(request, session, view, pk)
-        from_detail = view.can_view and data.get("_from") != "list"
+        from_detail = view.allows_operation(request, "view") and data.get("_from") != "list"
         return await _run_action(request, session, view, declared, obj, pk if from_detail else None)
 
     @router.get("/{identity}/{pk}/edit", name="edit", response_class=HTMLResponse)
@@ -597,7 +605,7 @@ def build_router(admin: "HxAdmin") -> APIRouter:
         session: Annotated[AsyncSession, Depends(admin.current_session)],
     ) -> HTMLResponse:
         view = _view(admin, request, identity)
-        if not view.can_edit:
+        if not view.allows_operation(request, "edit"):
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN)
         fields = view.edit_fields
         obj = await _object(request, session, view, pk, form_relations(fields))
@@ -612,7 +620,7 @@ def build_router(admin: "HxAdmin") -> APIRouter:
         session: Annotated[AsyncSession, Depends(admin.current_session)],
     ) -> Response:
         view = _view(admin, request, identity)
-        if not view.can_edit:
+        if not view.allows_operation(request, "edit"):
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN)
         fields = view.edit_fields
         obj = await _object(request, session, view, pk, form_relations(fields))
@@ -626,7 +634,7 @@ def build_router(admin: "HxAdmin") -> APIRouter:
         session: Annotated[AsyncSession, Depends(admin.current_session)],
     ) -> Response:
         view = _view(admin, request, identity)
-        if not view.can_delete:
+        if not view.allows_operation(request, "delete"):
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN)
         obj = await _object(request, session, view, pk)
         label = await session.run_sync(lambda _: view.display(obj))
@@ -656,7 +664,7 @@ def build_router(admin: "HxAdmin") -> APIRouter:
         session: Annotated[AsyncSession, Depends(admin.current_session)],
     ) -> HTMLResponse:
         view = _view(admin, request, identity)
-        if not view.can_view:
+        if not view.allows_operation(request, "view"):
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN)
         context = await _detail_context(request, session, view, pk)
         if context is None:

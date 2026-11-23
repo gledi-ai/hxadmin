@@ -4,14 +4,15 @@
 {%- endmacro %}
 {% set params = result.params %}
 {% set hx = 'hx-target="closest .hx-list"' ~ (' hx-push-url="true"' if push_url else '') %}
-{% set selectable = push_url and (view.permitted_actions(request, bulk=True) or view.export_formats) %}
+{% set export_formats = view.permitted_export_formats(request) if push_url else () %}
+{% set selectable = push_url and (view.permitted_actions(request, bulk=True) or export_formats) %}
 {% set row_actions = view.permitted_actions(request, bulk=False) if push_url else () %}
-{% set actions = view.can_edit or view.can_delete or row_actions %}
+{% set actions = view.allows_operation(request, 'edit') or view.allows_operation(request, 'delete') or row_actions %}
 {% if filters is defined and htmx %}
 {% for filter in filters %}{{ m.filter_summary_span(filter, params.filter_value(filter.name), filter_options.get(filter.name, []), oob=True) }}{% endfor %}
 {{ m.filter_reset(params.filters, oob=True) }}
 {{ m.list_count(result.total, oob=True) }}
-{{ m.export_control(view.export_formats, base_url ~ '_export/', params.qs(page=none, size=none), oob=True) }}
+{% if view.export_formats %}{{ m.export_control(export_formats, base_url ~ '_export/', params.qs(page=none, size=none), oob=True) }}{% endif %}
 {{ m.bulk_bar(view, oob=True) }}
 {% endif %}
 {% if push_url %}
@@ -27,7 +28,7 @@
 {% if filtered %}
 {{ m.empty_state('inbox', 'No ' ~ view.name_plural|lower ~ ' match these filters', action=m.button('Reset filters', 'secondary', href=base_url, attrs={'@click': '$event.preventDefault(); hxadminResetList()'}) if push_url else none, class='bg-surface') }}
 {% else %}
-{{ m.empty_state('inbox', 'No ' ~ view.name_plural|lower ~ ' yet', action=m.button('New ' ~ view.name|lower, 'primary', icon='plus', href=admin.url(request, '/' ~ view.identity ~ '/new')) if push_url and view.can_create else none, class='bg-surface') }}
+{{ m.empty_state('inbox', 'No ' ~ view.name_plural|lower ~ ' yet', action=m.button('New ' ~ view.name|lower, 'primary', icon='plus', href=admin.url(request, '/' ~ view.identity ~ '/new')) if push_url and view.allows_operation(request, 'create') else none, class='bg-surface') }}
 {% endif %}
 {% else %}
 <div class="space-y-2 sm:hidden">
@@ -48,7 +49,7 @@
       {% endif %}
       <div class="min-w-0 flex-1">
         <div class="flex items-center justify-between gap-2">
-          {% if primary.name == view.link_name and view.can_view %}
+          {% if primary.name == view.link_name and view.allows_operation(request, 'view') %}
           <a href="{{ admin.url(request, '/' ~ view.identity ~ '/' ~ view.pk_of(obj)) }}" class="truncate font-medium text-accent hover:underline">{{ m.cell(view, primary, view.cell(obj, primary.name), link=False) }}</a>
           {% else %}
           <span class="truncate font-medium">{{ m.cell(view, primary, view.cell(obj, primary.name), link=primary.name in view.list_relation_links) }}</span>
@@ -97,7 +98,7 @@
       <tr class="hover:bg-surface-2 has-checked:bg-accent-soft/40">
         {% if selectable %}<td class="px-3 py-2"><input type="checkbox" id="pk-desktop-{{ view.pk_of(obj) }}" name="pks" value="{{ view.pk_of(obj) }}" form="bulk" :disabled="!wide" aria-label="Select {{ view.display(obj) }}"></td>{% endif %}
         {% for field in view.list_fields %}
-        <td class="px-3 py-2{{ '' if field.name == view.stretch_name else ' whitespace-nowrap' }}{{ ' text-right tabular-nums' if field.kind in ('int', 'float', 'decimal') else '' }}">{% if field.name == view.link_name and view.can_view %}<a href="{{ admin.url(request, '/' ~ view.identity ~ '/' ~ view.pk_of(obj)) }}" class="font-medium text-accent hover:underline">{{ m.cell(view, field, view.cell(obj, field.name), link=False) }}</a>{% else %}{{ m.cell(view, field, view.cell(obj, field.name), link=field.name in view.list_relation_links) }}{% endif %}</td>
+        <td class="px-3 py-2{{ '' if field.name == view.stretch_name else ' whitespace-nowrap' }}{{ ' text-right tabular-nums' if field.kind in ('int', 'float', 'decimal') else '' }}">{% if field.name == view.link_name and view.allows_operation(request, 'view') %}<a href="{{ admin.url(request, '/' ~ view.identity ~ '/' ~ view.pk_of(obj)) }}" class="font-medium text-accent hover:underline">{{ m.cell(view, field, view.cell(obj, field.name), link=False) }}</a>{% else %}{{ m.cell(view, field, view.cell(obj, field.name), link=field.name in view.list_relation_links) }}{% endif %}</td>
         {% endfor %}
         {% if view.stretch_name is none %}<td aria-hidden="true" class="p-0"></td>{% endif %}
         {% if actions %}

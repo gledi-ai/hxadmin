@@ -59,7 +59,7 @@
     {%- set target = admin.view_for(field.target) -%}
     {%- if not link -%}
       <span class="text-fg-muted">{{ target.display(value) if target else admin.display(value) }}</span>
-    {%- elif target and target.can_view and target.is_accessible(request) -%}
+    {%- elif target and target.allows_operation(request, 'view') and target.is_accessible(request) -%}
       <a class="text-accent hover:underline" href="{{ admin.url(request, '/' ~ target.identity ~ '/' ~ target.pk_of(value)) }}">{{ target.display(value) }}</a>
     {%- else -%}
       {{ admin.display(value) }}
@@ -92,12 +92,13 @@
 
 {% macro bulk_bar(view, oob=False) -%}
 {%- set bulk_actions = view.permitted_actions(request, bulk=True) -%}
+{%- set export_formats = view.permitted_export_formats(request) -%}
 <div id="list-bulk-actions"{% if oob %} hx-swap-oob="true"{% endif %} x-show="count > 0" x-cloak
      class="ml-auto flex max-w-full flex-wrap items-center gap-2 text-sm max-sm:order-last max-sm:basis-full">
-  {%- if bulk_actions or view.export_formats %}
+  {%- if bulk_actions or export_formats %}
   <span class="mr-1 font-medium" role="status" x-text="count + ' selected'"></span>
   {%- for action in bulk_actions %}{{ action_button(view, action, none, 'list', button_classes('secondary', 'sm')) }}{% endfor %}
-  {{ export_control(view.export_formats, admin.url(request, '/' ~ view.identity ~ '/_export/')) }}
+  {{ export_control(export_formats, admin.url(request, '/' ~ view.identity ~ '/_export/')) }}
   {{ button('Clear selection', 'ghost', 'sm', attrs={'@click': "document.querySelectorAll('input[form=bulk][name=pks]:checked').forEach(function (c) { c.checked = false; c.dispatchEvent(new Event('change', {bubbles: true})); })"}) }}
   {%- endif %}
 </div>
@@ -255,18 +256,20 @@
     {%- endcall -%}
   {%- endif -%}
 </div>
+{%- elif query is not none -%}
+<div id="list-export-control"{% if oob %} hx-swap-oob="true"{% endif %} hidden></div>
 {%- endif -%}
 {%- endmacro %}
 
 {% macro row_menu(view, obj, row_actions, id_prefix="") -%}
 {%- set trigger -%}{{ icon('ellipsis', 'size-4') }}{%- endset -%}
-{%- set has_head = view.can_view or view.can_edit or row_actions -%}
+{%- set has_head = view.allows_operation(request, 'view') or view.allows_operation(request, 'edit') or row_actions -%}
 {%- call menu(id_prefix ~ 'row-menu-' ~ view.pk_of(obj), trigger, label='Row actions', trigger_class=button_classes('ghost', 'sm', square=True), placement='bottom-end') -%}
-  {%- if view.can_view %}{{ menu_item('View', href=admin.url(request, '/' ~ view.identity ~ '/' ~ view.pk_of(obj)), icon='eye') }}{% endif %}
-  {%- if view.can_edit %}{{ menu_item('Edit', href=admin.url(request, '/' ~ view.identity ~ '/' ~ view.pk_of(obj) ~ '/edit'), icon='pencil') }}{% endif %}
-  {%- for action in row_actions %}{{ action_menu_item(view, action, obj, 'list', inset=view.can_view or view.can_edit or view.can_delete) }}{% endfor %}
-  {%- if view.can_delete and has_head %}{{ menu_separator() }}{% endif %}
-  {%- if view.can_delete %}{{ delete_menu_item(view, obj) }}{% endif %}
+  {%- if view.allows_operation(request, 'view') %}{{ menu_item('View', href=admin.url(request, '/' ~ view.identity ~ '/' ~ view.pk_of(obj)), icon='eye') }}{% endif %}
+  {%- if view.allows_operation(request, 'edit') %}{{ menu_item('Edit', href=admin.url(request, '/' ~ view.identity ~ '/' ~ view.pk_of(obj) ~ '/edit'), icon='pencil') }}{% endif %}
+  {%- for action in row_actions %}{{ action_menu_item(view, action, obj, 'list', inset=view.allows_operation(request, 'view') or view.allows_operation(request, 'edit') or view.allows_operation(request, 'delete')) }}{% endfor %}
+  {%- if view.allows_operation(request, 'delete') and has_head %}{{ menu_separator() }}{% endif %}
+  {%- if view.allows_operation(request, 'delete') %}{{ delete_menu_item(view, obj) }}{% endif %}
 {%- endcall -%}
 {%- endmacro %}
 
