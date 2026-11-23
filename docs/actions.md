@@ -30,7 +30,7 @@ class UserView(ModelView[User]):
             user.active = False
         return ActionResult.message(f"Deactivated {len(changed)} of {len(objs)} selected users.")
 
-    @action("reset_password", label="Reset password")
+    @action("reset_password", label="Reset password", icon="key-round")
     async def reset_password(
         self, request: Request, session: AsyncSession, obj: User
     ) -> ActionResult:
@@ -48,7 +48,9 @@ class UserView(ModelView[User]):
         return ActionResult.message(f"Reset link sent to {email}.", level="info")
 ```
 
-`@action(name, *, label=None, bulk=False, confirm=None, method="POST")` marks a method as an action. `name` (letters, digits, `_` and `-`) is part of the action's URL and must be unique within the view; `label` defaults to the name capitalised, so `reset_password` shows as "Reset password". Handlers must be `async def`; anything else raises at registration.
+`@action(name, *, label=None, bulk=False, confirm=None, method="POST", icon="zap")` marks a method as an action. `name` (letters, digits, `_` and `-`) is part of the action's URL and must be unique within the view; `label` defaults to the name capitalised, so `reset_password` shows as "Reset password". Handlers must be `async def`; anything else raises at registration.
+
+Action buttons and menu items show the `zap` icon by default. Pass a Lucide icon name such as `icon="key-round"` to override it, or pass `icon=None` to hide it.
 
 `send_password_reset` and the `/reset` page that redeems the token are your application's; hxadmin has no mail or password-reset support of its own.
 

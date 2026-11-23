@@ -137,7 +137,7 @@ class TaskView(ModelView[Task]):
             task.status = TaskStatus.done
         return ActionResult.message(f"{len(objs)} task(s) marked done.")
 
-    @action("raise_priority", label="Raise priority")
+    @action("raise_priority", label="Raise priority", icon="arrow-up")
     async def raise_priority(
         self, request: Request, session: AsyncSession, obj: Task
     ) -> ActionResult:

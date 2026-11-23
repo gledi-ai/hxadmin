@@ -7,6 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.requests import Request
 
 from hxadmin import ActionResult, HxAdmin, ModelView, action
+from hxadmin.icons import icon
 from tests.conftest import AppFactory, Group, User, allow_all
 from tests.html import tag
 from tests.test_action_routes import UserView, seed_users
@@ -33,6 +34,8 @@ def test_detail_renders_row_actions(factory: AppFactory, make_client: MakeClient
     assert 'hx-target="#detail"' in html
     assert 'hx-vals="{&#34;_from&#34;: &#34;detail&#34;}"' in html
     assert 'href="/admin/user/2/action/download"' in html
+    download_icon = icon("download", "size-4 shrink-0 text-fg-muted")
+    assert f'{download_icon}<span class="min-w-0 flex-1 truncate">Download</span>' in html
     assert "/admin/user/action/deactivate" not in html
     assert 'id="user-detail-actions"' in html
 
@@ -55,6 +58,7 @@ def test_detail_inline_actions_render_as_buttons_not_menu_items(
     with make_client(app) as client:
         html = client.get("/admin/user/2").text
     assert 'hx-post="/admin/user/2/action/ping"' in html
+    assert f"{icon('zap', 'size-4 shrink-0')}Ping</button>" in html
     assert 'id="user-detail-actions"' not in html
 
 
@@ -67,9 +71,11 @@ def test_list_renders_selection_bulk_bar_and_row_actions(
     assert 'x-data="bulk()"' in tag(html, 'id="list"')
     assert '<form id="bulk" x-show="count"' in html
     assert 'hx-post="/admin/user/action/deactivate"' in html
+    assert f"{icon('zap', 'size-4 shrink-0')}Deactivate</button>" in html
     assert 'hx-target="#list"' in html
     assert 'hx-confirm="Deactivate selected users?"' in html
     assert 'formmethod="get" formaction="/admin/user/action/export"' in html
+    assert f"{icon('download', 'size-4 shrink-0')}Export</button>" in html
     assert "requestSubmit($el)" in html
     assert "&#34;Export selected?&#34;" in html
     assert 'aria-label="Select all"' in html
@@ -118,16 +124,26 @@ def test_row_controls_stay_visible_without_hover(
     assert 'id="row-menu-1-trigger"' in listing
 
 
-def test_icon_less_action_items_line_up_with_iconed_siblings(
+def test_row_menu_renders_default_icon_and_aligns_iconless_actions(
     factory: AppFactory, make_client: MakeClient
 ) -> None:
     with make_client(build(factory)) as client:
         html = client.get("/admin/user/").text
-    item = re.search(
-        r'<button type="button" role="menuitem"[^>]*hx-post="/admin/user/1/action/activate"', html
+    default_item = re.search(
+        r'<button type="button" role="menuitem"[^>]*'
+        r'hx-post="/admin/user/1/action/activate"[^>]*>(.*?)</button>',
+        html,
     )
-    assert item is not None
-    assert " pl-8 " in item.group(0)
+    assert default_item is not None
+    assert str(icon("zap", "size-4 shrink-0 text-fg-muted")) in default_item.group(1)
+    iconless_item = re.search(
+        r'<button type="button" role="menuitem"[^>]*'
+        r'hx-post="/admin/user/1/action/explode"[^>]*>(.*?)</button>',
+        html,
+    )
+    assert iconless_item is not None
+    assert " pl-8 " in iconless_item.group(0)
+    assert "<svg" not in iconless_item.group(1)
 
 
 def test_select_all_is_a_valid_alpine_expression_and_tracks_partial_selection(

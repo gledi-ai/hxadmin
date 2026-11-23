@@ -7,6 +7,7 @@ from typing import Any, Literal, Self
 from starlette.responses import Response
 
 from hxadmin.fields import label_for
+from hxadmin.icons import check_icon
 from hxadmin.toasts import Toast, ToastLevel
 
 type ActionMethod = Literal["GET", "POST"]
@@ -14,6 +15,7 @@ type ActionHandler = Callable[..., Awaitable[Any]]
 
 ACTION_ATTR = "__hxadmin_action__"
 _NAME = re.compile(r"[A-Za-z0-9_-]+")
+_DEFAULT_ICON = "zap"
 
 
 @dataclass(frozen=True, slots=True)
@@ -25,6 +27,7 @@ class Action:
     bulk: bool
     confirm: str | None
     method: ActionMethod
+    icon: str | None = _DEFAULT_ICON
 
 
 @dataclass(frozen=True, slots=True)
@@ -60,6 +63,7 @@ def action[F: ActionHandler](
     bulk: bool = False,
     confirm: str | None = None,
     method: ActionMethod = "POST",
+    icon: str | None = _DEFAULT_ICON,
 ) -> Callable[[F], F]:
     """Declare a `ModelView` coroutine method as a row action, or a bulk action with `bulk=True`.
 
@@ -71,7 +75,8 @@ def action[F: ActionHandler](
         raise ValueError(f"Invalid action name {name!r}: use letters, digits, '_' and '-'")
     if method not in ("GET", "POST"):
         raise ValueError(f"Action {name!r}: method must be 'GET' or 'POST', not {method!r}")
-    spec = Action(name, label or label_for(name.replace("-", "_")), bulk, confirm, method)
+    check_icon(icon)
+    spec = Action(name, label or label_for(name.replace("-", "_")), bulk, confirm, method, icon)
 
     def decorate(func: F) -> F:
         _require_async(name, func)

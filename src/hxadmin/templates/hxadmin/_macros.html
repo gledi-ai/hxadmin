@@ -113,15 +113,19 @@
 
 {% macro action_button(view, action, obj=none, origin="detail", class="") -%}
 {%- set url = admin.url(request, '/' ~ view.identity ~ ('/' ~ view.pk_of(obj) if obj is not none else '') ~ '/action/' ~ action.name) -%}
+{%- set content -%}
+  {%- if action.icon %}{{ icon(action.icon, 'size-4 shrink-0') }}{% endif -%}
+  {{ action.label }}
+{%- endset -%}
 {%- if action.method == "POST" -%}
 <button type="button" class="{{ class }}" hx-post="{{ url }}" hx-target="{{ '#detail' if origin == 'detail' else '#list' }}"
-        hx-vals="{{ {'_from': origin}|tojson|forceescape }}"{% if obj is none %} form="bulk"{% endif %}{% if action.confirm %} hx-confirm="{{ action.confirm }}"{% endif %}>{{ action.label }}</button>
+        hx-vals="{{ {'_from': origin}|tojson|forceescape }}"{% if obj is none %} form="bulk"{% endif %}{% if action.confirm %} hx-confirm="{{ action.confirm }}"{% endif %}>{{ content }}</button>
 {%- elif obj is none -%}
 <button type="submit" form="bulk" formmethod="get" formaction="{{ url }}" class="{{ class }}"{% if action.confirm %}
-        @click="$event.preventDefault(); $dispatch('confirm', {message: {{ action.confirm|tojson|forceescape }}, submit: () => $el.form.requestSubmit($el)})"{% endif %}>{{ action.label }}</button>
+        @click="$event.preventDefault(); $dispatch('confirm', {message: {{ action.confirm|tojson|forceescape }}, submit: () => $el.form.requestSubmit($el)})"{% endif %}>{{ content }}</button>
 {%- else -%}
 <a href="{{ url }}{{ '?_from=list' if origin == 'list' else '' }}" class="{{ class }}"{% if action.confirm %}
-   @click="$event.preventDefault(); $dispatch('confirm', {message: {{ action.confirm|tojson|forceescape }}, submit: () => window.location.assign($el.href)})"{% endif %}>{{ action.label }}</a>
+   @click="$event.preventDefault(); $dispatch('confirm', {message: {{ action.confirm|tojson|forceescape }}, submit: () => window.location.assign($el.href)})"{% endif %}>{{ content }}</a>
 {%- endif -%}
 {%- endmacro %}
 
@@ -256,14 +260,14 @@
 {% macro action_menu_item(view, action, obj, origin="detail", inset=False) -%}
 {%- set url = admin.url(request, '/' ~ view.identity ~ '/' ~ view.pk_of(obj) ~ '/action/' ~ action.name) -%}
 {%- if action.method == "POST" -%}
-{{ menu_item(action.label, inset=inset, attrs={
+{{ menu_item(action.label, icon=action.icon, inset=inset, attrs={
     "hx-post": url,
     "hx-target": "#detail" if origin == "detail" else "#list",
     "hx-vals": {"_from": origin}|tojson|forceescape,
     "hx-confirm": action.confirm,
 }) }}
 {%- else -%}
-{{ menu_item(action.label, inset=inset, href=url ~ ("?_from=list" if origin == "list" else ""), attrs={
+{{ menu_item(action.label, icon=action.icon, inset=inset, href=url ~ ("?_from=list" if origin == "list" else ""), attrs={
     "@click": "$event.preventDefault(); close(true); $dispatch('confirm', {message: " ~ (action.confirm|tojson|forceescape) ~ ", submit: () => window.location.assign($el.href)})" if action.confirm else none,
 }) }}
 {%- endif -%}

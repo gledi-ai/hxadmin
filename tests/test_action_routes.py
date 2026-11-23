@@ -40,7 +40,7 @@ class UserView(ModelView[User]):
             user.active = False
         return ActionResult.message(f"Deactivated {len(objs)}")
 
-    @action("export", bulk=True, method="GET", confirm="Export selected?")
+    @action("export", bulk=True, method="GET", confirm="Export selected?", icon="download")
     async def export(
         self, request: Request, session: AsyncSession, objs: Sequence[User]
     ) -> ActionResult:
@@ -51,13 +51,13 @@ class UserView(ModelView[User]):
         obj.active = True
         return ActionResult.message(f"Activated {obj.email}")
 
-    @action("download", method="GET")
+    @action("download", method="GET", icon="download")
     async def download(self, request: Request, session: AsyncSession, obj: User) -> ActionResult:
         return ActionResult.response(
             PlainTextResponse(obj.email, headers={"Content-Disposition": "attachment"})
         )
 
-    @action("explode")
+    @action("explode", icon=None)
     async def explode(self, request: Request, session: AsyncSession, obj: User) -> ActionResult:
         obj.active = False
         await session.flush()
