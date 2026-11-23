@@ -104,9 +104,12 @@ vendor/update: ## Update vendored libraries (make vendor/update htmx.org alpinej
 .PHONY: demo demo/orm demo/tables
 
 demo demo/orm: ## Run the ORM demo with reload on http://127.0.0.1:8001/admin/
+	@printf '%s\n' 'Open: http://127.0.0.1:8001/admin/' \
+		'Email: ada@example.com, grace@example.com, or linus@example.com' 'Password: demo'
 	$(UV) run --locked --group demo python -m demos.orm
 
 demo/tables: ## Run the plain-Table demo with reload on http://127.0.0.1:8002/admin/
+	@printf '%s\n' 'Open: http://127.0.0.1:8002/admin/' 'Email: admin@example.com' 'Password: demo'
 	$(UV) run --locked --group demo python -m demos.tables
 
 
