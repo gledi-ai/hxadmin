@@ -6,7 +6,7 @@ UV := $(shell which uv 2>/dev/null || echo "uv")
 UVX := $(shell which uvx 2>/dev/null || echo "uvx")
 NOX := $(UVX) nox
 
-PY := $(CURDIR)/.venv/bin/python
+VENV_PYTHON := $(CURDIR)/.venv/bin/python
 
 ARGS := $(wordlist 2,$(words $(MAKECMDGOALS)),$(MAKECMDGOALS))
 
@@ -26,14 +26,19 @@ print-%: ## Print any variable (e.g. make print-UV)
 
 versions: ## Show uv, python, node and hxadmin versions
 	echo "uv:      $$($(UV) --version 2>/dev/null || echo 'not installed')"
-	echo "python:  $$($(PY) --version 2>/dev/null || echo 'not found')"
+	echo "python:  $$($(VENV_PYTHON) --version 2>/dev/null || echo 'not found')"
 	echo "node:    $$(node --version 2>/dev/null || echo 'not installed (needed by make css and the JS tests)')"
-	echo "hxadmin: $$($(PY) -c 'import hxadmin; print(hxadmin.__version__)' 2>/dev/null || echo 'not found')"
+	echo "hxadmin: $$($(VENV_PYTHON) -c 'import hxadmin; print(hxadmin.__version__)' 2>/dev/null || echo 'not found')"
 
 
 ##@ Environment
 
-.PHONY: lock relock sync sync/dry outdated tree why dev dev/up
+.PHONY: venv lock relock sync sync/dry outdated tree why dev dev/up
+
+venv: PY = $(file <.python-version)
+venv: FORCE ?= 0
+venv: ## Create .venv with uv-managed Python (PY=3.14 to override; FORCE=1 to replace)
+	$(UV) venv --managed-python --python "$(PY)" --prompt "hxadmin-$(PY)" $(if $(filter 1,$(FORCE)),--clear) .venv
 
 lock: ## Lock dependencies, upgrading to the highest versions
 	$(UV) lock --upgrade
@@ -118,7 +123,7 @@ cov test/cov: ## Run tests with coverage (terminal + missing lines)
 cov/report: ## Run tests with coverage and write xml + html + junit reports
 	$(UV) run --locked pytest $(XDIST) --cov=hxadmin --cov-report=term-missing --cov-report=xml --cov-report=html --junitxml=junit.xml $(ARGS)
 
-test/matrix: ## Run tests on every supported Python (3.13, 3.14) via nox
+test/matrix: ## Run tests on every supported Python (3.13, 3.14, 3.15) via nox
 	$(NOX) -s tests
 
 test/lowest: ## Run tests against the lowest allowed direct dependencies via nox

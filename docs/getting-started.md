@@ -7,7 +7,7 @@ pip install hxadmin            # CSV export included
 pip install 'hxadmin[xlsx]'    # adds Excel export (XlsxWriter)
 ```
 
-hxadmin needs Python 3.13+, FastAPI and SQLAlchemy 2.0+ with an async driver (`asyncpg`, `aiosqlite`, ...).
+hxadmin supports Python 3.13, 3.14, and 3.15. It needs FastAPI and SQLAlchemy 2.0+ with an async driver (`asyncpg`, `aiosqlite`, ...).
 
 ## The models in these docs
 

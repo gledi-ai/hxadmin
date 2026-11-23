@@ -11,6 +11,20 @@ make dev    # sync every dependency group and install the git hooks
 make help   # list every task
 ```
 
+To create just the virtual environment with uv-managed Python:
+
+```bash
+make venv          # Python 3.13, prompt hxadmin-3.13
+make venv PY=3.14  # alternative to the default; PY=3.15 also works
+source .venv/bin/activate
+```
+
+`FORCE` defaults to `0`, so the target leaves an existing `.venv` alone. To
+replace it (including any installed packages), run `make venv PY=3.14 FORCE=1`.
+When using a non-default interpreter, set
+`UV_PYTHON` for uv-backed commands (for example, `UV_PYTHON=3.14 make sync`),
+so uv doesn't switch the environment back to the version in `.python-version`.
+
 ## Making a change
 
 - Write a failing test first, then the fix. Tests go through the public interface: HTTP requests against a seeded app (see `tests/conftest.py`), or a module's public functions.
