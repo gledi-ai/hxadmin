@@ -2,6 +2,14 @@
 
 All notable changes to this project are documented in this file.
 
+## [0.3.3] - 2026-11-24
+
+### Features
+
+- Add per-user permissions for built-in operations
+- Add opt-in audit history
+- Audit opt-in custom actions
+
 ## [0.3.2] - 2026-11-23
 
 ### Features
