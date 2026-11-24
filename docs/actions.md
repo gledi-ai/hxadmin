@@ -67,6 +67,8 @@ Use `session` yourself to:
 
 `reset_password` commits before sending the email because an email cannot be rolled back. If the commit failed after the email went out, the link would point at a token that was never stored. Committing inside the handler is fine: hxadmin's commit afterwards has nothing left to do. Read what you need from `obj` before the commit: a sessionmaker with `expire_on_commit=True` expires every attribute at commit, and reading one afterwards would need a lazy load, which async SQLAlchemy cannot do (`MissingGreenlet`).
 
+For actions with `audit=True`, leave the commit to hxadmin so updates and their history share one transaction. See [Audit a custom action](audit.md#audit-a-custom-action) for setup and which rows it tracks.
+
 `deactivate` only changes data. Whether an inactive user is locked out is up to your application: the `auth` in [Auth and sessions](auth.md#auth) refuses users whose `active` is false, so after this action they can no longer open the admin. It skips the signed-in user so an admin cannot lock themselves out, and its message counts the rows it actually changed.
 
 ## Where actions appear

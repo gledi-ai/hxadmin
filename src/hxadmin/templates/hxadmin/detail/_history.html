@@ -4,7 +4,8 @@
 <div class="mb-3">
   {% call m.card() %}
   <div class="flex flex-wrap items-center gap-2 text-sm">
-    <strong>{{ labels[entry.operation] }}</strong>
+    {% set action = view.actions.get(entry.action_name) %}
+    <strong>{{ action.label if action else (entry.action_name or labels[entry.operation]) }}</strong>
     <span class="text-fg-muted">by {{ entry.actor_id }}</span>
     <time class="text-fg-muted" datetime="{{ entry.occurred_at.strftime('%Y-%m-%dT%H:%M:%SZ') }}">{{ entry.occurred_at.strftime('%Y-%m-%d %H:%M:%S UTC') }}</time>
   </div>

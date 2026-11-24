@@ -1,4 +1,4 @@
-from collections.abc import Iterator
+from collections.abc import Iterator, Sequence
 
 import pytest
 from fastapi import FastAPI, status
@@ -7,8 +7,8 @@ from sqlalchemy import CheckConstraint, Select, Table, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.requests import Request
 
-from hxadmin import HxAdmin, ModelView, define_audit_table
-from tests.conftest import AppFactory, Base, Post
+from hxadmin import ActionResult, HxAdmin, ModelView, action, define_audit_table
+from tests.conftest import AppFactory, Base, Post, PostStatus
 from tests.test_detail import seed
 
 POST_DATA = {"title": "New", "status": "draft", "author": "1", "score": "0"}
@@ -47,6 +47,28 @@ def build(factory: AppFactory, audit_table: Table) -> FastAPI:
             self, request: Request, session: AsyncSession, obj: Post, *, created: bool
         ) -> None:
             obj.title = obj.title.strip()
+
+        @action("rename", label="Rename post", audit=True)
+        async def rename(self, request: Request, session: AsyncSession, obj: Post) -> ActionResult:
+            obj.title = "Renamed"
+            return ActionResult.message("Renamed")
+
+        @action("publish", bulk=True, audit=True)
+        async def publish(
+            self, request: Request, session: AsyncSession, objs: Sequence[Post]
+        ) -> ActionResult:
+            for obj in objs:
+                obj.status = PostStatus.published
+            return ActionResult.message("Published")
+
+        @action("early_commit", audit=True)
+        async def early_commit(
+            self, request: Request, session: AsyncSession, obj: Post
+        ) -> ActionResult:
+            obj.title = "Premature change"
+            await session.flush()
+            await session.commit()
+            return ActionResult.message("Committed")
 
     return app
 
@@ -141,3 +163,38 @@ def test_history_paginates_without_repeating_entries(
         assert oldest.count("<strong>Updated</strong>") == 1
         assert '<span>"Title 0"</span>' in oldest
         assert "Load older changes" not in oldest
+
+
+def test_audited_row_and_bulk_actions_only_record_changed_targets(
+    factory: AppFactory, audit_table: Table
+) -> None:
+    with TestClient(build(factory, audit_table)) as client:
+        for _ in range(2):
+            assert (
+                client.post("/admin/post/1/action/rename", follow_redirects=False).status_code
+                == 303
+            )
+        assert (
+            client.post("/admin/post/new", data=POST_DATA, follow_redirects=False).status_code
+            == 303
+        )
+        response = client.post(
+            "/admin/post/action/publish", data={"pks": ["1", "2", "999"]}, follow_redirects=False
+        )
+        assert response.status_code == status.HTTP_303_SEE_OTHER
+        for key in (1, 2):
+            history = client.get(f"/admin/post/_history/{key}").text
+            assert "<strong>Publish</strong>" in history
+            assert '<del>"draft"</del>' in history
+            assert '<span>"published"</span>' in history
+            assert history.count("<strong>Rename post</strong>") == (1 if key == 1 else 0)
+
+
+def test_audited_action_rejects_early_commit_and_rolls_back(
+    factory: AppFactory, audit_table: Table
+) -> None:
+    with TestClient(build(factory, audit_table)) as client:
+        response = client.post("/admin/post/1/action/early_commit", headers={"HX-Request": "true"})
+        assert response.status_code == status.HTTP_500_INTERNAL_SERVER_ERROR
+        assert "<title>Hello" in client.get("/admin/post/1").text
+        assert "No changes recorded" in client.get("/admin/post/_history/1").text

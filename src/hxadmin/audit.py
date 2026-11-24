@@ -1,5 +1,6 @@
 import json
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Generator, Sequence
+from contextlib import contextmanager
 from datetime import UTC, datetime
 from decimal import Decimal
 from typing import Any, Literal
@@ -15,11 +16,13 @@ from sqlalchemy import (
     String,
     Table,
     Text,
+    event,
     func,
     select,
 )
 from sqlalchemy.engine import RowMapping
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import Session
 
 type AuditOperation = Literal["create", "update", "delete"]
 type Snapshot = dict[str, Any]
@@ -40,6 +43,7 @@ def define_audit_table(
         Column("view_identity", Text, nullable=False),
         Column("record_key", Text, nullable=False),
         Column("operation", String(6), nullable=False),
+        Column("action_name", Text),
         Column("changes", JSON, nullable=False),
         Index(f"ix_{name}_record", "view_identity", "record_key", "id"),
         schema=schema,
@@ -51,6 +55,18 @@ def snapshot(obj: Any, names: Sequence[str]) -> Snapshot:
     return jsonable_encoder(
         {name: getattr(obj, name) for name in names}, custom_encoder={Decimal: str}
     )
+
+
+@contextmanager
+def guard_action_commit(session: AsyncSession) -> Generator[None]:
+    def before_commit(_: Session) -> None:
+        raise RuntimeError("Leave the commit of an audited action to hxadmin")
+
+    event.listen(session.sync_session, "before_commit", before_commit)
+    try:
+        yield
+    finally:
+        event.remove(session.sync_session, "before_commit", before_commit)
 
 
 class AuditLog:
@@ -74,6 +90,7 @@ class AuditLog:
         operation: AuditOperation,
         before: Snapshot,
         after: Snapshot,
+        action_name: str | None = None,
     ) -> None:
         changes = {}
         for name in before or after:
@@ -90,6 +107,7 @@ class AuditLog:
                     view_identity=identity,
                     record_key=key,
                     operation=operation,
+                    action_name=action_name,
                     changes=changes,
                 )
             )
@@ -106,7 +124,7 @@ class AuditLog:
             .scalar_subquery()
         )
         stmt = (
-            select(c.id, c.occurred_at, c.actor_id, c.operation, c.changes)
+            select(c.id, c.occurred_at, c.actor_id, c.operation, c.action_name, c.changes)
             .where(*record, c.id >= boundary, c.operation != "delete")
             .order_by(c.id.desc())
             .limit(HISTORY_PAGE_SIZE + 1)

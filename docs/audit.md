@@ -1,6 +1,6 @@
 # Audit history
 
-hxadmin can record changes made through its built-in create, edit, and delete forms. Enable auditing per view by selecting the columns to track. Each record's **History** tab shows who changed it, when, and which values changed.
+hxadmin can record changes made through built-in create, edit, and delete forms and through custom actions that opt in. Enable auditing per view by selecting the columns to track. Each record's **History** tab shows who changed it, when, and which values changed.
 
 ## Set up the table
 
@@ -18,6 +18,8 @@ audit_table = define_audit_table(Base.metadata)
 `define_audit_table` adds the `hxadmin_audit` definition and its record lookup index to your metadata. The helper accepts keyword arguments `name` and `schema` when you need a different table location.
 
 Generate or write a migration that creates the table and its index, review it, and apply it before deploying code that enables auditing. If you generate migrations from metadata, import the module above before comparing metadata against the database. hxadmin issues no schema changes at startup. Your app owns migration deployment, backups, and retention. Keep historical migrations fixed when upgrading hxadmin.
+
+If your audit table predates custom action auditing, add a nullable `action_name` text column to it before upgrading hxadmin. Existing entries keep a `NULL` action name and display their original operation.
 
 ## Enable a view
 
@@ -60,7 +62,23 @@ Create entries use `null` for each `before` value and delete entries use `null` 
 
 For edits, hxadmin compares the values read before applying the form with the values persisted after `on_save` and flush. Audit entries roll back with failed writes. Leave the final commit to hxadmin in `on_save` and `on_delete` so both writes remain in one transaction. If your models use version checks to reject concurrent edits, those checks also apply to audited saves.
 
-Custom row and bulk actions, custom pages, direct database writes, and changes that predate activation are outside this feature. Audit history also does not follow cascaded changes to other records.
+Custom pages, direct database writes, cascaded changes to other records, and changes that predate activation are outside this feature.
+
+## Audit a custom action
+
+Add `audit=True` to a POST action on a view that declares `audit_fields`:
+
+```python
+@action("raise_priority", label="Raise priority", audit=True)
+async def raise_priority(self, request: Request, session: AsyncSession, obj: Task) -> ActionResult:
+    if obj.priority > 1:
+        obj.priority -= 1
+    return ActionResult.message(f"Priority is {obj.priority}.")
+```
+
+Include `priority` in the view's `audit_fields` for this action. The same flag works with `bulk=True`. hxadmin compares the configured columns before and after the handler and writes one update entry for each changed target row. The entry includes the action name and the History tab shows its label. A no-op produces zero entries.
+
+The handler can flush changes, and hxadmin commits them with the audit entries. Leave transaction commits and savepoint commits to hxadmin when auditing an action. The target rows must keep their identity and primary keys. This captures updates to the row or rows the handler receives. Additional rows created, updated, or deleted by the handler are outside its audit scope.
 
 ## Access and retention
 
@@ -70,7 +88,7 @@ The audit table has no foreign keys to the actor or record. Deleting a record pr
 
 ## Try it in the demos
 
-- Run `make demo`, sign in as `ada@example.com` with password `demo`, and edit a task's status. Open the task detail and select **History**. The ORM demo records the user's ID.
+- Run `make demo`, sign in as `ada@example.com` with password `demo`, and use **Raise priority** on a task with priority above `1`. Open the task detail and select **History**. The ORM demo records the user's ID and action name. The **Mark done** bulk action also records status changes.
 - Run `make demo/tables`, sign in as `admin@example.com` with password `demo`, and edit the quantity on a stock move. Open its detail and select **History**. The Core table demo records the signed-in email.
 
 Both demos create the table through their existing local database setup. The seed data has no audit entries, so make an edit through the form to see one.

@@ -28,6 +28,7 @@ class Action:
     confirm: str | None
     method: ActionMethod
     icon: str | None = _DEFAULT_ICON
+    audit: bool = False
 
 
 @dataclass(frozen=True, slots=True)
@@ -64,6 +65,7 @@ def action[F: ActionHandler](
     confirm: str | None = None,
     method: ActionMethod = "POST",
     icon: str | None = _DEFAULT_ICON,
+    audit: bool = False,
 ) -> Callable[[F], F]:
     """Declare a `ModelView` coroutine method as a row action, or a bulk action with `bulk=True`.
 
@@ -75,8 +77,12 @@ def action[F: ActionHandler](
         raise ValueError(f"Invalid action name {name!r}: use letters, digits, '_' and '-'")
     if method not in ("GET", "POST"):
         raise ValueError(f"Action {name!r}: method must be 'GET' or 'POST', not {method!r}")
+    if audit and method != "POST":
+        raise ValueError(f"Action {name!r}: only POST actions can be audited")
     check_icon(icon)
-    spec = Action(name, label or label_for(name.replace("-", "_")), bulk, confirm, method, icon)
+    spec = Action(
+        name, label or label_for(name.replace("-", "_")), bulk, confirm, method, icon, audit
+    )
 
     def decorate(func: F) -> F:
         _require_async(name, func)

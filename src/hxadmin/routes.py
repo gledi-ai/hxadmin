@@ -15,7 +15,7 @@ from starlette.requests import Request
 from starlette.responses import HTMLResponse, Response
 
 from hxadmin.actions import Action, ActionResult
-from hxadmin.audit import HISTORY_PAGE_SIZE, Snapshot, snapshot
+from hxadmin.audit import HISTORY_PAGE_SIZE, Snapshot, guard_action_commit, snapshot
 from hxadmin.export import export_response
 from hxadmin.fields import Field, RelationField
 from hxadmin.filters import relation_labels, visible_filters
@@ -201,6 +201,46 @@ def build_router(admin: "HxAdmin") -> APIRouter:
     async def _action_input(request: Request) -> FormData | QueryParams:
         return await request.form() if request.method == "POST" else request.query_params
 
+    async def _invoke_action(
+        request: Request,
+        session: AsyncSession,
+        view: ModelView[Any],
+        declared: Action,
+        target: Any,
+    ) -> Any:
+        handler = view.action_handler(declared.name)
+        if audit is None or not declared.audit:
+            return await handler(request, session, target)
+
+        rows = target if declared.bulk else (target,)
+        fields = view.audit_fields
+        with guard_action_commit(session):
+            actor_id = await session.run_sync(lambda _: audit.actor_id(request.state.hxadmin_user))
+            originals = await session.run_sync(
+                lambda _: [(obj, view.pk_of(obj), snapshot(obj, fields)) for obj in rows]
+            )
+            result = await handler(request, session, target)
+            if not isinstance(result, ActionResult):
+                return result
+            await session.flush()
+            for obj, key, before in originals:
+                if not inspect(obj).persistent:
+                    raise ValueError("An audited action must keep its target rows")
+                await session.refresh(obj, attribute_names=fields)
+                if await session.run_sync(lambda _, record: view.pk_of(record), obj) != key:
+                    raise ValueError("An audited action must keep its target primary keys")
+                await audit.record(
+                    session,
+                    actor_id=actor_id,
+                    identity=view.identity,
+                    key=key,
+                    operation="update",
+                    before=before,
+                    after=snapshot(obj, fields),
+                    action_name=declared.name,
+                )
+        return result
+
     async def _run_action(
         request: Request,
         session: AsyncSession,
@@ -219,7 +259,7 @@ def build_router(admin: "HxAdmin") -> APIRouter:
         if detail_pk is not None:
             back = admin.url(request, f"/{view.identity}/{detail_pk}")
         try:
-            result = await view.action_handler(declared.name)(request, session, target)
+            result = await _invoke_action(request, session, view, declared, target)
             if not isinstance(result, ActionResult):
                 raise TypeError(f"expected ActionResult, got {type(result).__name__}")
             await session.commit()

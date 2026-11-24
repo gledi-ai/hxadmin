@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.middleware.sessions import SessionMiddleware
 from starlette.requests import Request
 
+from demos.audit import upgrade_audit_table
 from demos.orm.auth import DEMO_PASSWORD, STAFF_EMAIL, authenticate, current_user
 from demos.orm.db import engine, get_session, sessionmaker
 from demos.orm.models import Base, Project, Task, TaskStatus, User
@@ -34,6 +35,7 @@ audit_table = define_audit_table(Base.metadata)
 async def lifespan(_: FastAPI) -> AsyncGenerator[None]:
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+        await conn.run_sync(upgrade_audit_table)
     async with sessionmaker() as session:
         await seed(session)
     yield
@@ -155,7 +157,13 @@ class TaskView(DemoPermissions, ModelView[Task]):
         if obj.title.lower() == "todo":
             raise FormError("Give the task a real title.", field="title")
 
-    @action("mark_done", label="Mark done", bulk=True, confirm="Mark the selected tasks as done?")
+    @action(
+        "mark_done",
+        label="Mark done",
+        bulk=True,
+        confirm="Mark the selected tasks as done?",
+        audit=True,
+    )
     async def mark_done(
         self, request: Request, session: AsyncSession, objs: Sequence[Task]
     ) -> ActionResult:
@@ -163,7 +171,7 @@ class TaskView(DemoPermissions, ModelView[Task]):
             task.status = TaskStatus.done
         return ActionResult.message(f"{len(objs)} task(s) marked done.")
 
-    @action("raise_priority", label="Raise priority", icon="arrow-up")
+    @action("raise_priority", label="Raise priority", icon="arrow-up", audit=True)
     async def raise_priority(
         self, request: Request, session: AsyncSession, obj: Task
     ) -> ActionResult:

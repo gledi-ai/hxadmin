@@ -206,6 +206,10 @@ class ModelView[T]:
         for attr, spec in by_attr.items():
             if spec.name in actions:
                 raise ValueError(f"{type(self).__name__}: duplicate action {spec.name!r}")
+            if spec.audit and not self.audit_fields:
+                raise ValueError(
+                    f"{type(self).__name__}: action {spec.name!r} requires audit_fields"
+                )
             actions[spec.name] = spec
             attrs[spec.name] = attr
         return actions, attrs

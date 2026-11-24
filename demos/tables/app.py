@@ -9,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 from starlette.middleware.sessions import SessionMiddleware
 from starlette.requests import Request
 
+from demos.audit import upgrade_audit_table
 from demos.tables.auth import DEMO_EMAIL, DEMO_PASSWORD, authenticate, current_user
 from demos.tables.models import ExchangeRate, Product, StockMove, Warehouse
 from demos.tables.seed import seed
@@ -30,6 +31,7 @@ async def get_session() -> AsyncIterator[AsyncSession]:
 async def lifespan(_: FastAPI) -> AsyncGenerator[None]:
     async with engine.begin() as conn:
         await conn.run_sync(metadata.create_all)
+        await conn.run_sync(upgrade_audit_table)
     async with sessionmaker() as session:
         await seed(session)
     yield
