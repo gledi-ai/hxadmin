@@ -45,19 +45,24 @@
 </dl>
 {% endfor %}
 {% endcall %}
-{% if collections %}
-<div class="mt-6" x-data="{ tab: '{{ collections[0][0].name }}' }">
+{% set tabs = namespace(items=[]) %}
+{% for field, url in collections %}
+{% set tabs.items = tabs.items + [('related-tab-' ~ field.name, 'related-panel-' ~ field.name, field.label, url)] %}
+{% endfor %}
+{% if history_url %}{% set tabs.items = tabs.items + [('history-tab', 'history-panel', 'History', history_url)] %}{% endif %}
+{% if tabs.items %}
+<div class="mt-6" x-data="{ tab: '{{ tabs.items[0][0] }}' }">
   <div class="flex gap-1 border-b border-border" role="tablist">
-    {% for field, url in collections %}
-    <button type="button" role="tab" id="related-tab-{{ field.name }}" aria-controls="related-panel-{{ field.name }}"
-            aria-selected="{{ 'true' if loop.first else 'false' }}" :aria-selected="(tab === '{{ field.name }}').toString()"
-            @click="tab = '{{ field.name }}'"
-            :class="tab === '{{ field.name }}' ? 'border-accent text-fg' : 'border-transparent text-fg-muted hover:text-fg'"
-            class="-mb-px border-b-2 px-3 py-2 text-sm font-medium">{{ field.label }}</button>
+    {% for tab_id, panel_id, label, url in tabs.items %}
+    <button type="button" role="tab" id="{{ tab_id }}" aria-controls="{{ panel_id }}"
+            aria-selected="{{ 'true' if loop.first else 'false' }}" :aria-selected="(tab === '{{ tab_id }}').toString()"
+            @click="tab = '{{ tab_id }}'"
+            :class="tab === '{{ tab_id }}' ? 'border-accent text-fg' : 'border-transparent text-fg-muted hover:text-fg'"
+            class="-mb-px border-b-2 px-3 py-2 text-sm font-medium">{{ label }}</button>
     {% endfor %}
   </div>
-  {% for field, url in collections %}
-  <div x-show="tab === '{{ field.name }}'" {% if not loop.first %}x-cloak{% endif %} role="tabpanel" id="related-panel-{{ field.name }}" aria-labelledby="related-tab-{{ field.name }}" class="hx-list pt-4"
+  {% for tab_id, panel_id, label, url in tabs.items %}
+  <div x-show="tab === '{{ tab_id }}'" {% if not loop.first %}x-cloak{% endif %} role="tabpanel" id="{{ panel_id }}" aria-labelledby="{{ tab_id }}" class="hx-list pt-4"
        hx-get="{{ url }}" hx-trigger="intersect once" hx-target="this">
     <p class="text-sm text-fg-muted">Loading…</p>
   </div>

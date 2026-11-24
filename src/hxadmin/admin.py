@@ -16,13 +16,14 @@ from jinja2 import (
     PrefixLoader,
     select_autoescape,
 )
-from sqlalchemy import Select, select
+from sqlalchemy import Select, Table, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.requests import Request
 from starlette.responses import HTMLResponse, RedirectResponse, Response
 from starlette.routing import BaseRoute
 
+from hxadmin.audit import AuditLog
 from hxadmin.components import date_format, html_attrs, pick
 from hxadmin.deps import AuthDependency, SessionDependency
 from hxadmin.fields import default_widget, field_widget, field_width
@@ -81,7 +82,16 @@ class HxAdmin:
         logo_url: str | None = None,
         templates_dir: str | Path | None = None,
         trusted_origins: Sequence[str] = (),
+        audit_table: Table | None = None,
+        audit_actor: Callable[[Any], str] | None = None,
     ) -> None:
+        if (audit_table is None) != (audit_actor is None):
+            raise ValueError("audit_table and audit_actor must be configured together")
+        self._audit = (
+            AuditLog(audit_table, audit_actor)
+            if audit_table is not None and audit_actor is not None
+            else None
+        )
         self.app = app
         self.title = title
         self.prefix = prefix.rstrip("/")
@@ -212,6 +222,8 @@ class HxAdmin:
 
     def register[V: ModelView[Any]](self, view_cls: type[V]) -> type[V]:
         view = view_cls()
+        if view.audit_fields and self._audit is None:
+            raise ValueError(f"{view_cls.__name__}: audit_fields requires an audit table and actor")
         if view.identity in self.views:
             raise ValueError(f"A view with identity {view.identity!r} is already registered")
         if any(_first_segment(page.path) == view.identity for page in self.pages):

@@ -13,6 +13,7 @@ nav = [
   { "Lists and filters" = "lists.md" },
   { "Forms" = "forms.md" },
   { "Actions" = "actions.md" },
+  { "Audit history" = "audit.md" },
   { "Custom pages" = "pages.md" },
   { "Export" = "export.md" },
   { "Templates and theming" = "templates.md" },

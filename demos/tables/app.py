@@ -13,11 +13,12 @@ from demos.tables.auth import DEMO_EMAIL, DEMO_PASSWORD, authenticate, current_u
 from demos.tables.models import ExchangeRate, Product, StockMove, Warehouse
 from demos.tables.seed import seed
 from demos.tables.tables import metadata
-from hxadmin import BadgeTone, HxAdmin, ModelView
+from hxadmin import BadgeTone, HxAdmin, ModelView, define_audit_table
 
 DB_PATH = Path(__file__).parent / "demo.db"
 engine = create_async_engine(f"sqlite+aiosqlite:///{DB_PATH}")
 sessionmaker = async_sessionmaker(engine, expire_on_commit=False)
+audit_table = define_audit_table(metadata)
 
 
 async def get_session() -> AsyncIterator[AsyncSession]:
@@ -50,6 +51,8 @@ admin = HxAdmin(
     title="Inventory admin",
     login_url="/login",
     logout_url="/logout",
+    audit_table=audit_table,
+    audit_actor=lambda user: user["email"],
 )
 LOGIN_NOTE = f"Demo account: {DEMO_EMAIL}, password {DEMO_PASSWORD!r}."
 
@@ -111,6 +114,7 @@ class ProductView(ModelView[Product]):
 @admin.register
 class StockMoveView(ModelView[StockMove]):
     model = StockMove
+    audit_fields = ("product_id", "warehouse_id", "kind", "quantity", "moved_on")
     name = "Stock move"
     category = "Inventory"
     icon = "arrow-left-right"

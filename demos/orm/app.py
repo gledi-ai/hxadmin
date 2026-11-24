@@ -24,7 +24,10 @@ from hxadmin import (
     ModelView,
     Page,
     action,
+    define_audit_table,
 )
+
+audit_table = define_audit_table(Base.metadata)
 
 
 @asynccontextmanager
@@ -53,6 +56,8 @@ admin = HxAdmin(
     login_url="/login",
     logout_url="/logout",
     templates_dir=Path(__file__).parent / "templates",
+    audit_table=audit_table,
+    audit_actor=lambda user: str(user.id),
 )
 LOGIN_NOTE = (
     f"Sign in as ada@example.com for full access or {STAFF_EMAIL} for read-only access. "
@@ -130,6 +135,7 @@ class ProjectView(DemoPermissions, ModelView[Project]):
 @admin.register
 class TaskView(DemoPermissions, ModelView[Task]):
     model = Task
+    audit_fields = ("title", "status", "priority", "due_date", "assignee_id")
     category = "Work"
     icon = "list-checks"
     list_columns = ("title", "status", "priority", "due_date", "project", "assignee")

@@ -20,6 +20,7 @@ class TaskView(ModelView[Task]):
 | `list_columns` | all columns | Columns and relations shown in the list |
 | `list_relation_links` | `()` | To-one relationships in `list_columns` that link to their related records |
 | `detail_columns` | all columns and relations | Fields on the detail page |
+| `audit_fields` | `()` | Mapped columns to track in [Audit history](audit.md) |
 | `searchable` | `()` | Columns searched by `?q=` (case-insensitive substring) |
 | `sortable` | every column in `list_columns` | Columns with sortable headers |
 | `default_sort` | `None` | `("column", "asc" \| "desc")` |
@@ -60,6 +61,7 @@ The detail page at `/{prefix}/{identity}/{pk}` shows a back link to the list, th
 | `is_visible(request)` | Show the view in the sidebar, dashboard and command palette |
 | `is_accessible(request)` | Allow access at all (403 otherwise); an inaccessible view is also left out of the sidebar, dashboard and palette |
 | `is_operation_allowed(request, operation)` | Allow an enabled built-in operation for the current user |
+| `is_history_allowed(request)` | Allow an authorized detail viewer to read [Audit history](audit.md#access-and-retention) |
 | `is_action_allowed(request, name)` | Allow one action; see [Actions](actions.md#permissions) |
 
 `request.state.hxadmin_user` is whatever your `auth` dependency returned, so the hooks can decide per user. The examples below assume the `auth` from [Auth and sessions](auth.md#auth), which returns the signed-in `User` row.

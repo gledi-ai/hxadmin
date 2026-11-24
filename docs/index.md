@@ -5,6 +5,7 @@ Admin interface for FastAPI and async SQLAlchemy 2.0+, rendered with Jinja2, htm
 - One `ModelView` class per model: list, detail, create, edit and delete from class attributes.
 - Search, sort, pagination and per-column filters on every list.
 - Row and bulk actions with a shared confirmation dialog and toasts.
+- [Opt-in audit history](audit.md) for changes made through built-in forms.
 - Custom pages that share the admin shell.
 - CSV export built in; Excel `.xlsx` export with the `xlsx` extra.
 - Light, dark and system themes.

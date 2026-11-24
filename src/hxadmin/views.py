@@ -34,6 +34,7 @@ class ModelView[T]:
     list_columns: ClassVar[tuple[str, ...]] = ()
     list_relation_links: ClassVar[tuple[str, ...]] = ()
     detail_columns: ClassVar[tuple[str, ...]] = ()
+    audit_fields: ClassVar[tuple[str, ...]] = ()
     searchable: ClassVar[tuple[str, ...]] = ()
     sortable: ClassVar[tuple[str, ...]] = ()
     default_sort: ClassVar[tuple[str, SortDir] | None] = None
@@ -93,6 +94,10 @@ class ModelView[T]:
         )
         self.link_name = self.stretch_name or (row_link_fields[0].name if row_link_fields else None)
         self.detail_fields = self._resolve(self.detail_columns or tuple(self.fields))
+        for name in self.audit_fields:
+            field = self.fields.get(name)
+            if not isinstance(field, Field) or field.kind == "other":
+                raise ValueError(f"{owner}: {name!r} is not a supported audit column")
         self.sort_names = self.sortable or tuple(
             f.name for f in self.list_fields if isinstance(f, Field)
         )
@@ -243,6 +248,10 @@ class ModelView[T]:
         return True
 
     def is_accessible(self, request: Request) -> bool:
+        return True
+
+    def is_history_allowed(self, request: Request) -> bool:
+        """Whether a user with access to the record may read its audit history."""
         return True
 
     def is_operation_allowed(self, request: Request, operation: ModelOperation) -> bool:

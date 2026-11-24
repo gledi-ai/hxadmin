@@ -34,6 +34,8 @@ class UserView(ModelView[User]):
 
 Documentation: [gledi-ai.github.io/hxadmin](https://gledi-ai.github.io/hxadmin/) (build locally with `nox -s docs`). Run `make demo` and open http://127.0.0.1:8001/admin/. Sign in as `ada@example.com` for full access or `staff@example.com` for read-only access. Both use the password `demo`. For projects built on plain Core `Table`s instead of ORM models, see `make demo/tables` (http://127.0.0.1:8002/admin/, `admin@example.com` / `demo`).
 
+To try audit history, edit a task in the ORM demo or a stock move in the Core table demo, then open **History** on its detail page. See the [audit history guide](docs/audit.md) to enable it in your app.
+
 ## Development
 
 ```bash

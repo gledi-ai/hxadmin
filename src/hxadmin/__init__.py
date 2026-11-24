@@ -2,6 +2,7 @@ from importlib.metadata import version
 
 from hxadmin.actions import ActionResult, action
 from hxadmin.admin import HxAdmin
+from hxadmin.audit import define_audit_table
 from hxadmin.fields import Field, RelationField
 from hxadmin.forms import FormError
 from hxadmin.pages import Page
@@ -20,4 +21,5 @@ __all__ = [
     "RelationField",
     "__version__",
     "action",
+    "define_audit_table",
 ]

@@ -1,0 +1,29 @@
+{% import "hxadmin/_macros.html" as m with context %}
+{% set labels = {'create': 'Created', 'update': 'Updated'} %}
+{% for entry in entries %}
+<div class="mb-3">
+  {% call m.card() %}
+  <div class="flex flex-wrap items-center gap-2 text-sm">
+    <strong>{{ labels[entry.operation] }}</strong>
+    <span class="text-fg-muted">by {{ entry.actor_id }}</span>
+    <time class="text-fg-muted" datetime="{{ entry.occurred_at.strftime('%Y-%m-%dT%H:%M:%SZ') }}">{{ entry.occurred_at.strftime('%Y-%m-%d %H:%M:%S UTC') }}</time>
+  </div>
+  <dl class="mt-4 space-y-2 text-sm">
+    {% for field, change in entry.changes|dictsort if field in view.audit_fields %}
+    <div class="grid gap-1 md:grid-cols-2">
+      <dt class="font-medium break-words">{{ field }}</dt>
+      <dd class="min-w-0 break-words">
+        {% if entry.operation == 'update' %}<del>{{ change.before|tojson }}</del> <span aria-label="changed to">→</span>{% endif %}
+        <span>{{ change.after|tojson }}</span>
+      </dd>
+    </div>
+    {% endfor %}
+  </dl>
+  {% endcall %}
+</div>
+{% else %}
+<p class="text-sm text-fg-muted">No changes recorded yet.</p>
+{% endfor %}
+{% if next_url %}
+<a href="{{ next_url }}" hx-get="{{ next_url }}" hx-swap="outerHTML" class="{{ m.button_classes('secondary') }}">Load older changes</a>
+{% endif %}

@@ -3,7 +3,7 @@ from collections.abc import Sequence
 from typing import TYPE_CHECKING, Annotated, Any, cast
 from urllib.parse import urlencode, urlsplit
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel
 from sqlalchemy import Select, inspect, select
 from sqlalchemy.exc import DataError, IntegrityError
@@ -15,6 +15,7 @@ from starlette.requests import Request
 from starlette.responses import HTMLResponse, Response
 
 from hxadmin.actions import Action, ActionResult
+from hxadmin.audit import HISTORY_PAGE_SIZE, Snapshot, snapshot
 from hxadmin.export import export_response
 from hxadmin.fields import Field, RelationField
 from hxadmin.filters import relation_labels, visible_filters
@@ -29,7 +30,7 @@ from hxadmin.forms import (
     validate,
 )
 from hxadmin.nav import build_dashboard, build_nav
-from hxadmin.pk import fetch_by_pks, pk_string_for
+from hxadmin.pk import INT64_MAX, fetch_by_pks, pk_string_for
 from hxadmin.query import (
     apply_search,
     count_rows,
@@ -101,6 +102,7 @@ def _list_return_url(request: Request, list_url: str) -> str:
 
 def build_router(admin: "HxAdmin") -> APIRouter:
     router = APIRouter(dependencies=[Depends(admin.current_user)])
+    audit = admin._audit
 
     async def _display_matches(session: AsyncSession, stmt: Select[Any], q: str) -> list[Any]:
         """Up to `LOOKUP_LIMIT` rows whose display contains `q`, scanning `LOOKUP_SCAN_MAX` rows."""
@@ -176,6 +178,11 @@ def build_router(admin: "HxAdmin") -> APIRouter:
             "obj": obj,
             "scalar_fields": scalar_fields,
             "collections": collections,
+            "history_url": (
+                admin.url(request, f"/{view.identity}/_history/{view.pk_of(obj)}")
+                if audit is not None and view.audit_fields and view.is_history_allowed(request)
+                else None
+            ),
             "back_url": _list_return_url(request, admin.url(request, f"/{view.identity}/")),
         }
 
@@ -396,7 +403,15 @@ def build_router(admin: "HxAdmin") -> APIRouter:
         form = await request.form()
         raw = parse_form(fields, form, created=created)
         values, errors = validate(schema, raw)
+        before: Snapshot = {}
+        actor_id = None
         if not errors:
+            if audit is not None and view.audit_fields:
+                actor_id = await session.run_sync(
+                    lambda _: audit.actor_id(request.state.hxadmin_user)
+                )
+                if not created:
+                    before = await session.run_sync(lambda _: snapshot(obj, view.audit_fields))
             try:
                 await apply(admin, request, session, view, obj, values, fields)
             except LookupError as exc:
@@ -411,6 +426,17 @@ def build_router(admin: "HxAdmin") -> APIRouter:
                 await view.on_save(request, session, obj, created=created)
                 await session.flush()
                 pk = view.pk_of(obj)
+                if audit is not None and actor_id is not None:
+                    await session.refresh(obj, attribute_names=view.audit_fields)
+                    await audit.record(
+                        session,
+                        actor_id=actor_id,
+                        identity=view.identity,
+                        key=pk,
+                        operation="create" if created else "update",
+                        before=before,
+                        after=snapshot(obj, view.audit_fields),
+                    )
                 label = await session.run_sync(lambda _: view.display(obj))
                 url = _after_save(request, view, pk, form.get("_then"))
                 await session.commit()
@@ -495,6 +521,34 @@ def build_router(admin: "HxAdmin") -> APIRouter:
             request,
             "hxadmin/list/_table.html",
             {"view": target, "result": result, "base_url": base_url, "push_url": False},
+        )
+
+    @router.get("/{identity}/_history/{pk}", name="history", response_class=HTMLResponse)
+    async def history(
+        request: Request,
+        identity: str,
+        pk: str,
+        session: Annotated[AsyncSession, Depends(admin.current_session)],
+        before: Annotated[int | None, Query(gt=0, le=INT64_MAX)] = None,
+    ) -> HTMLResponse:
+        view = _view(admin, request, identity)
+        if not view.allows_operation(request, "view") or not view.is_history_allowed(request):
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN)
+        if audit is None or not view.audit_fields:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
+        obj = await _object(request, session, view, pk)
+        key = view.pk_of(obj)
+        entries = await audit.history(session, view.identity, key, before=before)
+        url = admin.url(request, f"/{identity}/_history/{key}")
+        next_url = (
+            f"{url}?before={entries[HISTORY_PAGE_SIZE - 1]['id']}"
+            if len(entries) > HISTORY_PAGE_SIZE
+            else None
+        )
+        return admin.render(
+            request,
+            "hxadmin/detail/_history.html",
+            {"entries": entries[:HISTORY_PAGE_SIZE], "next_url": next_url, "view": view},
         )
 
     @router.get("/{identity}/_lookup/{field}", name="lookup", response_class=HTMLResponse)
@@ -638,9 +692,28 @@ def build_router(admin: "HxAdmin") -> APIRouter:
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN)
         obj = await _object(request, session, view, pk)
         label = await session.run_sync(lambda _: view.display(obj))
+        audit_context = None
         try:
+            if audit is not None and view.audit_fields:
+                actor_id = await session.run_sync(
+                    lambda _: audit.actor_id(request.state.hxadmin_user)
+                )
+                before = await session.run_sync(lambda _: snapshot(obj, view.audit_fields))
+                audit_context = actor_id, view.pk_of(obj), before
             await view.on_delete(request, session, obj)
             await session.delete(obj)
+            if audit is not None and audit_context is not None:
+                actor_id, record_key, before = audit_context
+                await session.flush()
+                await audit.record(
+                    session,
+                    actor_id=actor_id,
+                    identity=view.identity,
+                    key=record_key,
+                    operation="delete",
+                    before=before,
+                    after={},
+                )
             await session.commit()
         except IntegrityError as exc:
             await _rollback(request, session)
