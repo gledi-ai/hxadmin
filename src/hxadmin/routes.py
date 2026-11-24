@@ -1,4 +1,5 @@
 import logging
+from base64 import b64encode
 from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Annotated, Any, cast
@@ -16,8 +17,8 @@ from starlette.requests import Request
 from starlette.responses import HTMLResponse, Response
 
 from hxadmin.actions import Action, ActionResult
-from hxadmin.audit import HISTORY_PAGE_SIZE, Snapshot, guard_action_commit, snapshot
-from hxadmin.export import export_response
+from hxadmin.audit import HISTORY_PAGE_SIZE, Snapshot, guard_commit, snapshot
+from hxadmin.export import CSV_MEDIA_TYPE, export_response
 from hxadmin.fields import Field, RelationField
 from hxadmin.filters import relation_labels, visible_filters
 from hxadmin.forms import (
@@ -29,7 +30,16 @@ from hxadmin.forms import (
     initial_values,
     parse_form,
     relabel,
+    resolve_relation,
     validate,
+)
+from hxadmin.import_csv import (
+    MAX_ROWS,
+    CsvImportError,
+    CsvRow,
+    import_payload,
+    parse_import,
+    template_bytes,
 )
 from hxadmin.nav import build_dashboard, build_nav
 from hxadmin.pk import INT64_MAX, fetch_by_pks, pk_string_for
@@ -236,7 +246,7 @@ def build_router(admin: "HxAdmin") -> APIRouter:
 
         rows = target if declared.bulk else (target,)
         fields = view.audit_fields
-        with guard_action_commit(session):
+        with guard_commit(session, operation="an audited action"):
             actor_id = await session.run_sync(lambda _: audit.actor_id(request.state.hxadmin_user))
             originals = await session.run_sync(
                 lambda _: [(obj, view.pk_of(obj), snapshot(obj, fields)) for obj in rows]
@@ -455,6 +465,28 @@ def build_router(admin: "HxAdmin") -> APIRouter:
             return FormErrors({exc.field: exc.message})
         return FormErrors({}, form=exc.message)
 
+    async def _audit_save(
+        session: AsyncSession,
+        view: ModelView[Any],
+        obj: Any,
+        pk: str,
+        actor_id: str | None,
+        before: Snapshot,
+        *,
+        created: bool,
+    ) -> None:
+        if audit is not None and actor_id is not None:
+            await session.refresh(obj, attribute_names=view.audit_fields)
+            await audit.record(
+                session,
+                actor_id=actor_id,
+                identity=view.identity,
+                key=pk,
+                operation="create" if created else "update",
+                before=before,
+                after=snapshot(obj, view.audit_fields),
+            )
+
     def _after_save(request: Request, view: ModelView[Any], pk: str, then: Any) -> str:
         if then == "another" and view.allows_operation(request, "create"):
             return admin.url(request, f"/{view.identity}/new")
@@ -522,17 +554,7 @@ def build_router(admin: "HxAdmin") -> APIRouter:
                             related_create.list_url,
                             can_create=True,
                         )
-                if audit is not None and actor_id is not None:
-                    await session.refresh(obj, attribute_names=view.audit_fields)
-                    await audit.record(
-                        session,
-                        actor_id=actor_id,
-                        identity=view.identity,
-                        key=pk,
-                        operation="create" if created else "update",
-                        before=before,
-                        after=snapshot(obj, view.audit_fields),
-                    )
+                await _audit_save(session, view, obj, pk, actor_id, before, created=created)
                 label = await session.run_sync(lambda _: view.display(obj))
                 url = (
                     related_create.parent_url
@@ -594,6 +616,153 @@ def build_router(admin: "HxAdmin") -> APIRouter:
             view.create_schema,
             created=True,
         )
+
+    def _import_view(request: Request, identity: str) -> ModelView[Any]:
+        view = _view(admin, request, identity)
+        if not view.allows_import(request):
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN)
+        return view
+
+    def _render_import(
+        request: Request,
+        view: ModelView[Any],
+        *,
+        columns: Sequence[str] = (),
+        rows: Sequence[CsvRow] = (),
+        payload: str = "",
+        error: str = "",
+    ) -> HTMLResponse:
+        invalid = bool(error) or any(row.errors for row in rows)
+        response = admin.render(
+            request,
+            "hxadmin/import.html",
+            {
+                "view": view,
+                "columns": columns,
+                "rows": rows,
+                "payload": payload,
+                "error": error,
+                "max_rows": MAX_ROWS,
+            },
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT if invalid else status.HTTP_200_OK,
+        )
+        response.headers["Cache-Control"] = "no-store"
+        return response
+
+    @router.get("/{identity}/_import/template", name="import_template")
+    async def import_template(request: Request, identity: str) -> Response:
+        view = _import_view(request, identity)
+        return Response(
+            template_bytes(view.import_columns),
+            media_type=CSV_MEDIA_TYPE,
+            headers={"Content-Disposition": 'attachment; filename="import-template.csv"'},
+        )
+
+    @router.get("/{identity}/_import/upload", name="import_form", response_class=HTMLResponse)
+    async def import_form(request: Request, identity: str) -> HTMLResponse:
+        return _render_import(request, _import_view(request, identity))
+
+    async def _commit_import(
+        request: Request,
+        session: AsyncSession,
+        view: ModelView[Any],
+        columns: list[str],
+        rows: list[CsvRow],
+    ) -> Response:
+        actor_id = None
+        if audit is not None and view.audit_fields:
+            actor_id = await session.run_sync(lambda _: audit.actor_id(request.state.hxadmin_user))
+        active_row: CsvRow | None = None
+        committing = False
+        try:
+            with guard_commit(session, operation="a CSV import"):
+                for row in rows:
+                    active_row = row
+                    obj = view.model()
+                    try:
+                        await apply(
+                            admin, request, session, view, obj, row.values, view.import_fields
+                        )
+                    except LookupError as exc:
+                        raise FormError("Unknown selection.", field=str(exc)) from exc
+                    session.add(obj)
+                    transaction = session.get_transaction()
+                    await view.on_save(request, session, obj, created=True)
+                    if session.get_transaction() is not transaction:
+                        raise RuntimeError("Leave transaction control for CSV imports to hxadmin")
+                    await session.flush()
+                    await _audit_save(
+                        session, view, obj, view.pk_of(obj), actor_id, {}, created=True
+                    )
+            committing = True
+            await session.commit()
+        except (IntegrityError, DataError, FormError) as exc:
+            await _rollback(request, session)
+            errors = _save_errors(exc, view.writable_fields)
+            message = "No records were imported."
+            if active_row is not None and not committing:
+                active_row.errors = errors
+            elif errors.form:
+                message = errors.form
+            return _render_import(
+                request,
+                view,
+                columns=columns,
+                rows=rows,
+                error=message,
+            )
+        except Exception:
+            await _rollback(request, session)
+            raise
+        count = len(rows)
+        return admin.redirect(
+            request,
+            admin.url(request, f"/{view.identity}/"),
+            toast=Toast(f"Imported {count} {'record' if count == 1 else 'records'}."),
+        )
+
+    async def _handle_import(
+        request: Request, identity: str, session: AsyncSession, *, confirm: bool
+    ) -> Response:
+        view = _import_view(request, identity)
+        try:
+            data = await import_payload(request, confirm=confirm)
+            columns, rows = parse_import(view, data)
+        except CsvImportError as exc:
+            return _render_import(request, view, error=str(exc))
+        if confirm:
+            if any(row.errors for row in rows):
+                return _render_import(request, view, columns=columns, rows=rows)
+            return await _commit_import(request, session, view, columns, rows)
+
+        relations = [field for field in view.import_fields if isinstance(field, RelationField)]
+        for row in rows:
+            for field in relations:
+                if field.name in row.values:
+                    try:
+                        await resolve_relation(
+                            admin, request, session, field, row.values[field.name]
+                        )
+                    except LookupError:
+                        row.errors.fields[field.name] = "Unknown selection."
+        payload = "" if any(row.errors for row in rows) else b64encode(data).decode("ascii")
+        return _render_import(request, view, columns=columns, rows=rows, payload=payload)
+
+    @router.post("/{identity}/_import/upload", name="import_preview")
+    async def import_preview(
+        request: Request,
+        identity: str,
+        session: Annotated[AsyncSession, Depends(admin.current_session)],
+    ) -> Response:
+        return await _handle_import(request, identity, session, confirm=False)
+
+    @router.post("/{identity}/_import/confirm", name="import_confirm")
+    async def import_confirm(
+        request: Request,
+        identity: str,
+        session: Annotated[AsyncSession, Depends(admin.current_session)],
+    ) -> Response:
+        return await _handle_import(request, identity, session, confirm=True)
 
     def _related_field(request: Request, view: ModelView[Any], rel: str) -> RelationField:
         if not view.allows_operation(request, "view"):

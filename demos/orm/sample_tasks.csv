@@ -1,0 +1,26 @@
+title,project,status,priority,due_date,assignee
+Audit homepage accessibility,1,doing,2,2026-11-26,1
+Update pricing page copy,1,todo,3,2026-11-27,3
+Compress product screenshots,1,done,4,2026-11-24,3
+Check mobile navigation,1,doing,2,2026-11-27,1
+"Review headings, links, and alt text",1,todo,3,2026-11-30,3
+Fix contact form confirmation,1,todo,1,2026-11-25,1
+Draft December release announcement,1,todo,3,2026-12-03,3
+Refresh social sharing previews,1,done,4,2026-11-23,3
+Add newsletter signup tracking,1,doing,2,2026-12-01,1
+Archive outdated campaign pages,1,todo,5,,
+Test keyboard navigation on pricing,1,todo,2,2026-12-02,3
+Check redirects from legacy URLs,1,todo,3,2026-12-04,
+Update the browser support page,1,,,2026-12-07,3
+Investigate slow startup on cold caches,2,doing,1,2026-11-26,2
+Add regression test for canceled jobs,2,todo,2,2026-11-30,1
+Document buffer ownership,2,done,4,2026-11-24,2
+Benchmark queue throughput under load,2,doing,2,2026-12-01,2
+Review retry behavior on timeout,2,todo,1,2026-11-27,1
+Clean up worker shutdown logs,2,todo,4,,2
+Test recovery after an interrupted write,2,todo,2,2026-12-03,1
+Pin the reproducible build image,2,done,3,2026-11-23,2
+Measure memory use during batch processing,2,doing,3,2026-12-04,1
+Add diagnostics for dropped events,2,todo,2,2026-12-07,2
+Review the release checklist,2,todo,3,2026-12-08,
+Triage flaky stress tests,2,,,,

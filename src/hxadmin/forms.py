@@ -131,10 +131,7 @@ def _single(form: FormData, name: str) -> str | None:
 _OMITTED = object()
 
 
-def _column_raw(field_: Field, form: FormData, *, created: bool) -> Any:
-    if field_.kind == "bool":
-        return "on" if field_.name in form else False
-    value = _single(form, field_.name) or ""
+def _column_raw(field_: Field, value: str, *, created: bool) -> Any:
     if value != "":
         return value
     if field_.nullable:
@@ -160,10 +157,21 @@ def parse_form(
             else:
                 raw[field_.name] = _single(form, field_.name) or None
         elif not field_.readonly:
-            value = _column_raw(field_, form, created=created)
+            if field_.kind == "bool":
+                raw[field_.name] = "on" if field_.name in form else False
+                continue
+            value = _column_raw(field_, _single(form, field_.name) or "", created=created)
             if value is not _OMITTED:
                 raw[field_.name] = value
     return raw
+
+
+def csv_column_raw(field_: Field, value: str, raw: dict[str, Any]) -> None:
+    if field_.kind == "bool" and value == "":
+        return
+    converted = _column_raw(field_, value, created=True)
+    if converted is not _OMITTED:
+        raw[field_.name] = converted
 
 
 def _message(error: Mapping[str, Any]) -> str:
@@ -221,6 +229,12 @@ async def _relation_value(
     return rows[0]
 
 
+async def resolve_relation(
+    admin: "HxAdmin", request: Request, session: AsyncSession, field_: RelationField, value: Any
+) -> Any:
+    return await _relation_value(session, relation_scope(admin, request, field_), field_, value)
+
+
 async def apply(
     admin: "HxAdmin",
     request: Request,
@@ -238,8 +252,9 @@ async def apply(
                 continue
             value = values[field_.name]
             if isinstance(field_, RelationField):
-                stmt = relation_scope(admin, request, field_)
-                setattr(obj, field_.name, await _relation_value(session, stmt, field_, value))
+                setattr(
+                    obj, field_.name, await resolve_relation(admin, request, session, field_, value)
+                )
             elif not field_.readonly:
                 setattr(obj, field_.name, _column_value(columns[field_.name].type, value))
 

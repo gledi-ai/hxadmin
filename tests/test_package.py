@@ -6,6 +6,7 @@ PACKAGE_DATA = [
     "py.typed",
     "templates/hxadmin/layout.html",
     "templates/hxadmin/list.html",
+    "templates/hxadmin/import.html",
     "templates/hxadmin/list/_table.html",
     "templates/hxadmin/detail.html",
     "templates/hxadmin/detail/_panel.html",

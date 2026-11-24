@@ -147,6 +147,7 @@ class TaskView(DemoPermissions, ModelView[Task]):
     page_size = 5
     list_filters = ("status", "priority", "due_date", "title", "project", "assignee")
     export_formats = ("csv", "xlsx")
+    import_columns = ("title", "project", "status", "priority", "due_date", "assignee")
     badges: ClassVar[Mapping[str, Mapping[str, BadgeTone]]] = {
         "status": {"todo": "neutral", "doing": "accent", "done": "success"}
     }

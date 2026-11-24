@@ -58,9 +58,9 @@ def snapshot(obj: Any, names: Sequence[str]) -> Snapshot:
 
 
 @contextmanager
-def guard_action_commit(session: AsyncSession) -> Generator[None]:
+def guard_commit(session: AsyncSession, *, operation: str) -> Generator[None]:
     def before_commit(_: Session) -> None:
-        raise RuntimeError("Leave the commit of an audited action to hxadmin")
+        raise RuntimeError(f"Leave the commit of {operation} to hxadmin")
 
     event.listen(session.sync_session, "before_commit", before_commit)
     try:

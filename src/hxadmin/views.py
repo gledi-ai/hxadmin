@@ -52,6 +52,7 @@ class ModelView[T]:
     export_formats: ClassVar[tuple[ExportFormat, ...]] = ()
     export_columns: ClassVar[tuple[str, ...]] = ()
     export_max_rows: ClassVar[int | None] = 10_000
+    import_columns: ClassVar[tuple[str, ...]] = ()
     badges: ClassVar[Mapping[str, Mapping[str, BadgeTone]]] = {}
 
     def __init_subclass__(cls, **kwargs: Any) -> None:
@@ -137,6 +138,7 @@ class ModelView[T]:
             )
         )
         self.create_schema: type[BaseModel] = build_schema(self.model, self.writable_fields)
+        self.import_fields = self._resolve_import_fields()
         self.edit_schema: type[BaseModel] = build_schema(self.model, self.edit_fields)
         self.actions, self._action_attrs = self._collect_actions()
         self.row_actions = tuple(a for a in self.actions.values() if not a.bulk)
@@ -186,6 +188,29 @@ class ModelView[T]:
             relations = [f for f in self.fields.values() if isinstance(f, RelationField)]
             resolved = [*columns, *relations]
         return tuple(f for f in resolved if f.name not in self.form_exclude)
+
+    def _resolve_import_fields(self) -> tuple[Field | RelationField, ...]:
+        if not self.import_columns:
+            return ()
+        owner = type(self).__name__
+        schema_fields = self.create_schema.model_fields
+        fields = {field.name: field for field in self.writable_fields}
+        if len(set(self.import_columns)) != len(self.import_columns):
+            raise ValueError(f"{owner}: import_columns contains duplicate fields")
+        for name in self.import_columns:
+            if name not in schema_fields:
+                raise ValueError(f"{owner}: {name!r} is not a writable create field")
+            field = fields[name]
+            if isinstance(field, RelationField) and (
+                field.multiple
+                or not field.fk_columns
+                or inspect(self.model, raiseerr=True).relationships[name].viewonly
+            ):
+                raise ValueError(f"{owner}: {name!r} must be a writable many-to-one relationship")
+        for name, info in schema_fields.items():
+            if info.is_required() and name not in self.import_columns:
+                raise ValueError(f"{owner}: import_columns must include {name!r}")
+        return tuple(fields[name] for name in self.import_columns)
 
     def _resolve_form_field(self, item: str | Field) -> Field | RelationField:
         name = item if isinstance(item, str) else item.name
@@ -287,6 +312,9 @@ class ModelView[T]:
 
     def permitted_export_formats(self, request: Request) -> tuple[ExportFormat, ...]:
         return self.export_formats if self.allows_operation(request, "export") else ()
+
+    def allows_import(self, request: Request) -> bool:
+        return bool(self.import_fields) and self.allows_operation(request, "create")
 
     def is_action_allowed(self, request: Request, name: str) -> bool:
         """Whether the current user may run action `name`; disallowed actions are hidden, 403."""

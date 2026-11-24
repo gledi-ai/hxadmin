@@ -2,7 +2,7 @@
 
 Admin interface for FastAPI and async SQLAlchemy 2.0+, built with Jinja2, htmx, Alpine.js and Tailwind CSS.
 
-List, detail, create, edit and delete from class attributes, with search, sort, pagination, per-column filters, row and bulk actions, custom pages, CSV / Excel export and light / dark themes. Async only and fully typed.
+List, detail, create, edit and delete from class attributes, with search, sort, pagination, per-column filters, row and bulk actions, custom pages, CSV import, CSV / Excel export and light / dark themes. Async only and fully typed.
 
 ## Install
 

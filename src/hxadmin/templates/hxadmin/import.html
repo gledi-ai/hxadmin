@@ -1,0 +1,73 @@
+{% extends "hxadmin/layout.html" %}
+{% import "hxadmin/_macros.html" as m with context %}
+{% set list_url = admin.url(request, '/' ~ view.identity ~ '/') %}
+{% set import_url = list_url ~ '_import/' %}
+{% block title %}Import {{ view.name_plural|lower }} · {{ admin.title }}{% endblock %}
+{% block breadcrumb %}<a href="{{ admin.url(request, '/') }}" class="hover:underline">Dashboard</a> / <a href="{{ list_url }}" class="hover:underline">{{ view.name_plural }}</a>{% endblock %}
+{% block content %}
+<h1 class="mb-4 text-xl font-semibold">Import {{ view.name_plural|lower }}</h1>
+{% if error %}
+{{ m.alert(error, 'danger', class='mb-4') }}
+{% elif rows and not payload %}
+{{ m.alert('Correct the highlighted rows and upload the file again.', 'danger', class='mb-4') }}
+{% endif %}
+{% if rows %}
+<section class="mb-4 rounded-lg border border-border bg-surface">
+  <h2 class="px-4 py-3 font-semibold">Preview · {{ rows|length }} {{ 'record' if rows|length == 1 else 'records' }}</h2>
+  <div class="overflow-x-auto">
+    <table class="w-full text-left text-sm">
+      <thead>
+        <tr class="border-t border-border">
+          <th scope="col" class="px-3 py-2">CSV line</th>
+          {% for column in columns %}<th scope="col" class="px-3 py-2">{{ column }}</th>{% endfor %}
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in rows %}
+        <tr class="border-t border-border align-top">
+          <th scope="row" class="px-3 py-2">{{ row.line }}</th>
+          {% if row.cells|length == columns|length %}
+          {% for column in columns %}
+          <td class="px-3 py-2">
+            <span class="break-all">{{ row.cells[loop.index0] }}</span>
+            {% if column in row.errors.fields %}{{ m.alert(row.errors.fields[column], 'danger', class='mt-2') }}{% endif %}
+          </td>
+          {% endfor %}
+          {% else %}
+          <td colspan="{{ columns|length }}" class="px-3 py-2">{{ m.alert(row.errors.form, 'danger') }}</td>
+          {% endif %}
+        </tr>
+        {% if row.cells|length == columns|length %}
+          {% if row.errors.form or row.errors.fields.keys()|reject('in', columns)|list %}
+          <tr><td colspan="{{ columns|length + 1 }}" class="px-3 pb-2">
+            {% if row.errors.form %}{{ m.alert(row.errors.form, 'danger') }}{% endif %}
+            {% for field, message in row.errors.fields.items() if field not in columns %}{{ m.alert(field ~ ' · ' ~ message, 'danger') }}{% endfor %}
+          </td></tr>
+          {% endif %}
+        {% endif %}
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endif %}
+{% if payload %}
+<form method="post" enctype="multipart/form-data" action="{{ import_url }}confirm" class="flex flex-wrap items-center gap-2">
+  <input type="hidden" name="csv" value="{{ payload }}">
+  {{ m.button('Import ' ~ rows|length ~ (' record' if rows|length == 1 else ' records'), 'primary', type='submit') }}
+  {{ m.button('Choose another file', 'ghost', href=import_url ~ 'upload') }}
+  {{ m.button('Cancel', 'ghost', href=list_url) }}
+</form>
+{% else %}
+<form method="post" enctype="multipart/form-data" action="{{ import_url }}upload" class="max-w-[720px] rounded-lg border border-border bg-surface p-4">
+  <label for="import-csv" class="block text-sm font-medium">CSV file</label>
+  <p id="import-help" class="mt-2 text-sm text-fg-muted">Use the template’s column names. Up to {{ max_rows }} records and 1 MiB per file.</p>
+  <input type="file" id="import-csv" name="csv" accept=".csv,text/csv" required aria-describedby="import-help" class="mt-2 block w-full rounded-md border border-input p-2 text-sm">
+  <div class="mt-4 flex flex-wrap items-center gap-2">
+    {{ m.button('Preview import', 'primary', type='submit') }}
+    {{ m.button('Download template', 'secondary', icon='download', href=import_url ~ 'template') }}
+    {{ m.button('Cancel', 'ghost', href=list_url) }}
+  </div>
+</form>
+{% endif %}
+{% endblock %}

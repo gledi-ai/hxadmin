@@ -21,6 +21,7 @@ if TYPE_CHECKING:
 type ExportFormat = Literal["csv", "xlsx"]
 
 EXPORT_FORMATS: tuple[ExportFormat, ...] = ("csv", "xlsx")
+CSV_MEDIA_TYPE = "text/csv; charset=utf-8"
 XLSX_MEDIA_TYPE = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 _FORMULA_PREFIXES = ("=", "+", "-", "@", "\t", "\r")
 _SHEET_NAME_INVALID = re.compile(r"[\[\]:*?/\\]")
@@ -171,6 +172,6 @@ async def export_response(
         media_type = XLSX_MEDIA_TYPE
     else:
         body = csv_bytes(headers, table)
-        media_type = "text/csv; charset=utf-8"
+        media_type = CSV_MEDIA_TYPE
     disposition = f'attachment; filename="{view.identity}-{stamp}.{fmt}"'
     return Response(body, media_type=media_type, headers={"Content-Disposition": disposition})

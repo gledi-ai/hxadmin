@@ -8,6 +8,7 @@ Admin interface for FastAPI and async SQLAlchemy 2.0+, rendered with Jinja2, htm
 - [Opt-in audit history](audit.md) for changes made through built-in forms.
 - Custom pages that share the admin shell.
 - CSV export built in; Excel `.xlsx` export with the `xlsx` extra.
+- [Opt-in CSV import](import.md) with a validation preview.
 - Light, dark and system themes.
 - Async only, fully typed (`py.typed`), no WTForms, no sync engines.
 
