@@ -45,24 +45,26 @@
 </dl>
 {% endfor %}
 {% endcall %}
-{% set tabs = namespace(items=[]) %}
+{% set tabs = namespace(items=[], active=none) %}
 {% for field, url in collections %}
 {% set tabs.items = tabs.items + [('related-tab-' ~ field.name, 'related-panel-' ~ field.name, field.label, url)] %}
+{% if field.name == active_collection %}{% set tabs.active = 'related-tab-' ~ field.name %}{% endif %}
 {% endfor %}
 {% if history_url %}{% set tabs.items = tabs.items + [('history-tab', 'history-panel', 'History', history_url)] %}{% endif %}
 {% if tabs.items %}
-<div class="mt-6" x-data="{ tab: '{{ tabs.items[0][0] }}' }">
+{% set active_tab = tabs.active or tabs.items[0][0] %}
+<div class="mt-6" x-data="{ tab: {{ active_tab|tojson|forceescape }} }">
   <div class="flex gap-1 border-b border-border" role="tablist">
     {% for tab_id, panel_id, label, url in tabs.items %}
     <button type="button" role="tab" id="{{ tab_id }}" aria-controls="{{ panel_id }}"
-            aria-selected="{{ 'true' if loop.first else 'false' }}" :aria-selected="(tab === '{{ tab_id }}').toString()"
+            aria-selected="{{ 'true' if tab_id == active_tab else 'false' }}" :aria-selected="(tab === '{{ tab_id }}').toString()"
             @click="tab = '{{ tab_id }}'"
             :class="tab === '{{ tab_id }}' ? 'border-accent text-fg' : 'border-transparent text-fg-muted hover:text-fg'"
             class="-mb-px border-b-2 px-3 py-2 text-sm font-medium">{{ label }}</button>
     {% endfor %}
   </div>
   {% for tab_id, panel_id, label, url in tabs.items %}
-  <div x-show="tab === '{{ tab_id }}'" {% if not loop.first %}x-cloak{% endif %} role="tabpanel" id="{{ panel_id }}" aria-labelledby="{{ tab_id }}" class="hx-list pt-4"
+  <div x-show="tab === '{{ tab_id }}'" {% if tab_id != active_tab %}x-cloak{% endif %} role="tabpanel" id="{{ panel_id }}" aria-labelledby="{{ tab_id }}" class="hx-list pt-4"
        hx-get="{{ url }}" hx-trigger="intersect once" hx-target="this">
     <p class="text-sm text-fg-muted">Loading…</p>
   </div>

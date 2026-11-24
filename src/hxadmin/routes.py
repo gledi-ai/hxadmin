@@ -1,14 +1,15 @@
 import logging
 from collections.abc import Sequence
+from dataclasses import dataclass
 from typing import TYPE_CHECKING, Annotated, Any, cast
-from urllib.parse import urlencode, urlsplit
+from urllib.parse import unquote, urlencode, urlsplit
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel
-from sqlalchemy import Select, inspect, select
+from sqlalchemy import ColumnElement, Select, inspect, select
 from sqlalchemy.exc import DataError, IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import Mapper, with_parent
+from sqlalchemy.orm import Mapper, RelationshipProperty, with_parent
 from starlette.datastructures import FormData, QueryParams
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.requests import Request
@@ -23,6 +24,7 @@ from hxadmin.forms import (
     FormError,
     FormErrors,
     apply,
+    build_schema,
     form_relations,
     initial_values,
     parse_form,
@@ -54,6 +56,25 @@ CONFLICT_MESSAGE = (
 )
 LOOKUP_LIMIT = 20
 LOOKUP_SCAN_MAX = 2000
+
+
+@dataclass(frozen=True, slots=True)
+class _RelatedCreate:
+    parent: Any
+    relationship: RelationshipProperty[Any]
+    list_url: str
+    parent_url: str
+    inline: bool
+
+
+def _bind_parent(obj: Any, related: _RelatedCreate) -> None:
+    relationship = related.relationship
+    for parent_column, child_column in relationship.synchronize_pairs:
+        parent_key = relationship.parent.get_property_by_column(parent_column).key
+        child_key = relationship.mapper.get_property_by_column(child_column).key
+        setattr(obj, child_key, getattr(related.parent, parent_key))
+    if relationship.back_populates:
+        setattr(obj, relationship.back_populates, related.parent)
 
 
 def _is_htmx(request: Request) -> bool:
@@ -178,6 +199,7 @@ def build_router(admin: "HxAdmin") -> APIRouter:
             "obj": obj,
             "scalar_fields": scalar_fields,
             "collections": collections,
+            "active_collection": request.query_params.get("tab"),
             "history_url": (
                 admin.url(request, f"/{view.identity}/_history/{view.pk_of(obj)}")
                 if audit is not None and view.audit_fields and view.is_history_allowed(request)
@@ -380,10 +402,14 @@ def build_router(admin: "HxAdmin") -> APIRouter:
         errors: FormErrors,
         *,
         created: bool,
+        related_create: _RelatedCreate | None = None,
         status_code: int = status.HTTP_200_OK,
     ) -> HTMLResponse:
         list_url = admin.url(request, f"/{view.identity}/")
-        if created:
+        if related_create is not None:
+            action_url = f"{related_create.list_url}/new"
+            cancel_url = related_create.parent_url
+        elif created:
             action_url = admin.url(request, f"/{view.identity}/new")
             cancel_url = list_url
         else:
@@ -406,6 +432,12 @@ def build_router(admin: "HxAdmin") -> APIRouter:
                 "action_url": action_url,
                 "cancel_url": cancel_url,
                 "created": created,
+                "related_create": related_create is not None,
+                "inline_related_url": (
+                    related_create.list_url
+                    if related_create is not None and related_create.inline
+                    else None
+                ),
             },
             status_code=status_code,
         )
@@ -439,6 +471,7 @@ def build_router(admin: "HxAdmin") -> APIRouter:
         schema: type[BaseModel],
         *,
         created: bool,
+        related_create: _RelatedCreate | None = None,
     ) -> Response:
         form = await request.form()
         raw = parse_form(fields, form, created=created)
@@ -463,9 +496,32 @@ def build_router(admin: "HxAdmin") -> APIRouter:
             if created:
                 session.add(obj)
             try:
+                if related_create is not None:
+                    await session.run_sync(lambda _: _bind_parent(obj, related_create))
                 await view.on_save(request, session, obj, created=created)
                 await session.flush()
                 pk = view.pk_of(obj)
+                listing = None
+                if related_create is not None:
+                    relation_filter = with_parent(
+                        related_create.parent, related_create.relationship.class_attribute
+                    )
+                    belongs = (
+                        select(1)
+                        .select_from(view.model)
+                        .where(*view.pk_clauses(pk), relation_filter)
+                    )
+                    if await session.scalar(belongs) is None:
+                        raise FormError("The new record must belong to this related collection.")
+                    if related_create.inline:
+                        listing = await _related_table(
+                            request,
+                            session,
+                            view,
+                            relation_filter,
+                            related_create.list_url,
+                            can_create=True,
+                        )
                 if audit is not None and actor_id is not None:
                     await session.refresh(obj, attribute_names=view.audit_fields)
                     await audit.record(
@@ -478,7 +534,11 @@ def build_router(admin: "HxAdmin") -> APIRouter:
                         after=snapshot(obj, view.audit_fields),
                     )
                 label = await session.run_sync(lambda _: view.display(obj))
-                url = _after_save(request, view, pk, form.get("_then"))
+                url = (
+                    related_create.parent_url
+                    if related_create is not None
+                    else _after_save(request, view, pk, form.get("_then"))
+                )
                 await session.commit()
             except (IntegrityError, DataError, FormError) as exc:
                 await _rollback(request, session)
@@ -490,6 +550,9 @@ def build_router(admin: "HxAdmin") -> APIRouter:
                 raise
             else:
                 done = Toast(f"{view.name} “{label}” {'created' if created else 'saved'}.")
+                if listing is not None:
+                    listing.headers["HX-Trigger"] = hx_trigger(done)
+                    return listing
                 return admin.redirect(request, url, toast=done)
         shown = await relabel(admin, request, session, fields, raw)
         return _render_form(
@@ -500,6 +563,7 @@ def build_router(admin: "HxAdmin") -> APIRouter:
             shown,
             errors,
             created=created,
+            related_create=related_create,
             status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
         )
 
@@ -531,6 +595,38 @@ def build_router(admin: "HxAdmin") -> APIRouter:
             created=True,
         )
 
+    def _related_field(request: Request, view: ModelView[Any], rel: str) -> RelationField:
+        if not view.allows_operation(request, "view"):
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN)
+        field = next((f for f in view.detail_fields if f.name == rel), None)
+        if not isinstance(field, RelationField) or not field.multiple:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
+        return field
+
+    async def _related_table(
+        request: Request,
+        session: AsyncSession,
+        target: ModelView[Any],
+        relation_filter: ColumnElement[bool],
+        base_url: str,
+        *,
+        can_create: bool,
+    ) -> HTMLResponse:
+        stmt = target.get_query(request).where(relation_filter)
+        params = parse_list_params(request, target)
+        result = await run_list(session, target, stmt, params)
+        return admin.render(
+            request,
+            "hxadmin/list/_table.html",
+            {
+                "view": target,
+                "result": result,
+                "base_url": base_url,
+                "push_url": False,
+                "related_create_url": f"{base_url}/new" if can_create else None,
+            },
+        )
+
     @router.get("/{identity}/_related/{pk}/{rel}", name="related", response_class=HTMLResponse)
     async def related(
         request: Request,
@@ -540,27 +636,85 @@ def build_router(admin: "HxAdmin") -> APIRouter:
         session: Annotated[AsyncSession, Depends(admin.current_session)],
     ) -> HTMLResponse:
         view = _view(admin, request, identity)
-        if not view.allows_operation(request, "view"):
-            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN)
-        field = next((f for f in view.detail_fields if f.name == rel), None)
-        if not isinstance(field, RelationField) or not field.multiple:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
+        field = _related_field(request, view, rel)
         obj = await _object(request, session, view, pk)
         base_url = admin.url(request, f"/{view.identity}/_related/{pk}/{rel}")
+        relation_filter = with_parent(obj, getattr(view.model, rel))
         target = admin.view_for(field.target)
         if target is None:
-            stmt = select(field.target).where(with_parent(obj, getattr(view.model, rel)))
+            stmt = select(field.target).where(relation_filter)
             rows = (await session.scalars(stmt.limit(100))).all()
             return admin.render(request, "hxadmin/detail/_related_plain.html", {"rows": rows})
         if not target.is_accessible(request):
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN)
-        stmt = target.get_query(request).where(with_parent(obj, getattr(view.model, rel)))
-        params = parse_list_params(request, target)
-        result = await run_list(session, target, stmt, params)
-        return admin.render(
+        return await _related_table(
             request,
-            "hxadmin/list/_table.html",
-            {"view": target, "result": result, "base_url": base_url, "push_url": False},
+            session,
+            target,
+            relation_filter,
+            base_url,
+            can_create=rel in view.related_create and target.allows_operation(request, "create"),
+        )
+
+    @router.get("/{identity}/_related/{pk}/{rel}/new", response_class=HTMLResponse)
+    @router.post("/{identity}/_related/{pk}/{rel}/new")
+    async def create_related(
+        request: Request,
+        identity: str,
+        pk: str,
+        rel: str,
+        session: Annotated[AsyncSession, Depends(admin.current_session)],
+    ) -> Response:
+        view = _view(admin, request, identity)
+        field = _related_field(request, view, rel)
+        target = admin.view_for(field.target)
+        if rel not in view.related_create or target is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
+        if not target.is_accessible(request) or not target.allows_operation(request, "create"):
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN)
+        parent = await _object(request, session, view, pk)
+        relationship = inspect(view.model, raiseerr=True).relationships[rel]
+        bound_keys = {
+            relationship.mapper.get_property_by_column(child).key
+            for _, child in relationship.synchronize_pairs
+        }
+        fields = tuple(
+            f
+            for f in target.writable_fields
+            if f.name not in bound_keys
+            and f.name != relationship.back_populates
+            and not (isinstance(f, RelationField) and bound_keys.intersection(f.fk_columns))
+        )
+        context = _RelatedCreate(
+            parent,
+            relationship,
+            admin.url(request, f"/{identity}/_related/{pk}/{rel}"),
+            admin.url(request, f"/{identity}/{pk}?{urlencode({'tab': rel})}"),
+            _is_htmx(request)
+            and unquote(request.headers.get("HX-Target", "").removeprefix("div#"))
+            == f"related-panel-{rel}",
+        )
+        if request.method == "GET":
+            values = initial_values(admin, target, None, fields)
+            return _render_form(
+                request,
+                target,
+                None,
+                fields,
+                values,
+                FormErrors(),
+                created=True,
+                related_create=context,
+            )
+        return await _save(
+            request,
+            session,
+            target,
+            target.model(),
+            fields,
+            build_schema(target.model, fields),
+            created=True,
+            related_create=context,
         )
 
     @router.get("/{identity}/_history/{pk}", name="history", response_class=HTMLResponse)

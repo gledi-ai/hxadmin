@@ -20,6 +20,7 @@ class TaskView(ModelView[Task]):
 | `list_columns` | all columns | Columns and relations shown in the list |
 | `list_relation_links` | `()` | To-one relationships in `list_columns` that link to their related records |
 | `detail_columns` | all columns and relations | Fields on the detail page |
+| `related_create` | `()` | One-to-many detail tabs that can create child records |
 | `audit_fields` | `()` | Mapped columns to track in [Audit history](audit.md) |
 | `searchable` | `()` | Columns searched by `?q=` (case-insensitive substring) |
 | `sortable` | every column in `list_columns` | Columns with sortable headers |
@@ -48,6 +49,17 @@ Keys are column names; inner keys are the enum's `.value` strings, or `"true"` /
 ## Detail page
 
 The detail page at `/{prefix}/{identity}/{pk}` shows a back link to the list, the row's `display` as the title with up to two enum badges, and the actions on the right: the row actions as buttons when there are at most two and none needs confirmation (otherwise they move into the `⋯` menu), Edit, and a `⋯` menu holding Delete. The body is a card holding a description list, two columns wide from the `md` breakpoint with each label above its value: the columns first, then the to-one relations in their own group. Long text and JSON span both columns. Values use the same cell formatting as the list; relations link to the related row when its model has a view with `can_view` that the current user can access. When `detail_columns` is empty, foreign-key columns whose relation is also shown are hidden. To-many relations appear as tabs below, each loading its list when first shown, through the related view's `get_query`. A relation whose view is not accessible to the current user gets no tab; one whose model has no view shows up to 100 rows as plain text.
+
+### Creating related records
+
+Set `related_create = ("tasks",)` on `ProjectView` to add **Add task** to the Tasks tab.
+Each named relationship must be a writable one-to-many collection shown on the detail page.
+The child model needs a registered view. Users must be able to view the parent record and
+have create permission on the child view.
+
+The tab uses the child view's create form, with the parent relationship and its foreign-key
+fields supplied by hxadmin. The child's `on_save` hook and audit configuration apply as usual.
+After saving, the tab refreshes with the related list.
 
 ## Hooks
 

@@ -3,8 +3,9 @@ from dataclasses import replace
 from typing import Any, ClassVar, Literal
 
 from pydantic import BaseModel
-from sqlalchemy import ColumnElement, Select, select
+from sqlalchemy import ColumnElement, Select, inspect, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import RelationshipDirection
 from starlette.requests import Request
 
 from hxadmin.actions import ACTION_ATTR, Action
@@ -34,6 +35,7 @@ class ModelView[T]:
     list_columns: ClassVar[tuple[str, ...]] = ()
     list_relation_links: ClassVar[tuple[str, ...]] = ()
     detail_columns: ClassVar[tuple[str, ...]] = ()
+    related_create: ClassVar[tuple[str, ...]] = ()
     audit_fields: ClassVar[tuple[str, ...]] = ()
     searchable: ClassVar[tuple[str, ...]] = ()
     sortable: ClassVar[tuple[str, ...]] = ()
@@ -94,6 +96,20 @@ class ModelView[T]:
         )
         self.link_name = self.stretch_name or (row_link_fields[0].name if row_link_fields else None)
         self.detail_fields = self._resolve(self.detail_columns or tuple(self.fields))
+        if self.related_create:
+            mapper = inspect(self.model, raiseerr=True)
+            for name in self.related_create:
+                field = self.fields.get(name)
+                if (
+                    not isinstance(field, RelationField)
+                    or not field.multiple
+                    or field not in self.detail_fields
+                    or mapper.relationships[name].direction is not RelationshipDirection.ONETOMANY
+                    or mapper.relationships[name].viewonly
+                ):
+                    raise ValueError(
+                        f"{owner}: {name!r} must be a writable one-to-many detail relationship"
+                    )
         for name in self.audit_fields:
             field = self.fields.get(name)
             if not isinstance(field, Field) or field.kind == "other":

@@ -8,7 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.requests import Request
 
 from hxadmin import ActionResult, HxAdmin, ModelView, action, define_audit_table
-from tests.conftest import AppFactory, Base, Post, PostStatus
+from tests.conftest import AppFactory, Base, Post, PostStatus, User
 from tests.test_detail import seed
 
 POST_DATA = {"title": "New", "status": "draft", "author": "1", "score": "0"}
@@ -30,6 +30,11 @@ def build(factory: AppFactory, audit_table: Table) -> FastAPI:
     admin = HxAdmin(
         app, session=factory.get_session, auth=auth, audit_table=audit_table, audit_actor=str
     )
+
+    @admin.register
+    class UserView(ModelView[User]):
+        model = User
+        related_create = ("posts",)
 
     @admin.register
     class PostView(ModelView[Post]):
@@ -71,6 +76,19 @@ def build(factory: AppFactory, audit_table: Table) -> FastAPI:
             return ActionResult.message("Committed")
 
     return app
+
+
+def test_related_create_records_child_history(factory: AppFactory, audit_table: Table) -> None:
+    url = "/admin/user/_related/1/posts/new"
+    with TestClient(build(factory, audit_table)) as client:
+        assert "<html" in client.get(url).text
+        response = client.post(url, data={"title": "Related post"}, follow_redirects=False)
+        assert response.status_code == status.HTTP_303_SEE_OTHER
+        assert response.headers["location"] == "/admin/user/1?tab=posts"
+        history = client.get("/admin/post/_history/2")
+        assert "<strong>Created</strong>" in history.text
+        assert '"Related post"' in history.text
+        assert "by 17" in history.text
 
 
 def test_crud_history_and_record_scope(factory: AppFactory, audit_table: Table) -> None:

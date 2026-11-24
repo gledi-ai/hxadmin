@@ -8,6 +8,11 @@
 {% set selectable = push_url and (view.permitted_actions(request, bulk=True) or export_formats) %}
 {% set row_actions = view.permitted_actions(request, bulk=False) if push_url else () %}
 {% set actions = view.allows_operation(request, 'edit') or view.allows_operation(request, 'delete') or row_actions %}
+{% if related_create_url %}
+<div class="mb-3 flex justify-end">
+  {{ m.button('Add ' ~ view.name|lower, 'primary', icon='plus', href=related_create_url, attrs={'hx-get': related_create_url, 'hx-target': 'closest .hx-list'}) }}
+</div>
+{% endif %}
 {% if filters is defined and htmx %}
 {% for filter in filters %}{{ m.filter_summary_span(filter, params.filter_value(filter.name), filter_options.get(filter.name, []), oob=True) }}{% endfor %}
 {{ m.filter_reset(params.filters, oob=True) }}

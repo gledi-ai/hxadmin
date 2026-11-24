@@ -127,6 +127,7 @@ class UserView(DemoPermissions, ModelView[User]):
 @admin.register
 class ProjectView(DemoPermissions, ModelView[Project]):
     model = Project
+    related_create = ("tasks",)
     category = "Work"
     icon = "folder-kanban"
     list_columns = ("name", "description", "members")

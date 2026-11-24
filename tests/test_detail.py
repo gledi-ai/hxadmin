@@ -8,7 +8,7 @@ from sqlalchemy import Select, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.requests import Request
 
-from hxadmin import HxAdmin, ModelView
+from hxadmin import FormError, HxAdmin, ModelOperation, ModelView
 from tests.conftest import AppFactory, Group, Post, Tag, User, Vote, allow_all
 from tests.html import classes, tag
 
@@ -139,6 +139,78 @@ def test_related_registered_renders_table(
     assert "hx-push-url" not in related
     assert "Showing 1\u20132 of 2" in related
     assert html
+
+
+def test_create_child_from_related_tab(
+    factory: AppFactory, make_client: Callable[[FastAPI], TestClient]
+) -> None:
+    app = factory.app(seed=seed)
+    admin = HxAdmin(app, session=factory.get_session, auth=allow_all)
+
+    @admin.register
+    class UserView(ModelView[User]):
+        model = User
+        related_create = ("posts",)
+
+        def get_query(self, request: Request) -> Select[User]:
+            stmt = super().get_query(request)
+            if request.headers.get("X-Scoped"):
+                stmt = stmt.where(User.active.is_(True))
+            return stmt
+
+    @admin.register
+    class PostView(ModelView[Post]):
+        model = Post
+        form_fields = ("title", "author", "author_id")
+
+        def is_operation_allowed(self, request: Request, operation: ModelOperation) -> bool:
+            return operation != "create" or not request.headers.get("X-Read-Only")
+
+        async def on_save(
+            self, request: Request, session: AsyncSession, obj: Post, *, created: bool
+        ) -> None:
+            if obj.title == "rejected":
+                raise FormError("Pick a different title.", field="title")
+            obj.title = f"{obj.title} by {obj.author.email}"
+
+    related_url = "/admin/user/_related/1/posts"
+    create_url = f"{related_url}/new"
+    headers = {"HX-Request": "true", "HX-Target": "div#related-panel-posts"}
+    with make_client(app) as client:
+        tab = client.get(related_url, headers=headers)
+        assert f'hx-get="{create_url}"' in tab.text
+
+        form = client.get(create_url, headers=headers)
+        assert form.status_code == status.HTTP_200_OK
+        assert "<html" not in form.text
+        assert 'hx-target="closest .hx-list"' in form.text
+        assert f'hx-get="{related_url}"' in form.text
+        assert 'name="title"' in form.text
+        assert 'name="author"' not in form.text
+        assert 'name="author_id"' not in form.text
+
+        invalid = client.post(create_url, headers=headers, data={"title": "rejected"})
+        assert invalid.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
+        assert "Pick a different title." in invalid.text
+
+        saved = client.post(
+            create_url, headers=headers, data={"title": "New post", "author": "2", "author_id": 2}
+        )
+        assert saved.status_code == status.HTTP_200_OK
+        assert "HX-Redirect" not in saved.headers
+        assert "New post by ada@x.io" in saved.text
+        assert "hxadmin-toast" in saved.headers["HX-Trigger"]
+        assert "New post by ada@x.io" in client.get(related_url).text
+        assert "New post" not in client.get("/admin/user/_related/2/posts").text
+
+        denied = {"X-Read-Only": "true"}
+        assert create_url not in client.get(related_url, headers=denied).text
+        for method in ("GET", "POST"):
+            assert client.request(method, create_url, headers=denied).status_code == 403
+            scoped = client.request(
+                method, "/admin/user/_related/2/posts/new", headers={"X-Scoped": "true"}
+            )
+            assert scoped.status_code == 404
 
 
 def test_related_respects_list_params(
