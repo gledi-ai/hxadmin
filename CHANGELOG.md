@@ -2,6 +2,12 @@
 
 All notable changes to this project are documented in this file.
 
+## [0.3.4] - 2026-11-24
+
+### Features
+
+- Create related records from detail tabs
+
 ## [0.3.3] - 2026-11-24
 
 ### Features
