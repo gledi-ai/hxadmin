@@ -1,6 +1,7 @@
 import logging
 from base64 import b64encode
 from collections.abc import Sequence
+from contextlib import nullcontext
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Annotated, Any, cast
 from urllib.parse import unquote, urlencode, urlsplit
@@ -41,6 +42,15 @@ from hxadmin.import_csv import (
     parse_import,
     template_bytes,
 )
+from hxadmin.inlines import (
+    InlineChange,
+    InlineGroup,
+    inline_group,
+    inline_groups,
+    load_inlines,
+    parse_inlines,
+    related_form_fields,
+)
 from hxadmin.nav import build_dashboard, build_nav
 from hxadmin.pk import INT64_MAX, fetch_by_pks, pk_string_for
 from hxadmin.query import (
@@ -77,14 +87,27 @@ class _RelatedCreate:
     inline: bool
 
 
-def _bind_parent(obj: Any, related: _RelatedCreate) -> None:
-    relationship = related.relationship
+def _bind_parent(obj: Any, parent: Any, relationship: RelationshipProperty[Any]) -> None:
     for parent_column, child_column in relationship.synchronize_pairs:
         parent_key = relationship.parent.get_property_by_column(parent_column).key
         child_key = relationship.mapper.get_property_by_column(child_column).key
-        setattr(obj, child_key, getattr(related.parent, parent_key))
+        setattr(obj, child_key, getattr(parent, parent_key))
     if relationship.back_populates:
-        setattr(obj, relationship.back_populates, related.parent)
+        setattr(obj, relationship.back_populates, parent)
+
+
+async def _require_related(
+    session: AsyncSession,
+    view: ModelView[Any],
+    pk: str,
+    relation_filter: ColumnElement[bool],
+    *,
+    created: bool,
+) -> None:
+    belongs = select(1).select_from(view.model).where(*view.pk_clauses(pk), relation_filter)
+    if await session.scalar(belongs) is None:
+        record = "new record" if created else "record"
+        raise FormError(f"The {record} must belong to this related collection.")
 
 
 def _is_htmx(request: Request) -> bool:
@@ -413,6 +436,7 @@ def build_router(admin: "HxAdmin") -> APIRouter:
         *,
         created: bool,
         related_create: _RelatedCreate | None = None,
+        inlines: Sequence[InlineGroup] = (),
         status_code: int = status.HTTP_200_OK,
     ) -> HTMLResponse:
         list_url = admin.url(request, f"/{view.identity}/")
@@ -442,6 +466,7 @@ def build_router(admin: "HxAdmin") -> APIRouter:
                 "action_url": action_url,
                 "cancel_url": cancel_url,
                 "created": created,
+                "inlines": inlines,
                 "related_create": related_create is not None,
                 "inline_related_url": (
                     related_create.list_url
@@ -494,6 +519,38 @@ def build_router(admin: "HxAdmin") -> APIRouter:
             return admin.url(request, f"/{view.identity}/{pk}")
         return _list_return_url(request, admin.url(request, f"/{view.identity}/"))
 
+    async def _save_inline(
+        request: Request, session: AsyncSession, parent: Any, change: InlineChange
+    ) -> None:
+        group, row = change.group, change.row
+        view = group.view
+        created = row.pk is None
+        obj = view.model() if created else row.obj
+        before: Snapshot = {}
+        actor_id = None
+        if audit is not None and view.audit_fields:
+            actor_id = await session.run_sync(lambda _: audit.actor_id(request.state.hxadmin_user))
+            if not created:
+                before = await session.run_sync(lambda _: snapshot(obj, view.audit_fields))
+        try:
+            await apply(admin, request, session, view, obj, change.values, row.fields)
+        except LookupError as exc:
+            raise FormError("Unknown selection.", field=str(exc)) from exc
+        if created:
+            session.add(obj)
+            await session.run_sync(lambda _: _bind_parent(obj, parent, group.relationship))
+        await view.on_save(request, session, obj, created=created)
+        await session.flush()
+        pk = view.pk_of(obj)
+        await _require_related(
+            session,
+            view,
+            pk,
+            with_parent(parent, group.relationship.class_attribute),
+            created=created,
+        )
+        await _audit_save(session, view, obj, pk, actor_id, before, created=created)
+
     async def _save(
         request: Request,
         session: AsyncSession,
@@ -506,11 +563,20 @@ def build_router(admin: "HxAdmin") -> APIRouter:
         related_create: _RelatedCreate | None = None,
     ) -> Response:
         form = await request.form()
+        inlines = []
+        if related_create is None:
+            inlines = (
+                inline_groups(admin, request, view, created=True)
+                if created
+                else await load_inlines(admin, request, session, view, obj)
+            )
+        changes = parse_inlines(admin, inlines, form) if view.form_inlines else []
         raw = parse_form(fields, form, created=created)
         values, errors = validate(schema, raw)
+        inline_errors = any(change.row.errors for change in changes)
         before: Snapshot = {}
         actor_id = None
-        if not errors:
+        if not errors and not inline_errors:
             if audit is not None and view.audit_fields:
                 actor_id = await session.run_sync(
                     lambda _: audit.actor_id(request.state.hxadmin_user)
@@ -524,27 +590,32 @@ def build_router(admin: "HxAdmin") -> APIRouter:
                     await _rollback(request, session)
                     await session.refresh(obj)
                 errors = FormErrors({str(exc): "Unknown selection."})
-        if not errors:
+        if not errors and not inline_errors:
             if created:
                 session.add(obj)
+            current_change = None
             try:
                 if related_create is not None:
-                    await session.run_sync(lambda _: _bind_parent(obj, related_create))
-                await view.on_save(request, session, obj, created=created)
-                await session.flush()
+                    await session.run_sync(
+                        lambda _: _bind_parent(
+                            obj, related_create.parent, related_create.relationship
+                        )
+                    )
+                with (
+                    guard_commit(session, operation="an inline save") if changes else nullcontext()
+                ):
+                    await view.on_save(request, session, obj, created=created)
+                    await session.flush()
+                    for current_change in changes:
+                        await _save_inline(request, session, obj, current_change)
+                current_change = None
                 pk = view.pk_of(obj)
                 listing = None
                 if related_create is not None:
                     relation_filter = with_parent(
                         related_create.parent, related_create.relationship.class_attribute
                     )
-                    belongs = (
-                        select(1)
-                        .select_from(view.model)
-                        .where(*view.pk_clauses(pk), relation_filter)
-                    )
-                    if await session.scalar(belongs) is None:
-                        raise FormError("The new record must belong to this related collection.")
+                    await _require_related(session, view, pk, relation_filter, created=True)
                     if related_create.inline:
                         listing = await _related_table(
                             request,
@@ -566,7 +637,10 @@ def build_router(admin: "HxAdmin") -> APIRouter:
                 await _rollback(request, session)
                 if not created:
                     await session.refresh(obj)
-                errors = _save_errors(exc, fields)
+                if current_change is None:
+                    errors = _save_errors(exc, fields)
+                else:
+                    current_change.row.errors = _save_errors(exc, current_change.row.fields)
             except Exception:
                 await _rollback(request, session)
                 raise
@@ -577,6 +651,9 @@ def build_router(admin: "HxAdmin") -> APIRouter:
                     return listing
                 return admin.redirect(request, url, toast=done)
         shown = await relabel(admin, request, session, fields, raw)
+        for change in changes:
+            row = change.row
+            row.values.update(await relabel(admin, request, session, row.fields, change.raw))
         return _render_form(
             request,
             view,
@@ -586,6 +663,7 @@ def build_router(admin: "HxAdmin") -> APIRouter:
             errors,
             created=created,
             related_create=related_create,
+            inlines=inlines,
             status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
         )
 
@@ -596,7 +674,10 @@ def build_router(admin: "HxAdmin") -> APIRouter:
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN)
         fields = view.writable_fields
         values = initial_values(admin, view, None, fields)
-        return _render_form(request, view, None, fields, values, FormErrors(), created=True)
+        inlines = inline_groups(admin, request, view, created=True)
+        return _render_form(
+            request, view, None, fields, values, FormErrors(), created=True, inlines=inlines
+        )
 
     @router.post("/{identity}/new")
     async def create(
@@ -843,17 +924,7 @@ def build_router(admin: "HxAdmin") -> APIRouter:
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN)
         parent = await _object(request, session, view, pk)
         relationship = inspect(view.model, raiseerr=True).relationships[rel]
-        bound_keys = {
-            relationship.mapper.get_property_by_column(child).key
-            for _, child in relationship.synchronize_pairs
-        }
-        fields = tuple(
-            f
-            for f in target.writable_fields
-            if f.name not in bound_keys
-            and f.name != relationship.back_populates
-            and not (isinstance(f, RelationField) and bound_keys.intersection(f.fk_columns))
-        )
+        fields = related_form_fields(target.writable_fields, relationship)
         context = _RelatedCreate(
             parent,
             relationship,
@@ -885,6 +956,28 @@ def build_router(admin: "HxAdmin") -> APIRouter:
             created=True,
             related_create=context,
         )
+
+    @router.get("/{identity}/_inline/{rel}/new", response_class=HTMLResponse)
+    async def new_inline_row(request: Request, identity: str, rel: str) -> HTMLResponse:
+        view = _view(admin, request, identity)
+        if rel not in view.form_inlines:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
+        group = inline_group(admin, request, view, rel)
+        if (
+            group is None
+            or not group.can_create
+            or not (
+                view.allows_operation(request, "create") or view.allows_operation(request, "edit")
+            )
+        ):
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN)
+        response = admin.render(
+            request,
+            "hxadmin/form/_inline_row.html",
+            {"group": group, "row": group.new_row(admin), "focus_new": True},
+        )
+        response.headers["Cache-Control"] = "no-store"
+        return response
 
     @router.get("/{identity}/_history/{pk}", name="history", response_class=HTMLResponse)
     async def history(
@@ -1027,7 +1120,10 @@ def build_router(admin: "HxAdmin") -> APIRouter:
         fields = view.edit_fields
         obj = await _object(request, session, view, pk, form_relations(fields))
         values = initial_values(admin, view, obj, fields)
-        return _render_form(request, view, obj, fields, values, FormErrors(), created=False)
+        inlines = await load_inlines(admin, request, session, view, obj)
+        return _render_form(
+            request, view, obj, fields, values, FormErrors(), created=False, inlines=inlines
+        )
 
     @router.post("/{identity}/{pk}/edit")
     async def edit(

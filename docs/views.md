@@ -28,6 +28,7 @@ class TaskView(ModelView[Task]):
 | `page_size` / `page_size_options` | `25` / `(5, 10, 25, 50, 100)` | Pagination |
 | `list_filters` | `()` | Filter panel; see [Lists and filters](lists.md) |
 | `form_fields` / `form_exclude` | derived / `()` | See [Forms](forms.md) |
+| `form_inlines` | `()` | One-to-many relationships edited in the [parent form](forms.md#editing-related-records-inline) |
 | `export_formats` / `export_columns` / `export_max_rows` | `()` / list columns / `10_000` | See [Export](export.md) |
 | `import_columns` | `()` | Opt in to [CSV import](import.md) and choose the editable columns |
 | `can_view` / `can_create` / `can_edit` / `can_delete` | `True` | Enable pages and buttons |

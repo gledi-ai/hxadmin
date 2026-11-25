@@ -45,6 +45,7 @@ class ModelView[T]:
     can_view: ClassVar[bool] = True
     form_fields: ClassVar[tuple[str | Field, ...]] = ()
     form_exclude: ClassVar[tuple[str, ...]] = ()
+    form_inlines: ClassVar[tuple[str, ...]] = ()
     can_create: ClassVar[bool] = True
     can_edit: ClassVar[bool] = True
     can_delete: ClassVar[bool] = True
@@ -97,17 +98,23 @@ class ModelView[T]:
         )
         self.link_name = self.stretch_name or (row_link_fields[0].name if row_link_fields else None)
         self.detail_fields = self._resolve(self.detail_columns or tuple(self.fields))
-        if self.related_create:
+        if len(set(self.form_inlines)) != len(self.form_inlines):
+            raise ValueError(f"{owner}: form_inlines contains duplicate relationships")
+        if self.related_create or self.form_inlines:
             mapper = inspect(self.model, raiseerr=True)
-            for name in self.related_create:
+            for name in dict.fromkeys((*self.related_create, *self.form_inlines)):
                 field = self.fields.get(name)
                 if (
                     not isinstance(field, RelationField)
                     or not field.multiple
-                    or field not in self.detail_fields
                     or mapper.relationships[name].direction is not RelationshipDirection.ONETOMANY
                     or mapper.relationships[name].viewonly
                 ):
+                    detail = " detail" if name in self.related_create else ""
+                    raise ValueError(
+                        f"{owner}: {name!r} must be a writable one-to-many{detail} relationship"
+                    )
+                if name in self.related_create and field not in self.detail_fields:
                     raise ValueError(
                         f"{owner}: {name!r} must be a writable one-to-many detail relationship"
                     )
@@ -187,7 +194,8 @@ class ModelView[T]:
             ]
             relations = [f for f in self.fields.values() if isinstance(f, RelationField)]
             resolved = [*columns, *relations]
-        return tuple(f for f in resolved if f.name not in self.form_exclude)
+        excluded = {*self.form_exclude, *self.form_inlines}
+        return tuple(f for f in resolved if f.name not in excluded)
 
     def _resolve_import_fields(self) -> tuple[Field | RelationField, ...]:
         if not self.import_columns:

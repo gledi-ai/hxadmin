@@ -128,11 +128,11 @@ class UserView(DemoPermissions, ModelView[User]):
 class ProjectView(DemoPermissions, ModelView[Project]):
     model = Project
     related_create = ("tasks",)
+    form_inlines = ("tasks",)
     category = "Work"
     icon = "folder-kanban"
     list_columns = ("name", "description", "members")
     searchable = ("name", "description")
-    form_exclude = ("tasks",)
 
 
 @admin.register

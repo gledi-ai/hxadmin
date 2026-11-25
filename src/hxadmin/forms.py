@@ -140,7 +140,7 @@ def _column_raw(field_: Field, value: str, *, created: bool) -> Any:
 
 
 def parse_form(
-    fields: Sequence[Field | RelationField], form: FormData, *, created: bool
+    fields: Sequence[Field | RelationField], form: FormData, *, created: bool, prefix: str = ""
 ) -> dict[str, Any]:
     """Turn submitted form data into raw values keyed by field name.
 
@@ -149,18 +149,17 @@ def parse_form(
     """
     raw: dict[str, Any] = {}
     for field_ in fields:
+        name = prefix + field_.name
         if isinstance(field_, RelationField):
             if field_.multiple:
-                raw[field_.name] = [
-                    v for v in form.getlist(field_.name) if isinstance(v, str) and v != ""
-                ]
+                raw[field_.name] = [v for v in form.getlist(name) if isinstance(v, str) and v != ""]
             else:
-                raw[field_.name] = _single(form, field_.name) or None
+                raw[field_.name] = _single(form, name) or None
         elif not field_.readonly:
             if field_.kind == "bool":
-                raw[field_.name] = "on" if field_.name in form else False
+                raw[field_.name] = "on" if name in form else False
                 continue
-            value = _column_raw(field_, _single(form, field_.name) or "", created=created)
+            value = _column_raw(field_, _single(form, name) or "", created=created)
             if value is not _OMITTED:
                 raw[field_.name] = value
     return raw

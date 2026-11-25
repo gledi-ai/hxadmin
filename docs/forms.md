@@ -44,6 +44,40 @@ Strings arrive stripped of surrounding whitespace. A non-nullable column without
 
 Each field shows its label (with a red `*` when required), the input, the help text and then the error. The Cancel / Save footer sticks to the bottom of the viewport on long forms; the edit page title carries the row's `#pk`.
 
+## Editing related records inline
+
+Set `form_inlines` to edit one-to-many relationships from the parent form. Register a
+view for the child model as well.
+
+```python
+@admin.register
+class ProjectView(ModelView[Project]):
+    model = Project
+    form_inlines = ("tasks",)
+
+
+@admin.register
+class TaskView(ModelView[Task]):
+    model = Task
+    form_fields = ("title", "status", "due_date")
+```
+
+`form_inlines` replaces the relationship picker for each named collection on the parent
+form. **Add task** opens a draft above the saved tasks. Click a saved task to expand its
+fields. **Discard draft** removes an unsaved task, and **Cancel edit** excludes a saved task
+from the current submission. The form lists up to 20 editable children per relationship,
+using the child view's `get_query` scope. Use the child view to edit additional records or
+delete saved records.
+
+Each inline uses the child view's fields and create or edit permission. hxadmin fills in
+the parent relationship and its foreign keys. **Save project** validates the project and all open
+inline rows, runs the parent's `on_save` first and then each submitted child's `on_save`,
+and commits the changes and any configured audit entries together. A rejected child save
+displays its error on that row and rolls back the entire save.
+
+Try this in the ORM demo (`make demo`) under **Projects**. Open a project's edit form and
+find the **Tasks** section.
+
 ## Dates and times
 
 Date, datetime and time fields use a vendored [Air Datepicker](https://air-datepicker.com), themed with the admin tokens in light and dark. The visible input shows `mm/dd/yyyy` (plus `hh:mm`), while a hidden input carries the submitted ISO value: `YYYY-MM-DD`, `YYYY-MM-DDTHH:MM` or `HH:MM`. Clearing the input with its `×` clears the value. Use it in your own templates through the `date_input` macro:

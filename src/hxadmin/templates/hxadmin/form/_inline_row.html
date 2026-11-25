@@ -1,0 +1,36 @@
+{% import "hxadmin/_macros.html" as m with context %}
+{% set view = group.view %}
+{% set values = row.values %}
+{% set errors = row.errors %}
+{% set field_prefix = row.marker ~ '.' %}
+{% set fields_id = 'fields-' ~ row.marker %}
+{% set is_new = row.pk is none %}
+<div x-data="{ editing: {{ row.active|tojson }} }" class="border-t border-border"
+     {% if focus_new|default(false) %}x-init="$nextTick(() => $refs.fields.querySelector('input:not([type=hidden], [readonly], :disabled), select:not(:disabled), textarea:not([readonly], :disabled)')?.focus())"{% endif %}>
+  {% if is_new %}
+  <div class="flex items-center justify-between gap-2 bg-surface-2 px-3 py-1">
+    <h3 class="text-sm font-medium">New {{ view.name|lower }}</h3>
+    {{ m.button('Discard draft', 'ghost', size='sm', attrs={'@click': '$root.remove()'}) }}
+  </div>
+  {% else %}
+  <button type="button" class="flex w-full items-center justify-between gap-3 px-3 py-2 text-left text-sm hover:bg-surface-2"
+          aria-controls="{{ fields_id }}" aria-expanded="{{ 'true' if row.active else 'false' }}" :aria-expanded="editing" @click="editing = !editing">
+    <span class="min-w-0 font-medium">{{ row.label }}</span>
+    <span class="flex shrink-0 items-center gap-1 text-xs text-fg-muted">
+      <span x-text="editing ? 'Cancel edit' : 'Edit'">{{ 'Cancel edit' if row.active else 'Edit' }}</span>
+      {{ m.icon('chevron-down', 'size-3.5') }}
+    </span>
+  </button>
+  {% endif %}
+  <fieldset id="{{ fields_id }}" x-ref="fields" x-show="editing" :disabled="!editing"{% if not row.active %} x-cloak disabled{% endif %} class="min-w-0 bg-surface-2 p-3">
+    <legend class="sr-only">{{ 'New ' ~ view.name|lower if is_new else row.label }}</legend>
+    <input type="hidden" name="{{ row.marker }}" value="{{ 'new' if is_new else 'edit:' ~ row.pk }}">
+    {% if errors.form %}{{ m.alert(errors.form, 'danger', class='mb-4') }}{% endif %}
+    <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
+      {% for field in row.fields %}
+      {% set width = field_width(field) %}
+      <div class="min-w-0{{ ' sm:col-span-2' if width == 'full' }}">{% include "hxadmin/form/_field.html" %}</div>
+      {% endfor %}
+    </div>
+  </fieldset>
+</div>
